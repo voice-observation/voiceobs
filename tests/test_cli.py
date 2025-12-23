@@ -216,6 +216,7 @@ class TestCliApp:
 
         # Verify the module has the expected structure
         import voiceobs.cli
+
         assert hasattr(voiceobs.cli, "app")
         assert callable(voiceobs.cli.app)
 
@@ -231,4 +232,3 @@ class TestCliApp:
         # Should succeed and show help
         assert result.returncode == 0
         assert "Voice AI observability toolkit" in result.stdout
-

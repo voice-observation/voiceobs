@@ -20,6 +20,7 @@ def _get_tracer() -> trace.Tracer:
     """Get the tracer for voice observability."""
     return trace.get_tracer("voiceobs", VOICE_SCHEMA_VERSION)
 
+
 # Actor type for voice turns
 Actor = Literal["user", "agent", "system"]
 
@@ -51,9 +52,7 @@ class TurnContext:
 _conversation_context: ContextVar[ConversationContext | None] = ContextVar(
     "voice_conversation_context", default=None
 )
-_turn_context: ContextVar[TurnContext | None] = ContextVar(
-    "voice_turn_context", default=None
-)
+_turn_context: ContextVar[TurnContext | None] = ContextVar("voice_turn_context", default=None)
 
 
 def get_current_conversation() -> ConversationContext | None:
@@ -125,9 +124,7 @@ def voice_turn(actor: Actor) -> Generator[TurnContext, None, None]:
     """
     conversation = get_current_conversation()
     if conversation is None:
-        raise RuntimeError(
-            "voice_turn must be called within a voice_conversation context"
-        )
+        raise RuntimeError("voice_turn must be called within a voice_conversation context")
 
     turn_id = str(uuid.uuid4())
     turn_index = conversation.next_turn_index()

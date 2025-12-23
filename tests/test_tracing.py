@@ -35,11 +35,13 @@ class TestProviderDetection:
 
     def test_is_noop_provider_returns_true_for_proxy_tracer_provider(self):
         """Test that ProxyTracerProvider is detected as noop (line 33)."""
+
         # Create a class that mimics ProxyTracerProvider
         # The isinstance check will fail (it's not a real NoOpTracerProvider),
         # so it will check the class name instead
         class ProxyTracerProvider:
             """Mock ProxyTracerProvider for testing."""
+
             pass
 
         proxy_provider = ProxyTracerProvider()
