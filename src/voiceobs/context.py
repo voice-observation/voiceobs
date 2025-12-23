@@ -3,16 +3,14 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Generator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Generator, Literal, Optional
+from typing import Literal
 
 from opentelemetry import trace
 from opentelemetry.trace import Span, SpanKind
-
-if TYPE_CHECKING:
-    pass
 
 # Schema version for voice observability attributes
 VOICE_SCHEMA_VERSION = "0.0.1"
@@ -50,27 +48,27 @@ class TurnContext:
 
 
 # Context variables for tracking conversation and turn state
-_conversation_context: ContextVar[Optional[ConversationContext]] = ContextVar(
+_conversation_context: ContextVar[ConversationContext | None] = ContextVar(
     "voice_conversation_context", default=None
 )
-_turn_context: ContextVar[Optional[TurnContext]] = ContextVar(
+_turn_context: ContextVar[TurnContext | None] = ContextVar(
     "voice_turn_context", default=None
 )
 
 
-def get_current_conversation() -> Optional[ConversationContext]:
+def get_current_conversation() -> ConversationContext | None:
     """Get the current conversation context, if any."""
     return _conversation_context.get()
 
 
-def get_current_turn() -> Optional[TurnContext]:
+def get_current_turn() -> TurnContext | None:
     """Get the current turn context, if any."""
     return _turn_context.get()
 
 
 @contextmanager
 def voice_conversation(
-    conversation_id: Optional[str] = None,
+    conversation_id: str | None = None,
 ) -> Generator[ConversationContext, None, None]:
     """Context manager for a voice conversation.
 

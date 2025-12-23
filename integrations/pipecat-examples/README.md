@@ -120,20 +120,72 @@ async def run_bot(transport):
 
 ## Example Output
 
-When running with voiceobs, you'll see spans like:
+When running with voiceobs, you'll see spans printed to the console. Here's an example of a 4-turn conversation:
+
+```
+voiceobs: Conversation started - 812e9e0d-84d6-4b7f-8ffd-211793ffae3d
+
+[User speaks: "Hello, what's the weather like today?"]
+voiceobs: User turn started
+
+[Agent responds: "Let me check that for you..."]
+voiceobs: Agent turn started
+voiceobs: Agent turn ended
+
+[User speaks: "Thanks! What about tomorrow?"]
+voiceobs: User turn started
+
+[Agent responds: "Tomorrow looks sunny with highs around 72F."]
+voiceobs: Agent turn started
+voiceobs: Agent turn ended
+
+voiceobs: Conversation ended - 812e9e0d-84d6-4b7f-8ffd-211793ffae3d
+```
+
+Each turn emits a span with full timing and context:
 
 ```json
 {
     "name": "voice.turn",
+    "context": {
+        "trace_id": "0x3685cb473991ef90b5ea0910dd69b744",
+        "span_id": "0x9ec2c5c65f9de02f"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "start_time": "2025-01-15T10:30:15.701669Z",
+    "end_time": "2025-01-15T10:30:15.805725Z",
     "attributes": {
         "voice.schema.version": "0.0.1",
-        "voice.conversation.id": "abc123-...",
-        "voice.turn.id": "def456-...",
+        "voice.conversation.id": "812e9e0d-84d6-4b7f-8ffd-211793ffae3d",
+        "voice.turn.id": "90ccc266-ebc1-4c1b-989f-91a1ad0caaa3",
         "voice.turn.index": 0,
         "voice.actor": "user"
     }
 }
+{
+    "name": "voice.turn",
+    "context": {
+        "trace_id": "0x7c95cfb52ca1878a38e257a7f3ce7338",
+        "span_id": "0xf6ffc5b9998f98d0"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "start_time": "2025-01-15T10:30:15.806013Z",
+    "end_time": "2025-01-15T10:30:15.960296Z",
+    "attributes": {
+        "voice.schema.version": "0.0.1",
+        "voice.conversation.id": "812e9e0d-84d6-4b7f-8ffd-211793ffae3d",
+        "voice.turn.id": "fe89d037-3fb3-410a-ae01-ee9fc97a4dd4",
+        "voice.turn.index": 1,
+        "voice.actor": "agent"
+    }
+}
 ```
+
+**Key insights from spans:**
+- All turns share the same `voice.conversation.id` for correlation
+- `voice.turn.index` increments sequentially (0, 1, 2, 3...)
+- Timing shows exactly how long each turn took
+- `voice.actor` distinguishes user vs agent turns
 
 ## Running the Example
 

@@ -1,8 +1,10 @@
 """Tests for safe OpenTelemetry tracer initialization."""
 
-import pytest
+from unittest.mock import patch
+
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.trace import NoOpTracerProvider
 
 from voiceobs.tracing import (
     _has_real_provider,
@@ -25,6 +27,26 @@ class TestProviderDetection:
         """Test that SDK TracerProvider is not detected as noop."""
         provider = trace.get_tracer_provider()
         assert _is_noop_provider(provider) is False
+
+    def test_is_noop_provider_returns_true_for_noop_tracer_provider(self):
+        """Test that NoOpTracerProvider is detected as noop (line 26)."""
+        noop_provider = NoOpTracerProvider()
+        assert _is_noop_provider(noop_provider) is True
+
+    def test_is_noop_provider_returns_true_for_proxy_tracer_provider(self):
+        """Test that ProxyTracerProvider is detected as noop (line 33)."""
+        # Create a class that mimics ProxyTracerProvider
+        # The isinstance check will fail (it's not a real NoOpTracerProvider),
+        # so it will check the class name instead
+        class ProxyTracerProvider:
+            """Mock ProxyTracerProvider for testing."""
+            pass
+
+        proxy_provider = ProxyTracerProvider()
+        # Verify it's not a NoOpTracerProvider instance
+        assert not isinstance(proxy_provider, NoOpTracerProvider)
+        # Verify it's detected as noop via class name check
+        assert _is_noop_provider(proxy_provider) is True
 
     def test_get_tracer_provider_info_returns_dict(self):
         """Test that get_tracer_provider_info returns expected structure."""
@@ -88,6 +110,66 @@ class TestEnsureTracingInitialized:
         # Note: provider still exists from conftest, so this will still show False
         # because we detect the existing provider
         assert info["voiceobs_initialized"] is False
+
+    def test_ensure_tracing_initialized_initializes_when_no_provider(self):
+        """Test that ensure_tracing_initialized sets up provider when none exists (lines 87-96)."""
+        # Reset initialization state
+        reset_initialization()
+
+        # Mock _has_real_provider to return False (simulating no provider configured)
+        # This allows us to test the initialization code (lines 87-96) without
+        # actually trying to override the TracerProvider (which OpenTelemetry prevents)
+        with patch("voiceobs.tracing._has_real_provider", return_value=False):
+            # Also mock trace.set_tracer_provider to verify it's called
+            # (even though it may fail due to OpenTelemetry protection)
+            with patch("voiceobs.tracing.trace.set_tracer_provider") as mock_set_provider:
+                # Call ensure_tracing_initialized - should initialize
+                result = ensure_tracing_initialized()
+
+                # Should return True (initialized)
+                assert result is True
+
+                # Verify set_tracer_provider was called (proves lines 87-94 executed)
+                mock_set_provider.assert_called_once()
+                # Verify a TracerProvider was passed to set_tracer_provider
+                call_args = mock_set_provider.call_args[0]
+                assert len(call_args) == 1
+                assert isinstance(call_args[0], TracerProvider)
+
+                # Verify initialization flag is set
+                info = get_tracer_provider_info()
+                assert info["voiceobs_initialized"] is True
+
+        # Clean up
+        reset_initialization()
+
+    def test_ensure_tracing_initialized_with_force_flag(self):
+        """Test force initialization even with existing provider."""
+        # Save original provider
+        original_provider = trace.get_tracer_provider()
+
+        try:
+            # Reset initialization state
+            reset_initialization()
+
+            # Call with force=True - should initialize even though provider exists
+            result = ensure_tracing_initialized(force=True)
+
+            # Should return True (initialized)
+            assert result is True
+
+            # Verify a new TracerProvider was set up
+            current_provider = trace.get_tracer_provider()
+            assert isinstance(current_provider, TracerProvider)
+
+            # Verify initialization flag is set
+            info = get_tracer_provider_info()
+            assert info["voiceobs_initialized"] is True
+
+        finally:
+            # Restore original provider
+            trace.set_tracer_provider(original_provider)
+            reset_initialization()
 
 
 class TestSpanTimestampsAndAttributes:
