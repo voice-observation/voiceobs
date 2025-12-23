@@ -24,7 +24,7 @@ class TestVersionCommand:
         result = runner.invoke(app, ["version"])
 
         assert result.exit_code == 0
-        assert f"voiceobs {__version__}" in result.stdout
+        assert f"voiceobs {__version__}" in result.output
 
 
 class TestDemoCommand:
@@ -35,10 +35,10 @@ class TestDemoCommand:
         result = runner.invoke(app, ["demo"])
 
         assert result.exit_code == 0
-        assert "voiceobs Demo" in result.stdout
-        assert "Simulating a voice conversation..." in result.stdout
-        assert "Conversation started:" in result.stdout
-        assert "Conversation ended." in result.stdout
+        assert "voiceobs Demo" in result.output
+        assert "Simulating a voice conversation..." in result.output
+        assert "Conversation started:" in result.output
+        assert "Conversation ended." in result.output
 
     def test_demo_shows_initialized_message_when_initialized(self):
         """Test that demo shows initialization message when tracing is initialized."""
@@ -48,7 +48,7 @@ class TestDemoCommand:
             result = runner.invoke(app, ["demo"])
 
             assert result.exit_code == 0
-            assert "Tracing initialized by voiceobs (ConsoleSpanExporter)" in result.stdout
+            assert "Tracing initialized by voiceobs (ConsoleSpanExporter)" in result.output
 
     def test_demo_shows_existing_config_message_when_provider_exists(self):
         """Test that demo shows existing config message when provider already exists."""
@@ -57,7 +57,7 @@ class TestDemoCommand:
             result = runner.invoke(app, ["demo"])
 
             assert result.exit_code == 0
-            assert "Using existing tracing configuration" in result.stdout
+            assert "Using existing tracing configuration" in result.output
 
     def test_demo_includes_all_expected_output(self):
         """Test that demo includes all expected conversation elements."""
@@ -65,28 +65,28 @@ class TestDemoCommand:
 
         assert result.exit_code == 0
         # Check for demo header
-        assert "voiceobs Demo" in result.stdout
-        assert "=" * 50 in result.stdout
+        assert "voiceobs Demo" in result.output
+        assert "=" * 50 in result.output
         # Check for initialization message
-        assert "Initializing tracing with ConsoleSpanExporter..." in result.stdout
+        assert "Initializing tracing with ConsoleSpanExporter..." in result.output
         # Check for conversation simulation
-        assert "Simulating a voice conversation..." in result.stdout
-        assert "-" * 50 in result.stdout
+        assert "Simulating a voice conversation..." in result.output
+        assert "-" * 50 in result.output
         # Check for user and agent messages
-        assert "[User]: Hello, what's the weather like today?" in result.stdout
-        assert "[Agent]: Let me check that for you..." in result.stdout
-        assert "[User]: Thanks! What about tomorrow?" in result.stdout
-        assert "[Agent]: Tomorrow looks sunny with highs around 72F." in result.stdout
+        assert "[User]: Hello, what's the weather like today?" in result.output
+        assert "[Agent]: Let me check that for you..." in result.output
+        assert "[User]: Thanks! What about tomorrow?" in result.output
+        assert "[Agent]: Tomorrow looks sunny with highs around 72F." in result.output
         # Check for ending
-        assert "Conversation ended." in result.stdout
+        assert "Conversation ended." in result.output
         # Check for span information
-        assert "The spans above show the OpenTelemetry trace data." in result.stdout
-        assert "Each voice.turn span includes:" in result.stdout
-        assert "  - voice.conversation.id" in result.stdout
-        assert "  - voice.turn.id" in result.stdout
-        assert "  - voice.turn.index" in result.stdout
-        assert "  - voice.actor (user/agent)" in result.stdout
-        assert "  - voice.schema.version" in result.stdout
+        assert "The spans above show the OpenTelemetry trace data." in result.output
+        assert "Each voice.turn span includes:" in result.output
+        assert "  - voice.conversation.id" in result.output
+        assert "  - voice.turn.id" in result.output
+        assert "  - voice.turn.index" in result.output
+        assert "  - voice.actor (user/agent)" in result.output
+        assert "  - voice.schema.version" in result.output
 
 
 class TestDoctorCommand:
@@ -97,10 +97,10 @@ class TestDoctorCommand:
         result = runner.invoke(app, ["doctor"])
 
         assert result.exit_code == 0
-        assert "voiceobs Doctor" in result.stdout
-        assert "voiceobs version:" in result.stdout
-        assert "Schema version:" in result.stdout
-        assert "OpenTelemetry Status:" in result.stdout
+        assert "voiceobs Doctor" in result.output
+        assert "voiceobs version:" in result.output
+        assert "Schema version:" in result.output
+        assert "OpenTelemetry Status:" in result.output
 
     def test_doctor_shows_version_info(self):
         """Test that doctor shows version information."""
@@ -109,17 +109,17 @@ class TestDoctorCommand:
         result = runner.invoke(app, ["doctor"])
 
         assert result.exit_code == 0
-        assert f"voiceobs version: {__version__}" in result.stdout
-        assert f"Schema version: {VOICE_SCHEMA_VERSION}" in result.stdout
+        assert f"voiceobs version: {__version__}" in result.output
+        assert f"Schema version: {VOICE_SCHEMA_VERSION}" in result.output
 
     def test_doctor_shows_provider_info(self):
         """Test that doctor shows provider information."""
         result = runner.invoke(app, ["doctor"])
 
         assert result.exit_code == 0
-        assert "Provider type:" in result.stdout
-        assert "Is no-op:" in result.stdout
-        assert "Initialized by voiceobs:" in result.stdout
+        assert "Provider type:" in result.output
+        assert "Is no-op:" in result.output
+        assert "Initialized by voiceobs:" in result.output
 
     def test_doctor_shows_noop_status_when_noop_provider(self):
         """Test that doctor shows noop status when provider is noop."""
@@ -134,13 +134,13 @@ class TestDoctorCommand:
             result = runner.invoke(app, ["doctor"])
 
             assert result.exit_code == 0
-            assert "Status: No tracing configured" in result.stdout
-            assert "To enable tracing, either:" in result.stdout
-            assert "  1. Call ensure_tracing_initialized() in your code" in result.stdout
-            assert "  2. Configure your own TracerProvider before using voiceobs" in result.stdout
-            assert "Quick start:" in result.stdout
-            assert "  from voiceobs import ensure_tracing_initialized" in result.stdout
-            assert "  ensure_tracing_initialized()" in result.stdout
+            assert "Status: No tracing configured" in result.output
+            assert "To enable tracing, either:" in result.output
+            assert "  1. Call ensure_tracing_initialized() in your code" in result.output
+            assert "  2. Configure your own TracerProvider before using voiceobs" in result.output
+            assert "Quick start:" in result.output
+            assert "  from voiceobs import ensure_tracing_initialized" in result.output
+            assert "  ensure_tracing_initialized()" in result.output
 
     def test_doctor_shows_active_status_when_provider_exists(self):
         """Test that doctor shows active status when provider exists."""
@@ -152,15 +152,15 @@ class TestDoctorCommand:
         result = runner.invoke(app, ["doctor"])
 
         assert result.exit_code == 0
-        assert "Status: Tracing is active" in result.stdout
-        assert "Spans will be exported via the configured provider." in result.stdout
+        assert "Status: Tracing is active" in result.output
+        assert "Spans will be exported via the configured provider." in result.output
 
     def test_doctor_includes_demo_suggestion(self):
         """Test that doctor includes suggestion to run demo."""
         result = runner.invoke(app, ["doctor"])
 
         assert result.exit_code == 0
-        assert "Run 'voiceobs demo' to see tracing in action." in result.stdout
+        assert "Run 'voiceobs demo' to see tracing in action." in result.output
 
 
 class TestCliApp:
@@ -172,12 +172,12 @@ class TestCliApp:
 
         # Typer may return exit code 0 or 2 for help, both are acceptable
         assert result.exit_code in [0, 2]
-        assert "Voice AI observability toolkit" in result.stdout
+        assert "Voice AI observability toolkit" in result.output
         # Typer may show "Usage:" or "Commands:" depending on version
-        assert "Usage:" in result.stdout or "Commands:" in result.stdout
-        assert "version" in result.stdout
-        assert "demo" in result.stdout
-        assert "doctor" in result.stdout
+        assert "Usage:" in result.output or "Commands:" in result.output
+        assert "version" in result.output
+        assert "demo" in result.output
+        assert "doctor" in result.output
 
     def test_help_flag_shows_help(self):
         """Test that --help flag shows help."""
@@ -185,8 +185,8 @@ class TestCliApp:
 
         # Typer returns exit code 0 for --help
         assert result.exit_code == 0
-        assert "Voice AI observability toolkit" in result.stdout
-        assert "Commands:" in result.stdout or "Usage:" in result.stdout
+        assert "Voice AI observability toolkit" in result.output
+        assert "Commands:" in result.output or "Usage:" in result.output
 
     def test_invalid_command_shows_error(self):
         """Test that invalid command shows error."""
@@ -194,9 +194,8 @@ class TestCliApp:
 
         # The main assertion is that exit code is non-zero (indicates error)
         assert result.exit_code != 0
-        # Typer may show error messages in stdout or stderr depending on version
-        # Combine both to check for error indicators (if any output exists)
-        output = result.stdout + result.stderr
+        # Check output for error indicators (stderr may not be separately captured)
+        output = result.output
         # If there's output, verify it contains some indication of error
         # If no output, the non-zero exit code is sufficient proof of error
         if output.strip():
