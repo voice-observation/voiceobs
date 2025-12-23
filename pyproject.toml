@@ -39,10 +39,10 @@ dev = [
 voiceobs = "voiceobs.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/voiceobs/voiceobs"
-Documentation = "https://github.com/voiceobs/voiceobs#readme"
-Repository = "https://github.com/voiceobs/voiceobs"
-Issues = "https://github.com/voiceobs/voiceobs/issues"
+Homepage = "https://github.com/voice-observation/voiceobs"
+Documentation = "https://github.com/voice-observation/voiceobs#readme"
+Repository = "https://github.com/voice-observation/voiceobs"
+Issues = "https://github.com/voice-observation/voiceobs/issues"
 
 [build-system]
 requires = ["hatchling"]
