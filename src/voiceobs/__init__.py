@@ -11,6 +11,10 @@ from voiceobs.context import (
     voice_conversation,
     voice_turn,
 )
+from voiceobs.tracing import (
+    ensure_tracing_initialized,
+    get_tracer_provider_info,
+)
 
 __all__ = [
     "__version__",
@@ -18,8 +22,10 @@ __all__ = [
     "Actor",
     "ConversationContext",
     "TurnContext",
+    "ensure_tracing_initialized",
     "get_current_conversation",
     "get_current_turn",
+    "get_tracer_provider_info",
     "voice_conversation",
     "voice_turn",
 ]
