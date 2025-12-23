@@ -42,3 +42,6 @@ Thumbs.db
 
 # Plans (internal)
 .plans/
+
+# External repositories (cloned for testing/integration)
+external-repos/

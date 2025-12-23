@@ -1,0 +1,245 @@
+--- simple-chatbot/server/bot-openai.py	2025-12-22 20:03:51
++++ /Users/vijayjain/Documents/projects/voiceobs/integrations/pipecat-examples/bot-openai-voiceobs.py	2025-12-22 20:11:30
+@@ -3,18 +3,16 @@
+ #
+ # SPDX-License-Identifier: BSD 2-Clause License
+ #
++# Modified to include voiceobs instrumentation for voice turn tracing.
++#
+ 
+-"""OpenAI Bot Implementation.
++"""OpenAI Bot Implementation with voiceobs instrumentation.
+ 
+ This module implements a chatbot using OpenAI's GPT-4 model for natural language
+-processing. It includes:
+-- Real-time audio/video interaction through Daily
+-- Animated robot avatar
+-- Text-to-speech using ElevenLabs
+-- Support for both English and Spanish
++processing, instrumented with voiceobs for voice turn observability.
+ 
+ The bot runs as part of a pipeline that processes audio/video frames and manages
+-the conversation flow.
++the conversation flow, with each user and agent turn tracked as OpenTelemetry spans.
+ """
+ 
+ import os
+@@ -30,6 +28,7 @@
+     LLMRunFrame,
+     OutputImageRawFrame,
+     SpriteFrame,
++    TranscriptionFrame,
+ )
+ from pipecat.pipeline.pipeline import Pipeline
+ from pipecat.pipeline.runner import PipelineRunner
+@@ -44,17 +43,22 @@
+ from pipecat.transports.base_transport import BaseTransport
+ from pipecat.transports.daily.transport import DailyParams, DailyTransport
+ 
++# voiceobs imports
++from voiceobs import ensure_tracing_initialized, voice_conversation, voice_turn
++
+ load_dotenv(override=True)
+ 
++# Initialize voiceobs tracing (uses ConsoleSpanExporter by default)
++ensure_tracing_initialized()
++logger.info("voiceobs tracing initialized")
++
+ sprites = []
+ script_dir = os.path.dirname(__file__)
++assets_dir = os.path.join(script_dir, "simple-chatbot/server/assets")
+ 
+ # Load sequential animation frames
+ for i in range(1, 26):
+-    # Build the full path to the image file
+-    full_path = os.path.join(script_dir, f"assets/robot0{i}.png")
+-    # Get the filename without the extension to use as the dictionary key
+-    # Open the image and convert it to bytes
++    full_path = os.path.join(assets_dir, f"robot0{i}.png")
+     with Image.open(full_path) as img:
+         sprites.append(OutputImageRawFrame(image=img.tobytes(), size=img.size, format=img.format))
+ 
+@@ -63,36 +67,24 @@
+ sprites.extend(flipped)
+ 
+ # Define static and animated states
+-quiet_frame = sprites[0]  # Static frame for when bot is listening
+-talking_frame = SpriteFrame(images=sprites)  # Animation sequence for when bot is talking
++quiet_frame = sprites[0]
++talking_frame = SpriteFrame(images=sprites)
+ 
+ 
+ class TalkingAnimation(FrameProcessor):
+-    """Manages the bot's visual animation states.
++    """Manages the bot's visual animation states."""
+ 
+-    Switches between static (listening) and animated (talking) states based on
+-    the bot's current speaking status.
+-    """
+-
+     def __init__(self):
+         super().__init__()
+         self._is_talking = False
+ 
+     async def process_frame(self, frame: Frame, direction: FrameDirection):
+-        """Process incoming frames and update animation state.
+-
+-        Args:
+-            frame: The incoming frame to process
+-            direction: The direction of frame flow in the pipeline
+-        """
+         await super().process_frame(frame, direction)
+ 
+-        # Switch to talking animation when bot starts speaking
+         if isinstance(frame, BotStartedSpeakingFrame):
+             if not self._is_talking:
+                 await self.push_frame(talking_frame)
+                 self._is_talking = True
+-        # Return to static frame when bot stops speaking
+         elif isinstance(frame, BotStoppedSpeakingFrame):
+             await self.push_frame(quiet_frame)
+             self._is_talking = False
+@@ -100,23 +92,72 @@
+         await self.push_frame(frame, direction)
+ 
+ 
+-async def run_bot(transport: BaseTransport):
+-    """Main bot execution function.
++class VoiceObsUserTurnTracker(FrameProcessor):
++    """Tracks user turns using voiceobs.
+ 
+-    Sets up and runs the bot pipeline including:
+-    - Speech-to-text and text-to-speech services
+-    - Language model integration
+-    - Animation processing
+-    - RTVI event handling
++    Creates a voice.turn span for each user utterance detected via transcription.
+     """
+ 
+-    # Initialize text-to-speech service
++    def __init__(self):
++        super().__init__()
++        self._user_turn_context = None
++
++    async def process_frame(self, frame: Frame, direction: FrameDirection):
++        await super().process_frame(frame, direction)
++
++        # Track user turns when we receive transcription
++        if isinstance(frame, TranscriptionFrame):
++            # End previous user turn if any
++            if self._user_turn_context:
++                self._user_turn_context.__exit__(None, None, None)
++                self._user_turn_context = None
++
++            # Start new user turn
++            self._user_turn_context = voice_turn("user")
++            self._user_turn_context.__enter__()
++            logger.debug(f"voiceobs: User turn started - '{frame.text[:50]}...'")
++
++        await self.push_frame(frame, direction)
++
++
++class VoiceObsAgentTurnTracker(FrameProcessor):
++    """Tracks agent turns using voiceobs.
++
++    Creates a voice.turn span for each agent response (speaking period).
++    """
++
++    def __init__(self):
++        super().__init__()
++        self._agent_turn_context = None
++
++    async def process_frame(self, frame: Frame, direction: FrameDirection):
++        await super().process_frame(frame, direction)
++
++        if isinstance(frame, BotStartedSpeakingFrame):
++            # Start agent turn
++            if not self._agent_turn_context:
++                self._agent_turn_context = voice_turn("agent")
++                self._agent_turn_context.__enter__()
++                logger.debug("voiceobs: Agent turn started")
++
++        elif isinstance(frame, BotStoppedSpeakingFrame):
++            # End agent turn
++            if self._agent_turn_context:
++                self._agent_turn_context.__exit__(None, None, None)
++                self._agent_turn_context = None
++                logger.debug("voiceobs: Agent turn ended")
++
++        await self.push_frame(frame, direction)
++
++
++async def run_bot(transport: BaseTransport):
++    """Main bot execution function with voiceobs instrumentation."""
++
+     tts = ElevenLabsTTSService(
+         api_key=os.getenv("ELEVENLABS_API_KEY", ""),
+         voice_id="pNInz6obpgDQGcFmaJgB",
+     )
+ 
+-    # Initialize LLM service
+     llm = OpenAILLMService(api_key=os.getenv("OPENAI_API_KEY", ""))
+ 
+     messages = [
+@@ -126,25 +167,25 @@
+         },
+     ]
+ 
+-    # Set up conversation context and management
+-    # The context_aggregator will automatically collect conversation context
+     context = LLMContext(messages)
+     context_aggregator = LLMContextAggregatorPair(context)
+ 
+     ta = TalkingAnimation()
++    user_tracker = VoiceObsUserTurnTracker()
++    agent_tracker = VoiceObsAgentTurnTracker()
+ 
+-    #
+-    # RTVI events for Pipecat client UI
+-    #
+     rtvi = RTVIProcessor(config=RTVIConfig(config=[]))
+ 
++    # Pipeline with voiceobs trackers inserted
+     pipeline = Pipeline(
+         [
+             transport.input(),
++            user_tracker,  # Track user turns from transcription
+             rtvi,
+             context_aggregator.user(),
+             llm,
+             tts,
++            agent_tracker,  # Track agent turns from speaking frames
+             ta,
+             transport.output(),
+             context_aggregator.assistant(),
+@@ -161,20 +202,27 @@
+     )
+     await task.queue_frame(quiet_frame)
+ 
++    # Use voiceobs to wrap the entire conversation
++    conversation_ctx = voice_conversation()
++    conv = conversation_ctx.__enter__()
++    logger.info(f"voiceobs: Conversation started - {conv.conversation_id}")
++
+     @rtvi.event_handler("on_client_ready")
+     async def on_client_ready(rtvi):
+         await rtvi.set_bot_ready()
+-        # Kick off the conversation
+         await task.queue_frames([LLMRunFrame()])
+ 
+     @transport.event_handler("on_client_connected")
+     async def on_client_connected(transport, participant):
+-        logger.info(f"Client connected")
++        logger.info("Client connected")
+         await transport.capture_participant_transcription(participant["id"])
+ 
+     @transport.event_handler("on_client_disconnected")
+     async def on_client_disconnected(transport, client):
+-        logger.info(f"Client disconnected")
++        logger.info("Client disconnected")
++        # End the conversation context
++        conversation_ctx.__exit__(None, None, None)
++        logger.info(f"voiceobs: Conversation ended - {conv.conversation_id}")
+         await task.cancel()
+ 
+     runner = PipelineRunner(handle_sigint=False)
