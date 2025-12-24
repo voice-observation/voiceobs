@@ -186,14 +186,16 @@ class TestSpanTimestampsAndAttributes:
                 pass
 
         spans = span_exporter.get_finished_spans()
-        assert len(spans) == 1
+        # 1 conversation span + 1 turn span
+        assert len(spans) == 2
 
-        span = spans[0]
-        # Timestamps are in nanoseconds since epoch
-        assert span.start_time is not None
-        assert span.end_time is not None
-        assert span.start_time > 0
-        assert span.end_time >= span.start_time
+        # Check all spans have timestamps
+        for span in spans:
+            # Timestamps are in nanoseconds since epoch
+            assert span.start_time is not None
+            assert span.end_time is not None
+            assert span.start_time > 0
+            assert span.end_time >= span.start_time
 
     def test_spans_have_all_required_attributes(self, span_exporter):
         """Test that spans have all voice observability attributes."""
@@ -204,9 +206,12 @@ class TestSpanTimestampsAndAttributes:
                 pass
 
         spans = span_exporter.get_finished_spans()
-        assert len(spans) == 1
+        # 1 conversation span + 1 turn span
+        assert len(spans) == 2
 
-        attrs = dict(spans[0].attributes)
+        # Get the turn span
+        turn_span = [s for s in spans if s.name == "voice.turn"][0]
+        attrs = dict(turn_span.attributes)
 
         # All required attributes should be present
         required_attrs = [

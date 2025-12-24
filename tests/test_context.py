@@ -142,8 +142,12 @@ class TestOpenTelemetrySpans:
                 pass
 
         spans = span_exporter.get_finished_spans()
-        assert len(spans) == 1
-        assert spans[0].name == "voice.turn"
+        # 1 conversation span + 1 turn span
+        assert len(spans) == 2
+        turn_spans = [s for s in spans if s.name == "voice.turn"]
+        conv_spans = [s for s in spans if s.name == "voice.conversation"]
+        assert len(turn_spans) == 1
+        assert len(conv_spans) == 1
 
     def test_span_has_correct_attributes(self, span_exporter):
         """Test that span has all required attributes."""
@@ -153,8 +157,10 @@ class TestOpenTelemetrySpans:
                 turn_id = turn.turn_id
 
         spans = span_exporter.get_finished_spans()
-        assert len(spans) == 1
-        attrs = dict(spans[0].attributes)
+        # 1 conversation span + 1 turn span
+        assert len(spans) == 2
+        turn_span = [s for s in spans if s.name == "voice.turn"][0]
+        attrs = dict(turn_span.attributes)
 
         assert attrs["voice.schema.version"] == VOICE_SCHEMA_VERSION
         assert attrs["voice.conversation.id"] == conv_id
@@ -173,11 +179,13 @@ class TestOpenTelemetrySpans:
                 pass
 
         spans = span_exporter.get_finished_spans()
-        assert len(spans) == 3
+        # 1 conversation span + 3 turn spans
+        assert len(spans) == 4
 
-        # Check turn indices
-        indices = [dict(s.attributes)["voice.turn.index"] for s in spans]
-        assert indices == [0, 1, 2]
+        # Check turn indices (turn spans only)
+        turn_spans = [s for s in spans if s.name == "voice.turn"]
+        indices = [dict(s.attributes)["voice.turn.index"] for s in turn_spans]
+        assert sorted(indices) == [0, 1, 2]
 
     def test_nested_turns_create_parent_child_spans(self, span_exporter):
         """Test that nested turns create parent-child span relationships."""
@@ -187,11 +195,13 @@ class TestOpenTelemetrySpans:
                     pass
 
         spans = span_exporter.get_finished_spans()
-        assert len(spans) == 2
+        # 1 conversation span + 2 turn spans
+        assert len(spans) == 3
 
+        turn_spans = [s for s in spans if s.name == "voice.turn"]
         # Inner span should have outer span as parent
-        inner_span = spans[0]  # Finished first
-        outer_span = spans[1]  # Finished last
+        inner_span = turn_spans[0]  # Finished first
+        outer_span = turn_spans[1]  # Finished last
 
         assert inner_span.parent is not None
         assert inner_span.parent.span_id == outer_span.context.span_id
@@ -205,4 +215,32 @@ class TestOpenTelemetrySpans:
                 pass
 
         spans = span_exporter.get_finished_spans()
-        assert spans[0].kind == SpanKind.INTERNAL
+        # All spans should be INTERNAL
+        for span in spans:
+            assert span.kind == SpanKind.INTERNAL
+
+    def test_turns_share_same_trace_id(self, span_exporter):
+        """Test that all turns within a conversation share the same trace_id."""
+        with voice_conversation():
+            with voice_turn("user"):
+                pass
+            with voice_turn("agent"):
+                pass
+
+        spans = span_exporter.get_finished_spans()
+        # All spans should have the same trace_id
+        trace_ids = {s.context.trace_id for s in spans}
+        assert len(trace_ids) == 1
+
+    def test_turn_spans_have_conversation_as_parent(self, span_exporter):
+        """Test that turn spans have the conversation span as their parent."""
+        with voice_conversation():
+            with voice_turn("user"):
+                pass
+
+        spans = span_exporter.get_finished_spans()
+        conv_span = [s for s in spans if s.name == "voice.conversation"][0]
+        turn_span = [s for s in spans if s.name == "voice.turn"][0]
+
+        assert turn_span.parent is not None
+        assert turn_span.parent.span_id == conv_span.context.span_id

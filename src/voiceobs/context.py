@@ -73,7 +73,7 @@ def voice_conversation(
 
     Creates a conversation context that tracks the conversation ID and
     turn counter. All voice turns within this context will be associated
-    with this conversation.
+    with this conversation and share the same trace_id.
 
     Args:
         conversation_id: Optional conversation ID. If not provided, a UUID
@@ -94,10 +94,18 @@ def voice_conversation(
 
     ctx = ConversationContext(conversation_id=conversation_id)
     token = _conversation_context.set(ctx)
-    try:
-        yield ctx
-    finally:
-        _conversation_context.reset(token)
+
+    # Create a parent span for the conversation so all turns share the same trace_id
+    with _get_tracer().start_as_current_span(
+        "voice.conversation",
+        kind=SpanKind.INTERNAL,
+    ) as span:
+        span.set_attribute("voice.schema.version", VOICE_SCHEMA_VERSION)
+        span.set_attribute("voice.conversation.id", conversation_id)
+        try:
+            yield ctx
+        finally:
+            _conversation_context.reset(token)
 
 
 @contextmanager
