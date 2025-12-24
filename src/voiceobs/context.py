@@ -6,11 +6,13 @@ import uuid
 from collections.abc import Generator
 from contextlib import contextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass
-from typing import Literal
+from dataclasses import dataclass, field
 
 from opentelemetry import trace
 from opentelemetry.trace import Span, SpanKind
+
+from voiceobs.timeline import ConversationTimeline
+from voiceobs.types import Actor
 
 # Schema version for voice observability attributes
 VOICE_SCHEMA_VERSION = "0.0.1"
@@ -21,16 +23,13 @@ def _get_tracer() -> trace.Tracer:
     return trace.get_tracer("voiceobs", VOICE_SCHEMA_VERSION)
 
 
-# Actor type for voice turns
-Actor = Literal["user", "agent", "system"]
-
-
 @dataclass
 class ConversationContext:
     """Context for a voice conversation."""
 
     conversation_id: str
     turn_counter: int = 0
+    timeline: ConversationTimeline = field(default_factory=ConversationTimeline)
 
     def next_turn_index(self) -> int:
         """Get the next turn index and increment the counter."""
@@ -108,6 +107,12 @@ def voice_conversation(
             _conversation_context.reset(token)
 
 
+# Store the current span for updating attributes
+_current_turn_span: ContextVar[Span | None] = ContextVar(
+    "voice_current_turn_span", default=None
+)
+
+
 @contextmanager
 def voice_turn(actor: Actor) -> Generator[TurnContext, None, None]:
     """Context manager for a voice turn.
@@ -140,16 +145,69 @@ def voice_turn(actor: Actor) -> Generator[TurnContext, None, None]:
     turn_ctx = TurnContext(turn_id=turn_id, turn_index=turn_index, actor=actor)
     token = _turn_context.set(turn_ctx)
 
+    # Track turn timing
+    conversation.timeline.start_turn(turn_index, actor)
+
     # Create OpenTelemetry span for this turn
     with _get_tracer().start_as_current_span(
         "voice.turn",
         kind=SpanKind.INTERNAL,
     ) as span:
+        span_token = _current_turn_span.set(span)
         _set_turn_attributes(span, conversation, turn_ctx)
+
         try:
             yield turn_ctx
         finally:
+            # Set silence metrics at the end of agent turns
+            # This allows mark_speech_start/mark_speech_end to be called first
+            if actor == "agent":
+                silence_ms = conversation.timeline.compute_silence_after_user_ms()
+                if silence_ms is not None:
+                    span.set_attribute("voice.silence.after_user_ms", silence_ms)
+                    span.set_attribute("voice.silence.before_agent_ms", silence_ms)
+
+            conversation.timeline.end_turn()
+            _current_turn_span.reset(span_token)
             _turn_context.reset(token)
+
+
+def mark_speech_end() -> None:
+    """Mark when speech ends in the current turn.
+
+    For user turns, call this when the user stops speaking
+    (e.g., when VAD detects silence or recording stops).
+
+    This enables accurate response latency measurement.
+
+    Example:
+        with voice_turn("user"):
+            audio = record_audio()
+            mark_speech_end()  # User stopped speaking
+            transcript = transcribe(audio)
+    """
+    conversation = get_current_conversation()
+    if conversation is not None:
+        conversation.timeline.mark_speech_end()
+
+
+def mark_speech_start() -> None:
+    """Mark when speech starts in the current turn.
+
+    For agent turns, call this when TTS audio playback begins.
+
+    This enables accurate response latency measurement.
+
+    Example:
+        with voice_turn("agent"):
+            response = generate_response(text)
+            audio = synthesize(response)
+            mark_speech_start()  # Agent starts speaking
+            play_audio(audio)
+    """
+    conversation = get_current_conversation()
+    if conversation is not None:
+        conversation.timeline.mark_speech_start()
 
 
 def _set_turn_attributes(

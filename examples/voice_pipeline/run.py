@@ -30,6 +30,8 @@ from google import genai
 
 from voiceobs import (
     ensure_tracing_initialized,
+    mark_speech_end,
+    mark_speech_start,
     voice_conversation,
     voice_stage,
     voice_turn,
@@ -254,20 +256,42 @@ async def pipeline() -> None:
                     if audio_bytes is None:
                         continue
 
+                    # Mark when user stopped speaking (recording finished)
+                    mark_speech_end()
+
                     transcript = transcribe_audio(audio_bytes)
                     if not transcript:
                         print("No speech detected.")
                         continue
                     print(f"\nUser: {transcript}")
 
+                # Get user turn duration from timeline
+                user_turn = conv.timeline.get_last_turn_by_actor("user")
+                if user_turn and user_turn.duration_ms:
+                    print(f"[User turn duration: {user_turn.duration_ms:.0f}ms]")
+
                 # Agent turn: generate and speak response
                 with voice_turn("agent"):
                     ai_text = generate_response(transcript)
                     print(f"\nAI: {ai_text}")
 
-                    # Synthesize and play response
+                    # Synthesize speech
                     audio = synthesize_speech(ai_text)
+
+                    # Mark when agent starts speaking (just before playback)
+                    mark_speech_start()
+
+                    # Print response latency (user speech end -> agent speech start)
+                    latency_ms = conv.timeline.compute_response_latency_ms()
+                    if latency_ms is not None:
+                        print(f"[Response latency: {latency_ms:.0f}ms]")
+
                     play_audio(audio, rate=44100)
+
+                # Get agent turn duration from timeline
+                agent_turn = conv.timeline.get_last_turn_by_actor("agent")
+                if agent_turn and agent_turn.duration_ms:
+                    print(f"[Agent turn duration: {agent_turn.duration_ms:.0f}ms]")
 
                 print("\n[Conversation ended]")
 

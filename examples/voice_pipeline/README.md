@@ -78,6 +78,60 @@ Each stage span includes:
 | `voice.stage.output_size` | Output size in bytes/characters |
 | `voice.stage.error` | Error message if the stage failed |
 
+### Turn Timing Attributes
+
+Agent turn spans include response latency metrics:
+
+| Attribute | Description |
+|-----------|-------------|
+| `voice.silence.after_user_ms` | Response latency: time from user speech end to agent speech start |
+| `voice.silence.before_agent_ms` | Same value as above (alias for clarity from agent's perspective) |
+
+### Accurate Response Latency Measurement
+
+For accurate latency measurement, use the speech event markers:
+
+```python
+from voiceobs import mark_speech_end, mark_speech_start
+
+with voice_turn("user"):
+    audio = record_audio()
+    mark_speech_end()  # Call when user stops speaking
+    transcript = transcribe(audio)
+
+with voice_turn("agent"):
+    response = generate_response(transcript)
+    audio = synthesize(response)
+    mark_speech_start()  # Call just before playing audio
+    play_audio(audio)
+```
+
+This measures the actual user-perceived latency:
+- **Without markers**: Falls back to measuring gap between turn context boundaries (~0ms)
+- **With markers**: Measures from user speech end to agent speech start (includes ASR + LLM + TTS latency)
+
+### Runtime Timing Output
+
+The example prints timing metrics during execution:
+
+```
+[Conversation: abc123...]
+Listening... (speak now, recording will stop when you pause)
+Recording finished.
+Transcribing with Deepgram...
+
+User: Hello, how are you?
+[User turn duration: 2450ms]
+Generating response with Gemini...
+
+AI: I'm doing well, thank you for asking!
+Synthesizing speech with Cartesia...
+[Response latency: 1823ms]
+[Agent turn duration: 2150ms]
+
+[Conversation ended]
+```
+
 ## Example Trace Output
 
 ```json
