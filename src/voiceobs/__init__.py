@@ -11,6 +11,11 @@ from voiceobs.context import (
     voice_conversation,
     voice_turn,
 )
+from voiceobs.stages import (
+    StageContext,
+    StageType,
+    voice_stage,
+)
 from voiceobs.tracing import (
     ensure_tracing_initialized,
     get_tracer_provider_info,
@@ -21,11 +26,14 @@ __all__ = [
     "VOICE_SCHEMA_VERSION",
     "Actor",
     "ConversationContext",
+    "StageContext",
+    "StageType",
     "TurnContext",
     "ensure_tracing_initialized",
     "get_current_conversation",
     "get_current_turn",
     "get_tracer_provider_info",
     "voice_conversation",
+    "voice_stage",
     "voice_turn",
 ]
