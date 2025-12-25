@@ -3,8 +3,6 @@
 import time
 from unittest.mock import patch
 
-import pytest
-
 from voiceobs import mark_speech_end, mark_speech_start, voice_conversation, voice_turn
 from voiceobs.timeline import ConversationTimeline, TurnTiming
 

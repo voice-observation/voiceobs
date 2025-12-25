@@ -81,6 +81,12 @@ Check your OpenTelemetry configuration:
 voiceobs doctor
 ```
 
+Analyze trace files to see latency metrics:
+
+```bash
+voiceobs analyze --input traces.jsonl
+```
+
 ## Installation
 
 ```bash
@@ -177,6 +183,63 @@ Each `voice.turn` span includes:
 | `voice.silence.after_user_ms` | float | Response latency from user speech end to agent speech start |
 | `voice.turn.overlap_ms` | float | Overlap duration in ms (positive = interruption) |
 | `voice.interruption.detected` | bool | True if agent started speaking before user finished |
+
+## JSONL Export and Analysis
+
+Export traces to a JSONL file for offline analysis:
+
+```bash
+# Enable JSONL export
+VOICEOBS_JSONL_OUT=./traces.jsonl python your_app.py
+
+# Analyze the traces
+voiceobs analyze --input traces.jsonl
+```
+
+Output shows stage latencies (ASR/LLM/TTS), response latency, and interruption rate:
+
+```
+voiceobs Analysis Report
+==================================================
+
+Stage Latencies (ms)
+------------------------------
+  ASR (n=2):
+    mean: 165.2
+    p50:  165.2
+    p95:  180.0
+  LLM (n=2):
+    mean: 785.0
+    p50:  785.0
+    p95:  850.0
+  TTS (n=2):
+    mean: 300.0
+    p50:  300.0
+    p95:  320.0
+
+Response Latency (silence after user)
+------------------------------
+  Samples: 2
+  mean: 1115.0ms
+  p95:  1250.0ms
+
+Interruptions
+------------------------------
+  Agent turns: 2
+  Interruptions: 0
+  Rate: 0.0%
+```
+
+## Examples
+
+See the [examples/](examples/) directory for complete, runnable examples:
+
+| Example | Description |
+|---------|-------------|
+| [voice_pipeline](examples/voice_pipeline/) | Complete voice chat with ASR (Deepgram), LLM (Gemini), TTS (Cartesia) |
+| [overlap_detection](examples/overlap_detection/) | Demonstrates barge-in and overlap/interruption detection |
+
+Each example includes setup instructions, API key configuration, and demonstrates different voiceobs features.
 
 ## Integrations
 

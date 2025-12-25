@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import os
 import threading
-from typing import Sequence
+from collections.abc import Sequence
 
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
@@ -40,7 +40,7 @@ class JSONLSpanExporter(SpanExporter):
         self._file_path = file_path
         self._lock = threading.Lock()
         # Create/truncate the file on initialization
-        with open(self._file_path, "w") as f:
+        with open(self._file_path, "w"):
             pass  # Just create/truncate the file
 
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:

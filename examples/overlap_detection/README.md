@@ -88,6 +88,20 @@ uv run python run.py --barge-in
    (Agent started speaking before user finished)
 ```
 
+## JSONL Export and Analysis
+
+Export traces to analyze overlap patterns:
+
+```bash
+# Enable JSONL export
+VOICEOBS_JSONL_OUT=./traces.jsonl uv run python run.py --barge-in
+
+# Analyze the traces
+voiceobs analyze --input traces.jsonl
+```
+
+The analyzer shows interruption rate across all agent turns.
+
 ## Limitations
 
 > **Note: Push-to-Talk vs Streaming**
