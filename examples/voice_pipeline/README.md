@@ -132,6 +132,71 @@ Synthesizing speech with Cartesia...
 [Conversation ended]
 ```
 
+## JSONL Export and Analysis
+
+Export traces to a JSONL file for offline analysis:
+
+### Enable JSONL Export
+
+Set the `VOICEOBS_JSONL_OUT` environment variable:
+
+```bash
+VOICEOBS_JSONL_OUT=./traces.jsonl uv run python run.py
+```
+
+This creates a `traces.jsonl` file with one span per line.
+
+### Analyze Traces
+
+Use the `voiceobs analyze` command to compute latency metrics:
+
+```bash
+voiceobs analyze --input traces.jsonl
+```
+
+Example output:
+
+```
+voiceobs Analysis Report
+==================================================
+
+Summary
+------------------------------
+  Total spans: 11
+  Conversations: 1
+  Turns: 4
+
+Stage Latencies (ms)
+------------------------------
+  ASR (n=2):
+    mean: 165.2
+    p50:  165.2
+    p95:  180.0
+    p99:  180.0
+  LLM (n=2):
+    mean: 785.0
+    p50:  785.0
+    p95:  850.0
+    p99:  850.0
+  TTS (n=2):
+    mean: 300.0
+    p50:  300.0
+    p95:  320.0
+    p99:  320.0
+
+Response Latency (silence after user)
+------------------------------
+  Samples: 2
+  mean: 1115.0ms
+  p95:  1250.0ms
+
+Interruptions
+------------------------------
+  Agent turns: 2
+  Interruptions: 0
+  Rate: 0.0%
+```
+
 ## Example Trace Output
 
 ```json

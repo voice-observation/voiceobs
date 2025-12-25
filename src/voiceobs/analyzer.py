@@ -1,0 +1,284 @@
+"""Analyzer for voiceobs JSONL trace files.
+
+This module provides functions to parse JSONL span data and compute
+observability metrics like latency percentiles, silence duration, and
+interruption rates.
+"""
+
+from __future__ import annotations
+
+import json
+import statistics
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import TextIO
+
+
+@dataclass
+class StageMetrics:
+    """Metrics for a stage type (ASR, LLM, TTS)."""
+
+    stage_type: str
+    durations_ms: list[float] = field(default_factory=list)
+
+    @property
+    def count(self) -> int:
+        """Number of spans for this stage."""
+        return len(self.durations_ms)
+
+    @property
+    def mean_ms(self) -> float | None:
+        """Mean duration in milliseconds."""
+        if not self.durations_ms:
+            return None
+        return statistics.mean(self.durations_ms)
+
+    @property
+    def p50_ms(self) -> float | None:
+        """Median (p50) duration in milliseconds."""
+        if not self.durations_ms:
+            return None
+        return statistics.median(self.durations_ms)
+
+    @property
+    def p95_ms(self) -> float | None:
+        """95th percentile duration in milliseconds."""
+        if len(self.durations_ms) < 2:
+            return self.mean_ms
+        sorted_durations = sorted(self.durations_ms)
+        index = int(len(sorted_durations) * 0.95)
+        return sorted_durations[min(index, len(sorted_durations) - 1)]
+
+    @property
+    def p99_ms(self) -> float | None:
+        """99th percentile duration in milliseconds."""
+        if len(self.durations_ms) < 2:
+            return self.mean_ms
+        sorted_durations = sorted(self.durations_ms)
+        index = int(len(sorted_durations) * 0.99)
+        return sorted_durations[min(index, len(sorted_durations) - 1)]
+
+
+@dataclass
+class TurnMetrics:
+    """Metrics for turn-level timing."""
+
+    silence_after_user_ms: list[float] = field(default_factory=list)
+    overlap_ms: list[float] = field(default_factory=list)
+    interruptions: int = 0
+    total_agent_turns: int = 0
+
+    @property
+    def silence_mean_ms(self) -> float | None:
+        """Mean silence after user in milliseconds."""
+        if not self.silence_after_user_ms:
+            return None
+        return statistics.mean(self.silence_after_user_ms)
+
+    @property
+    def silence_p95_ms(self) -> float | None:
+        """95th percentile silence after user in milliseconds."""
+        if len(self.silence_after_user_ms) < 2:
+            return self.silence_mean_ms
+        sorted_silence = sorted(self.silence_after_user_ms)
+        index = int(len(sorted_silence) * 0.95)
+        return sorted_silence[min(index, len(sorted_silence) - 1)]
+
+    @property
+    def interruption_rate(self) -> float | None:
+        """Percentage of agent turns that were interruptions."""
+        if self.total_agent_turns == 0:
+            return None
+        return (self.interruptions / self.total_agent_turns) * 100
+
+
+@dataclass
+class AnalysisResult:
+    """Complete analysis result from a JSONL file."""
+
+    total_spans: int = 0
+    total_conversations: int = 0
+    total_turns: int = 0
+
+    asr_metrics: StageMetrics = field(default_factory=lambda: StageMetrics("asr"))
+    llm_metrics: StageMetrics = field(default_factory=lambda: StageMetrics("llm"))
+    tts_metrics: StageMetrics = field(default_factory=lambda: StageMetrics("tts"))
+
+    turn_metrics: TurnMetrics = field(default_factory=TurnMetrics)
+
+    def format_report(self) -> str:
+        """Format the analysis result as a plain text report."""
+        lines = []
+        lines.append("voiceobs Analysis Report")
+        lines.append("=" * 50)
+        lines.append("")
+
+        # Summary
+        lines.append("Summary")
+        lines.append("-" * 30)
+        lines.append(f"  Total spans: {self.total_spans}")
+        lines.append(f"  Conversations: {self.total_conversations}")
+        lines.append(f"  Turns: {self.total_turns}")
+        lines.append("")
+
+        # Stage Latencies
+        lines.append("Stage Latencies (ms)")
+        lines.append("-" * 30)
+
+        for metrics in [self.asr_metrics, self.llm_metrics, self.tts_metrics]:
+            if metrics.count > 0:
+                lines.append(f"  {metrics.stage_type.upper()} (n={metrics.count}):")
+                lines.append(f"    mean: {metrics.mean_ms:.1f}")
+                lines.append(f"    p50:  {metrics.p50_ms:.1f}")
+                lines.append(f"    p95:  {metrics.p95_ms:.1f}")
+                lines.append(f"    p99:  {metrics.p99_ms:.1f}")
+            else:
+                lines.append(f"  {metrics.stage_type.upper()}: no data")
+
+        lines.append("")
+
+        # Response Latency (Silence after user)
+        lines.append("Response Latency (silence after user)")
+        lines.append("-" * 30)
+
+        if self.turn_metrics.silence_after_user_ms:
+            n = len(self.turn_metrics.silence_after_user_ms)
+            lines.append(f"  Samples: {n}")
+            lines.append(f"  mean: {self.turn_metrics.silence_mean_ms:.1f}ms")
+            lines.append(f"  p95:  {self.turn_metrics.silence_p95_ms:.1f}ms")
+        else:
+            lines.append("  No silence data available")
+            lines.append("  (Use mark_speech_end/mark_speech_start for accurate timing)")
+
+        lines.append("")
+
+        # Interruption Rate
+        lines.append("Interruptions")
+        lines.append("-" * 30)
+
+        if self.turn_metrics.total_agent_turns > 0:
+            lines.append(f"  Agent turns: {self.turn_metrics.total_agent_turns}")
+            lines.append(f"  Interruptions: {self.turn_metrics.interruptions}")
+            rate = self.turn_metrics.interruption_rate
+            if rate is not None:
+                lines.append(f"  Rate: {rate:.1f}%")
+        else:
+            lines.append("  No agent turn data available")
+
+        lines.append("")
+
+        return "\n".join(lines)
+
+
+def parse_jsonl(file_path: str | Path) -> list[dict]:
+    """Parse a JSONL file into a list of span dictionaries.
+
+    Args:
+        file_path: Path to the JSONL file.
+
+    Returns:
+        List of span dictionaries.
+    """
+    spans = []
+    path = Path(file_path)
+
+    with path.open() as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                spans.append(json.loads(line))
+
+    return spans
+
+
+def parse_jsonl_stream(stream: TextIO) -> list[dict]:
+    """Parse JSONL from a stream into a list of span dictionaries.
+
+    Args:
+        stream: Text stream to read from.
+
+    Returns:
+        List of span dictionaries.
+    """
+    spans = []
+    for line in stream:
+        line = line.strip()
+        if line:
+            spans.append(json.loads(line))
+    return spans
+
+
+def analyze_spans(spans: list[dict]) -> AnalysisResult:
+    """Analyze a list of span dictionaries and compute metrics.
+
+    Args:
+        spans: List of span dictionaries (from parse_jsonl).
+
+    Returns:
+        AnalysisResult with computed metrics.
+    """
+    result = AnalysisResult()
+    result.total_spans = len(spans)
+
+    conversation_ids: set[str] = set()
+
+    for span in spans:
+        name = span.get("name", "")
+        attrs = span.get("attributes", {})
+        duration_ms = span.get("duration_ms")
+
+        # Track conversations
+        conv_id = attrs.get("voice.conversation.id")
+        if conv_id:
+            conversation_ids.add(conv_id)
+
+        # Stage spans
+        if name in ("voice.asr", "voice.llm", "voice.tts"):
+            stage_type = attrs.get("voice.stage.type", name.replace("voice.", ""))
+            if duration_ms is not None:
+                if stage_type == "asr":
+                    result.asr_metrics.durations_ms.append(duration_ms)
+                elif stage_type == "llm":
+                    result.llm_metrics.durations_ms.append(duration_ms)
+                elif stage_type == "tts":
+                    result.tts_metrics.durations_ms.append(duration_ms)
+
+        # Turn spans
+        elif name == "voice.turn":
+            result.total_turns += 1
+            actor = attrs.get("voice.actor")
+
+            if actor == "agent":
+                result.turn_metrics.total_agent_turns += 1
+
+                # Silence after user
+                silence = attrs.get("voice.silence.after_user_ms")
+                if silence is not None:
+                    result.turn_metrics.silence_after_user_ms.append(silence)
+
+                # Overlap
+                overlap = attrs.get("voice.turn.overlap_ms")
+                if overlap is not None:
+                    result.turn_metrics.overlap_ms.append(overlap)
+
+                # Interruption
+                interrupted = attrs.get("voice.interruption.detected")
+                if interrupted:
+                    result.turn_metrics.interruptions += 1
+
+    result.total_conversations = len(conversation_ids)
+
+    return result
+
+
+def analyze_file(file_path: str | Path) -> AnalysisResult:
+    """Analyze a JSONL file and return metrics.
+
+    Args:
+        file_path: Path to the JSONL file.
+
+    Returns:
+        AnalysisResult with computed metrics.
+    """
+    spans = parse_jsonl(file_path)
+    return analyze_spans(spans)

@@ -1,6 +1,7 @@
 """CLI entry point for voiceobs."""
 
 import time
+from pathlib import Path
 
 import typer
 
@@ -130,6 +131,41 @@ def doctor() -> None:
 
     typer.echo()
     typer.echo("Run 'voiceobs demo' to see tracing in action.")
+
+
+@app.command()
+def analyze(
+    input_file: Path = typer.Option(
+        ...,
+        "--input",
+        "-i",
+        help="Path to the JSONL file to analyze",
+        exists=True,
+        readable=True,
+    ),
+) -> None:
+    """Analyze a JSONL trace file and print latency metrics.
+
+    Reads spans from a JSONL file (created with VOICEOBS_JSONL_OUT env var)
+    and computes:
+    - ASR / LLM / TTS latency percentiles
+    - Average and p95 response latency (silence after user)
+    - Interruption rate
+
+    Example:
+        voiceobs analyze --input run.jsonl
+    """
+    from voiceobs.analyzer import analyze_file
+
+    try:
+        result = analyze_file(input_file)
+        typer.echo(result.format_report())
+    except FileNotFoundError:
+        typer.echo(f"Error: File not found: {input_file}", err=True)
+        raise typer.Exit(1)
+    except Exception as e:
+        typer.echo(f"Error analyzing file: {e}", err=True)
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":

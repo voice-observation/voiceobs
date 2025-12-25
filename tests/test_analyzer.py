@@ -1,0 +1,478 @@
+"""Tests for voiceobs analyzer."""
+
+import io
+import json
+import textwrap
+
+import pytest
+
+from voiceobs.analyzer import (
+    AnalysisResult,
+    StageMetrics,
+    TurnMetrics,
+    analyze_file,
+    analyze_spans,
+    parse_jsonl,
+    parse_jsonl_stream,
+)
+
+
+class TestStageMetrics:
+    """Tests for StageMetrics class."""
+
+    def test_empty_metrics(self):
+        """Test metrics with no data."""
+        metrics = StageMetrics("asr")
+        assert metrics.count == 0
+        assert metrics.mean_ms is None
+        assert metrics.p50_ms is None
+        assert metrics.p95_ms is None
+        assert metrics.p99_ms is None
+
+    def test_single_value(self):
+        """Test metrics with a single value."""
+        metrics = StageMetrics("asr", durations_ms=[100.0])
+        assert metrics.count == 1
+        assert metrics.mean_ms == 100.0
+        assert metrics.p50_ms == 100.0
+        assert metrics.p95_ms == 100.0  # Falls back to mean
+        assert metrics.p99_ms == 100.0
+
+    def test_multiple_values(self):
+        """Test metrics with multiple values."""
+        # 10 values from 100 to 1000
+        durations = [100.0, 200.0, 300.0, 400.0, 500.0, 600.0, 700.0, 800.0, 900.0, 1000.0]
+        metrics = StageMetrics("llm", durations_ms=durations)
+
+        assert metrics.count == 10
+        assert metrics.mean_ms == 550.0
+        assert metrics.p50_ms == 550.0  # median
+        assert metrics.p95_ms == 1000.0  # 95th percentile
+        assert metrics.p99_ms == 1000.0  # 99th percentile
+
+    def test_percentiles_with_20_values(self):
+        """Test percentile calculations with 20 values."""
+        durations = list(range(100, 2100, 100))  # 100, 200, ..., 2000
+        metrics = StageMetrics("tts", durations_ms=durations)
+
+        assert metrics.count == 20
+        assert metrics.p95_ms == 2000.0  # index 19
+
+
+class TestTurnMetrics:
+    """Tests for TurnMetrics class."""
+
+    def test_empty_metrics(self):
+        """Test metrics with no data."""
+        metrics = TurnMetrics()
+        assert metrics.silence_mean_ms is None
+        assert metrics.silence_p95_ms is None
+        assert metrics.interruption_rate is None
+
+    def test_silence_metrics(self):
+        """Test silence duration metrics."""
+        metrics = TurnMetrics(
+            silence_after_user_ms=[100.0, 200.0, 300.0, 400.0, 500.0],
+        )
+        assert metrics.silence_mean_ms == 300.0
+        assert metrics.silence_p95_ms == 500.0
+
+    def test_interruption_rate(self):
+        """Test interruption rate calculation."""
+        metrics = TurnMetrics(
+            total_agent_turns=10,
+            interruptions=2,
+        )
+        assert metrics.interruption_rate == 20.0
+
+    def test_interruption_rate_zero(self):
+        """Test interruption rate with no interruptions."""
+        metrics = TurnMetrics(
+            total_agent_turns=5,
+            interruptions=0,
+        )
+        assert metrics.interruption_rate == 0.0
+
+
+class TestParseJSONL:
+    """Tests for JSONL parsing."""
+
+    def test_parse_jsonl_file(self, tmp_path):
+        """Test parsing a JSONL file."""
+        file_path = tmp_path / "spans.jsonl"
+        spans_data = [
+            {"name": "voice.turn", "duration_ms": 100},
+            {"name": "voice.asr", "duration_ms": 50},
+        ]
+        file_path.write_text("\n".join(json.dumps(s) for s in spans_data) + "\n")
+
+        spans = parse_jsonl(file_path)
+        assert len(spans) == 2
+        assert spans[0]["name"] == "voice.turn"
+        assert spans[1]["name"] == "voice.asr"
+
+    def test_parse_jsonl_stream(self):
+        """Test parsing JSONL from a stream."""
+        data = '{"name": "voice.turn"}\n{"name": "voice.asr"}\n'
+        stream = io.StringIO(data)
+
+        spans = parse_jsonl_stream(stream)
+        assert len(spans) == 2
+
+    def test_parse_empty_lines(self):
+        """Test that empty lines are skipped."""
+        data = '{"name": "span1"}\n\n{"name": "span2"}\n\n'
+        stream = io.StringIO(data)
+
+        spans = parse_jsonl_stream(stream)
+        assert len(spans) == 2
+
+
+class TestAnalyzeSpans:
+    """Tests for span analysis."""
+
+    def test_count_spans(self):
+        """Test counting total spans."""
+        spans = [
+            {"name": "voice.conversation", "attributes": {}},
+            {"name": "voice.turn", "attributes": {}},
+            {"name": "voice.asr", "attributes": {}},
+        ]
+        result = analyze_spans(spans)
+        assert result.total_spans == 3
+
+    def test_count_conversations(self):
+        """Test counting unique conversations."""
+        spans = [
+            {"name": "voice.turn", "attributes": {"voice.conversation.id": "conv-1"}},
+            {"name": "voice.turn", "attributes": {"voice.conversation.id": "conv-1"}},
+            {"name": "voice.turn", "attributes": {"voice.conversation.id": "conv-2"}},
+        ]
+        result = analyze_spans(spans)
+        assert result.total_conversations == 2
+
+    def test_count_turns(self):
+        """Test counting turns."""
+        spans = [
+            {"name": "voice.turn", "attributes": {"voice.actor": "user"}},
+            {"name": "voice.turn", "attributes": {"voice.actor": "agent"}},
+            {"name": "voice.asr", "attributes": {}},
+        ]
+        result = analyze_spans(spans)
+        assert result.total_turns == 2
+
+    def test_asr_metrics(self):
+        """Test ASR stage metrics."""
+        spans = [
+            {"name": "voice.asr", "duration_ms": 100.0, "attributes": {"voice.stage.type": "asr"}},
+            {"name": "voice.asr", "duration_ms": 200.0, "attributes": {"voice.stage.type": "asr"}},
+        ]
+        result = analyze_spans(spans)
+        assert result.asr_metrics.count == 2
+        assert result.asr_metrics.mean_ms == 150.0
+
+    def test_llm_metrics(self):
+        """Test LLM stage metrics."""
+        spans = [
+            {"name": "voice.llm", "duration_ms": 500.0, "attributes": {"voice.stage.type": "llm"}},
+            {"name": "voice.llm", "duration_ms": 700.0, "attributes": {"voice.stage.type": "llm"}},
+        ]
+        result = analyze_spans(spans)
+        assert result.llm_metrics.count == 2
+        assert result.llm_metrics.mean_ms == 600.0
+
+    def test_tts_metrics(self):
+        """Test TTS stage metrics."""
+        spans = [
+            {"name": "voice.tts", "duration_ms": 200.0, "attributes": {"voice.stage.type": "tts"}},
+        ]
+        result = analyze_spans(spans)
+        assert result.tts_metrics.count == 1
+        assert result.tts_metrics.mean_ms == 200.0
+
+    def test_silence_metrics(self):
+        """Test silence after user metrics."""
+        spans = [
+            {
+                "name": "voice.turn",
+                "duration_ms": 100.0,
+                "attributes": {
+                    "voice.actor": "agent",
+                    "voice.silence.after_user_ms": 500.0,
+                },
+            },
+            {
+                "name": "voice.turn",
+                "duration_ms": 100.0,
+                "attributes": {
+                    "voice.actor": "agent",
+                    "voice.silence.after_user_ms": 700.0,
+                },
+            },
+        ]
+        result = analyze_spans(spans)
+        assert len(result.turn_metrics.silence_after_user_ms) == 2
+        assert result.turn_metrics.silence_mean_ms == 600.0
+
+    def test_interruption_metrics(self):
+        """Test interruption detection metrics."""
+        spans = [
+            {
+                "name": "voice.turn",
+                "duration_ms": 100.0,
+                "attributes": {
+                    "voice.actor": "agent",
+                    "voice.interruption.detected": False,
+                },
+            },
+            {
+                "name": "voice.turn",
+                "duration_ms": 100.0,
+                "attributes": {
+                    "voice.actor": "agent",
+                    "voice.interruption.detected": True,
+                },
+            },
+            {
+                "name": "voice.turn",
+                "duration_ms": 100.0,
+                "attributes": {
+                    "voice.actor": "agent",
+                    "voice.interruption.detected": True,
+                },
+            },
+        ]
+        result = analyze_spans(spans)
+        assert result.turn_metrics.total_agent_turns == 3
+        assert result.turn_metrics.interruptions == 2
+        assert result.turn_metrics.interruption_rate == pytest.approx(66.67, rel=0.01)
+
+    def test_overlap_metrics(self):
+        """Test overlap duration metrics."""
+        spans = [
+            {
+                "name": "voice.turn",
+                "duration_ms": 100.0,
+                "attributes": {
+                    "voice.actor": "agent",
+                    "voice.turn.overlap_ms": -500.0,  # Normal gap
+                },
+            },
+            {
+                "name": "voice.turn",
+                "duration_ms": 100.0,
+                "attributes": {
+                    "voice.actor": "agent",
+                    "voice.turn.overlap_ms": 200.0,  # Interruption
+                },
+            },
+        ]
+        result = analyze_spans(spans)
+        assert len(result.turn_metrics.overlap_ms) == 2
+
+
+class TestAnalyzeFile:
+    """Tests for analyze_file function."""
+
+    def test_analyze_file_end_to_end(self, tmp_path):
+        """Test analyzing a complete JSONL file."""
+        file_path = tmp_path / "spans.jsonl"
+        spans = [
+            {
+                "name": "voice.conversation",
+                "duration_ms": 5000.0,
+                "attributes": {"voice.conversation.id": "conv-1"},
+            },
+            {
+                "name": "voice.turn",
+                "duration_ms": 1000.0,
+                "attributes": {"voice.actor": "user", "voice.conversation.id": "conv-1"},
+            },
+            {
+                "name": "voice.asr",
+                "duration_ms": 150.0,
+                "attributes": {"voice.stage.type": "asr", "voice.conversation.id": "conv-1"},
+            },
+            {
+                "name": "voice.turn",
+                "duration_ms": 2000.0,
+                "attributes": {
+                    "voice.actor": "agent",
+                    "voice.conversation.id": "conv-1",
+                    "voice.silence.after_user_ms": 1200.0,
+                    "voice.interruption.detected": False,
+                },
+            },
+            {
+                "name": "voice.llm",
+                "duration_ms": 800.0,
+                "attributes": {"voice.stage.type": "llm", "voice.conversation.id": "conv-1"},
+            },
+            {
+                "name": "voice.tts",
+                "duration_ms": 300.0,
+                "attributes": {"voice.stage.type": "tts", "voice.conversation.id": "conv-1"},
+            },
+        ]
+        file_path.write_text("\n".join(json.dumps(s) for s in spans) + "\n")
+
+        result = analyze_file(file_path)
+
+        assert result.total_spans == 6
+        assert result.total_conversations == 1
+        assert result.total_turns == 2
+        assert result.asr_metrics.count == 1
+        assert result.llm_metrics.count == 1
+        assert result.tts_metrics.count == 1
+        assert result.turn_metrics.total_agent_turns == 1
+
+
+class TestFormatReport:
+    """Tests for report formatting (snapshot tests)."""
+
+    def test_format_report_complete(self):
+        """Test report format with complete data."""
+        result = AnalysisResult(
+            total_spans=20,
+            total_conversations=2,
+            total_turns=8,
+            asr_metrics=StageMetrics("asr", durations_ms=[100.0, 120.0, 150.0, 180.0, 200.0]),
+            llm_metrics=StageMetrics("llm", durations_ms=[500.0, 600.0, 700.0, 800.0, 1000.0]),
+            tts_metrics=StageMetrics("tts", durations_ms=[200.0, 250.0, 300.0]),
+            turn_metrics=TurnMetrics(
+                silence_after_user_ms=[1000.0, 1200.0, 1100.0, 1500.0],
+                total_agent_turns=4,
+                interruptions=1,
+            ),
+        )
+
+        report = result.format_report()
+
+        # Snapshot test: verify expected structure
+        expected = textwrap.dedent("""\
+            voiceobs Analysis Report
+            ==================================================
+
+            Summary
+            ------------------------------
+              Total spans: 20
+              Conversations: 2
+              Turns: 8
+
+            Stage Latencies (ms)
+            ------------------------------
+              ASR (n=5):
+                mean: 150.0
+                p50:  150.0
+                p95:  200.0
+                p99:  200.0
+              LLM (n=5):
+                mean: 720.0
+                p50:  700.0
+                p95:  1000.0
+                p99:  1000.0
+              TTS (n=3):
+                mean: 250.0
+                p50:  250.0
+                p95:  300.0
+                p99:  300.0
+
+            Response Latency (silence after user)
+            ------------------------------
+              Samples: 4
+              mean: 1200.0ms
+              p95:  1500.0ms
+
+            Interruptions
+            ------------------------------
+              Agent turns: 4
+              Interruptions: 1
+              Rate: 25.0%
+        """)
+
+        assert report == expected
+
+    def test_format_report_empty_data(self):
+        """Test report format with no data."""
+        result = AnalysisResult()
+        report = result.format_report()
+
+        assert "voiceobs Analysis Report" in report
+        assert "Total spans: 0" in report
+        assert "ASR: no data" in report
+        assert "LLM: no data" in report
+        assert "TTS: no data" in report
+        assert "No silence data available" in report
+        assert "No agent turn data available" in report
+
+    def test_format_report_partial_data(self):
+        """Test report format with partial stage data."""
+        result = AnalysisResult(
+            total_spans=5,
+            total_conversations=1,
+            total_turns=2,
+            asr_metrics=StageMetrics("asr", durations_ms=[100.0, 150.0]),
+            llm_metrics=StageMetrics("llm"),  # No LLM data
+            tts_metrics=StageMetrics("tts", durations_ms=[200.0]),
+        )
+
+        report = result.format_report()
+
+        assert "ASR (n=2):" in report
+        assert "LLM: no data" in report
+        assert "TTS (n=1):" in report
+
+
+class TestCLIIntegration:
+    """Tests for CLI analyze command."""
+
+    def test_analyze_command_help(self):
+        """Test that analyze command has help text."""
+        from typer.testing import CliRunner
+
+        from voiceobs.cli import app
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["analyze", "--help"])
+
+        assert result.exit_code == 0
+        assert "Analyze a JSONL trace file" in result.output
+        assert "--input" in result.output
+
+    def test_analyze_command_with_file(self, tmp_path):
+        """Test analyze command with a valid file."""
+        from typer.testing import CliRunner
+
+        from voiceobs.cli import app
+
+        # Create a test JSONL file
+        file_path = tmp_path / "test.jsonl"
+        spans = [
+            {"name": "voice.turn", "duration_ms": 100.0, "attributes": {"voice.actor": "user"}},
+            {
+                "name": "voice.asr",
+                "duration_ms": 150.0,
+                "attributes": {"voice.stage.type": "asr"},
+            },
+        ]
+        file_path.write_text("\n".join(json.dumps(s) for s in spans) + "\n")
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["analyze", "--input", str(file_path)])
+
+        assert result.exit_code == 0
+        assert "voiceobs Analysis Report" in result.output
+        assert "Total spans: 2" in result.output
+        assert "ASR (n=1):" in result.output
+
+    def test_analyze_command_file_not_found(self, tmp_path):
+        """Test analyze command with non-existent file."""
+        from typer.testing import CliRunner
+
+        from voiceobs.cli import app
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["analyze", "--input", str(tmp_path / "missing.jsonl")])
+
+        # Typer validates file existence and should exit with error
+        assert result.exit_code != 0
