@@ -159,13 +159,23 @@ def voice_turn(actor: Actor) -> Generator[TurnContext, None, None]:
         try:
             yield turn_ctx
         finally:
-            # Set silence metrics at the end of agent turns
+            # Set timing metrics at the end of agent turns
             # This allows mark_speech_start/mark_speech_end to be called first
             if actor == "agent":
+                # Silence/latency metrics
                 silence_ms = conversation.timeline.compute_silence_after_user_ms()
                 if silence_ms is not None:
                     span.set_attribute("voice.silence.after_user_ms", silence_ms)
                     span.set_attribute("voice.silence.before_agent_ms", silence_ms)
+
+                # Overlap/interruption metrics
+                overlap_ms = conversation.timeline.compute_overlap_ms()
+                if overlap_ms is not None:
+                    span.set_attribute("voice.turn.overlap_ms", overlap_ms)
+                    span.set_attribute(
+                        "voice.interruption.detected",
+                        conversation.timeline.is_interruption(),
+                    )
 
             conversation.timeline.end_turn()
             _current_turn_span.reset(span_token)
@@ -191,12 +201,18 @@ def mark_speech_end() -> None:
         conversation.timeline.mark_speech_end()
 
 
-def mark_speech_start() -> None:
+def mark_speech_start(timestamp_ns: int | None = None) -> None:
     """Mark when speech starts in the current turn.
 
     For agent turns, call this when TTS audio playback begins.
 
     This enables accurate response latency measurement.
+
+    Args:
+        timestamp_ns: Optional timestamp in nanoseconds. If not provided,
+            uses the current time. This can be used to backdate the speech
+            start for barge-in scenarios where the agent logically started
+            responding earlier than actual playback.
 
     Example:
         with voice_turn("agent"):
@@ -207,7 +223,7 @@ def mark_speech_start() -> None:
     """
     conversation = get_current_conversation()
     if conversation is not None:
-        conversation.timeline.mark_speech_start()
+        conversation.timeline.mark_speech_start(timestamp_ns)
 
 
 def _set_turn_attributes(

@@ -1,0 +1,18 @@
+[project]
+name = "overlap-detection-example"
+version = "0.1.0"
+description = "Overlap detection example with voiceobs instrumentation"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "voiceobs",
+    "python-dotenv>=1.2.1",
+    "google-genai>=1.56.0",
+    "deepgram-sdk>=5.3.0",
+    "cartesia>=2.0.17",
+    "sounddevice>=0.5.3",
+    "numpy>=2.4.0",
+]
+
+[tool.uv.sources]
+voiceobs = { path = "../..", editable = true }

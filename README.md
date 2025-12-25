@@ -174,6 +174,9 @@ Each `voice.turn` span includes:
 | `voice.turn.id` | string | UUID identifying this specific turn |
 | `voice.turn.index` | int | Sequential turn number (0, 1, 2...) |
 | `voice.actor` | string | Who is speaking: "user", "agent", or "system" |
+| `voice.silence.after_user_ms` | float | Response latency from user speech end to agent speech start |
+| `voice.turn.overlap_ms` | float | Overlap duration in ms (positive = interruption) |
+| `voice.interruption.detected` | bool | True if agent started speaking before user finished |
 
 ## Integrations
 

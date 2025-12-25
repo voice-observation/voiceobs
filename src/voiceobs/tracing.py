@@ -13,6 +13,8 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 from opentelemetry.trace import NoOpTracerProvider
 
+from voiceobs.exporters import get_jsonl_exporter_from_env
+
 # Thread-safe initialization flag
 _init_lock = threading.Lock()
 _initialized = False
@@ -57,7 +59,12 @@ def ensure_tracing_initialized(force: bool = False) -> bool:
     Behavior:
         - If a real TracerProvider is already configured: does nothing, returns False
         - If no provider configured: sets up TracerProvider with ConsoleSpanExporter
+        - If VOICEOBS_JSONL_OUT env var is set: also adds JSONLSpanExporter
         - Thread-safe: safe to call from multiple threads
+
+    Environment Variables:
+        VOICEOBS_JSONL_OUT: Path to JSONL file for span export.
+            Example: VOICEOBS_JSONL_OUT=./traces.jsonl
 
     Example:
         # At application startup
@@ -90,6 +97,13 @@ def ensure_tracing_initialized(force: bool = False) -> bool:
         console_exporter = ConsoleSpanExporter()
         processor = BatchSpanProcessor(console_exporter)
         provider.add_span_processor(processor)
+
+        # Add JSONL exporter if configured via env var
+
+        jsonl_exporter = get_jsonl_exporter_from_env()
+        if jsonl_exporter:
+            jsonl_processor = BatchSpanProcessor(jsonl_exporter)
+            provider.add_span_processor(jsonl_processor)
 
         trace.set_tracer_provider(provider)
         _initialized = True

@@ -65,7 +65,7 @@ CHANNELS = 1
 
 
 def record_audio_vad(
-    silence_threshold: int = 500,
+    silence_threshold: int = 200,
     silence_duration: float = 1.0,
     max_duration: int = 30,
 ) -> bytes | None:

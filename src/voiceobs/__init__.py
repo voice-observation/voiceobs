@@ -12,6 +12,7 @@ from voiceobs.context import (
     voice_conversation,
     voice_turn,
 )
+from voiceobs.exporters import JSONLSpanExporter
 from voiceobs.stages import (
     StageContext,
     StageType,
@@ -28,6 +29,7 @@ __all__ = [
     "VOICE_SCHEMA_VERSION",
     "Actor",
     "ConversationContext",
+    "JSONLSpanExporter",
     "StageContext",
     "StageType",
     "TurnContext",

@@ -439,3 +439,178 @@ class TestSilenceInSpans:
         for span in agent_spans:
             attrs = dict(span.attributes)
             assert "voice.silence.after_user_ms" in attrs
+
+
+class TestOverlapComputation:
+    """Tests for overlap/interruption detection."""
+
+    def test_compute_overlap_no_overlap(self):
+        """Test overlap computation when there's no overlap (normal turn-taking)."""
+        timeline = ConversationTimeline()
+
+        # User turn: speech ends at 1000ms
+        with patch("time.time_ns", return_value=0):
+            timeline.start_turn(0, "user")
+        with patch("time.time_ns", return_value=1_000_000_000):
+            timeline.mark_speech_end()
+        with patch("time.time_ns", return_value=1_100_000_000):
+            timeline.end_turn()
+
+        # Agent turn: speech starts at 2000ms (after user finished)
+        with patch("time.time_ns", return_value=1_200_000_000):
+            timeline.start_turn(1, "agent")
+        with patch("time.time_ns", return_value=2_000_000_000):
+            timeline.mark_speech_start()
+
+        # Overlap = user_speech_end - agent_speech_start = 1000 - 2000 = -1000ms
+        overlap = timeline.compute_overlap_ms()
+        assert overlap == -1000.0
+        assert not timeline.is_interruption()
+
+    def test_compute_overlap_with_interruption(self):
+        """Test overlap computation when agent interrupts user."""
+        timeline = ConversationTimeline()
+
+        # User turn: speech ends at 2000ms
+        with patch("time.time_ns", return_value=0):
+            timeline.start_turn(0, "user")
+        with patch("time.time_ns", return_value=2_000_000_000):
+            timeline.mark_speech_end()
+        with patch("time.time_ns", return_value=2_100_000_000):
+            timeline.end_turn()
+
+        # Agent turn: speech starts at 1500ms (before user finished!)
+        with patch("time.time_ns", return_value=1_200_000_000):
+            timeline.start_turn(1, "agent")
+        with patch("time.time_ns", return_value=1_500_000_000):
+            timeline.mark_speech_start()
+
+        # Overlap = user_speech_end - agent_speech_start = 2000 - 1500 = 500ms
+        overlap = timeline.compute_overlap_ms()
+        assert overlap == 500.0
+        assert timeline.is_interruption()
+
+    def test_compute_overlap_returns_none_without_speech_end(self):
+        """Test that overlap is None if speech_end not marked."""
+        timeline = ConversationTimeline()
+
+        # User turn without speech_end
+        with patch("time.time_ns", return_value=0):
+            timeline.start_turn(0, "user")
+        with patch("time.time_ns", return_value=1_000_000_000):
+            timeline.end_turn()
+
+        # Agent turn with speech_start
+        with patch("time.time_ns", return_value=1_100_000_000):
+            timeline.start_turn(1, "agent")
+        with patch("time.time_ns", return_value=1_500_000_000):
+            timeline.mark_speech_start()
+
+        assert timeline.compute_overlap_ms() is None
+        assert not timeline.is_interruption()
+
+    def test_compute_overlap_returns_none_without_speech_start(self):
+        """Test that overlap is None if speech_start not marked."""
+        timeline = ConversationTimeline()
+
+        # User turn with speech_end
+        with patch("time.time_ns", return_value=0):
+            timeline.start_turn(0, "user")
+        with patch("time.time_ns", return_value=1_000_000_000):
+            timeline.mark_speech_end()
+        with patch("time.time_ns", return_value=1_100_000_000):
+            timeline.end_turn()
+
+        # Agent turn without speech_start
+        with patch("time.time_ns", return_value=1_200_000_000):
+            timeline.start_turn(1, "agent")
+
+        assert timeline.compute_overlap_ms() is None
+        assert not timeline.is_interruption()
+
+    def test_compute_overlap_zero_overlap(self):
+        """Test overlap computation when agent starts exactly when user ends."""
+        timeline = ConversationTimeline()
+
+        # User turn: speech ends at 1000ms
+        with patch("time.time_ns", return_value=0):
+            timeline.start_turn(0, "user")
+        with patch("time.time_ns", return_value=1_000_000_000):
+            timeline.mark_speech_end()
+        with patch("time.time_ns", return_value=1_100_000_000):
+            timeline.end_turn()
+
+        # Agent turn: speech starts at exactly 1000ms
+        with patch("time.time_ns", return_value=1_200_000_000):
+            timeline.start_turn(1, "agent")
+        with patch("time.time_ns", return_value=1_000_000_000):
+            timeline.mark_speech_start()
+
+        overlap = timeline.compute_overlap_ms()
+        assert overlap == 0.0
+        assert not timeline.is_interruption()  # Zero overlap is not an interruption
+
+
+class TestOverlapInSpans:
+    """Tests for overlap attributes in OpenTelemetry spans."""
+
+    def test_agent_turn_has_overlap_attributes_with_speech_events(self, span_exporter):
+        """Test that agent turn spans have overlap attributes when speech events are marked."""
+        with voice_conversation():
+            with voice_turn("user"):
+                time.sleep(0.02)
+                mark_speech_end()
+                time.sleep(0.02)
+
+            with voice_turn("agent"):
+                time.sleep(0.05)
+                mark_speech_start()
+                time.sleep(0.02)
+
+        spans = span_exporter.get_finished_spans()
+        turn_spans = [s for s in spans if s.name == "voice.turn"]
+        agent_span = [
+            s for s in turn_spans if dict(s.attributes).get("voice.actor") == "agent"
+        ][0]
+        attrs = dict(agent_span.attributes)
+
+        # Should have overlap attributes
+        assert "voice.turn.overlap_ms" in attrs
+        assert "voice.interruption.detected" in attrs
+        # Normal turn-taking: overlap should be negative (no interruption)
+        assert attrs["voice.turn.overlap_ms"] < 0
+        assert attrs["voice.interruption.detected"] is False
+
+    def test_agent_turn_no_overlap_without_speech_events(self, span_exporter):
+        """Test that agent turn spans don't have overlap without speech events."""
+        with voice_conversation():
+            with voice_turn("user"):
+                time.sleep(0.02)
+
+            with voice_turn("agent"):
+                time.sleep(0.02)
+
+        spans = span_exporter.get_finished_spans()
+        turn_spans = [s for s in spans if s.name == "voice.turn"]
+        agent_span = [
+            s for s in turn_spans if dict(s.attributes).get("voice.actor") == "agent"
+        ][0]
+        attrs = dict(agent_span.attributes)
+
+        # Should not have overlap attributes without speech events
+        assert "voice.turn.overlap_ms" not in attrs
+        assert "voice.interruption.detected" not in attrs
+
+    def test_user_turn_does_not_have_overlap_attributes(self, span_exporter):
+        """Test that user turn spans don't have overlap attributes."""
+        with voice_conversation():
+            with voice_turn("user"):
+                mark_speech_end()
+
+        spans = span_exporter.get_finished_spans()
+        turn_spans = [s for s in spans if s.name == "voice.turn"]
+        user_span = turn_spans[0]
+        attrs = dict(user_span.attributes)
+
+        assert "voice.turn.overlap_ms" not in attrs
+        assert "voice.interruption.detected" not in attrs
