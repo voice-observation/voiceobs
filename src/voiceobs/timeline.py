@@ -146,9 +146,7 @@ class ConversationTimeline:
         if last_user_turn is None or last_user_turn.speech_end_time_ns is None:
             return None
 
-        latency_ns = (
-            self._current_turn.speech_start_time_ns - last_user_turn.speech_end_time_ns
-        )
+        latency_ns = self._current_turn.speech_start_time_ns - last_user_turn.speech_end_time_ns
         return max(0, latency_ns / 1_000_000)
 
     def compute_silence_after_user_ms(self) -> float | None:

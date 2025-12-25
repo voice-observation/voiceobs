@@ -108,9 +108,7 @@ def voice_conversation(
 
 
 # Store the current span for updating attributes
-_current_turn_span: ContextVar[Span | None] = ContextVar(
-    "voice_current_turn_span", default=None
-)
+_current_turn_span: ContextVar[Span | None] = ContextVar("voice_current_turn_span", default=None)
 
 
 @contextmanager

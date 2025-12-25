@@ -333,9 +333,7 @@ class TestSpeechEventsWithVoiceTurn:
 
         spans = span_exporter.get_finished_spans()
         turn_spans = [s for s in spans if s.name == "voice.turn"]
-        agent_span = [
-            s for s in turn_spans if dict(s.attributes).get("voice.actor") == "agent"
-        ][0]
+        agent_span = [s for s in turn_spans if dict(s.attributes).get("voice.actor") == "agent"][0]
         attrs = dict(agent_span.attributes)
 
         # The silence should be measured from speech_end to speech_start
@@ -428,9 +426,7 @@ class TestSilenceInSpans:
         spans = span_exporter.get_finished_spans()
         turn_spans = [s for s in spans if s.name == "voice.turn"]
 
-        agent_spans = [
-            s for s in turn_spans if dict(s.attributes).get("voice.actor") == "agent"
-        ]
+        agent_spans = [s for s in turn_spans if dict(s.attributes).get("voice.actor") == "agent"]
         assert len(agent_spans) == 2
 
         # Both should have silence attributes
@@ -567,9 +563,7 @@ class TestOverlapInSpans:
 
         spans = span_exporter.get_finished_spans()
         turn_spans = [s for s in spans if s.name == "voice.turn"]
-        agent_span = [
-            s for s in turn_spans if dict(s.attributes).get("voice.actor") == "agent"
-        ][0]
+        agent_span = [s for s in turn_spans if dict(s.attributes).get("voice.actor") == "agent"][0]
         attrs = dict(agent_span.attributes)
 
         # Should have overlap attributes
@@ -590,9 +584,7 @@ class TestOverlapInSpans:
 
         spans = span_exporter.get_finished_spans()
         turn_spans = [s for s in spans if s.name == "voice.turn"]
-        agent_span = [
-            s for s in turn_spans if dict(s.attributes).get("voice.actor") == "agent"
-        ][0]
+        agent_span = [s for s in turn_spans if dict(s.attributes).get("voice.actor") == "agent"][0]
         attrs = dict(agent_span.attributes)
 
         # Should not have overlap attributes without speech events

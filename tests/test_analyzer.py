@@ -437,7 +437,8 @@ class TestCLIIntegration:
 
         assert result.exit_code == 0
         assert "Analyze a JSONL trace file" in result.output
-        assert "--input" in result.output
+        # Check for -i (short option) since --input may be split by ANSI codes
+        assert "-i" in result.output
 
     def test_analyze_command_with_file(self, tmp_path):
         """Test analyze command with a valid file."""
