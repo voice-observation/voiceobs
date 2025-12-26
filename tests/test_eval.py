@@ -323,6 +323,376 @@ class TestSemanticEvaluatorMocked:
             assert mock_llm.invoke.call_count == 2
 
 
+class TestPromptBuilding:
+    """Tests for prompt building with optional fields."""
+
+    def test_prompt_includes_context_section(self) -> None:
+        """Prompt should include context section when conversation_context provided."""
+        from voiceobs.eval.evaluator import _build_prompt
+
+        inp = EvalInput(
+            user_transcript="What's the weather?",
+            agent_response="It's sunny.",
+            conversation_context="User is planning a picnic.",
+        )
+
+        prompt = _build_prompt(inp)
+        assert "## Prior Context" in prompt
+        assert "User is planning a picnic." in prompt
+
+    def test_prompt_includes_expected_intent_section(self) -> None:
+        """Prompt should include expected intent section when provided."""
+        from voiceobs.eval.evaluator import _build_prompt
+
+        inp = EvalInput(
+            user_transcript="What's the weather?",
+            agent_response="It's sunny.",
+            expected_intent="get_weather",
+        )
+
+        prompt = _build_prompt(inp)
+        assert "## Expected Intent" in prompt
+        assert "get_weather" in prompt
+
+
+class TestCachePersistence:
+    """Tests for cache loading and saving to disk."""
+
+    @pytest.fixture
+    def mock_llm(self):
+        """Create a mock structured LLM."""
+        mock = MagicMock()
+        return mock
+
+    def test_cache_loaded_from_disk_on_init(self, tmp_path, mock_llm) -> None:
+        """Should load cache from disk when cache file exists."""
+        import json
+
+        from voiceobs.eval import EvalConfig, EvalInput, SemanticEvaluator
+
+        # Create a cache file with pre-existing data
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+        cache_file = cache_dir / "eval_cache.json"
+
+        # Generate a content hash for the test input
+        inp = EvalInput(user_transcript="Hello", agent_response="Hi!")
+        content_hash = inp.content_hash()
+
+        cache_data = {
+            content_hash: {
+                "intent_correct": True,
+                "relevance_score": 0.99,
+                "explanation": "Pre-cached result.",
+                "conversation_id": None,
+                "turn_id": None,
+            }
+        }
+        cache_file.write_text(json.dumps(cache_data))
+
+        with patch("voiceobs.eval.evaluator.get_provider") as mock_get_provider:
+            mock_provider = MagicMock()
+            mock_base_llm = MagicMock()
+            mock_base_llm.with_structured_output.return_value = mock_llm
+            mock_provider.create_llm.return_value = mock_base_llm
+            mock_get_provider.return_value = mock_provider
+
+            config = EvalConfig(cache_enabled=True, cache_dir=str(cache_dir))
+            evaluator = SemanticEvaluator(config)
+
+            result = evaluator.evaluate(inp)
+
+            # Should return cached result, not call LLM
+            assert result.cached is True
+            assert result.relevance_score == 0.99
+            assert result.explanation == "Pre-cached result."
+            assert mock_llm.invoke.call_count == 0
+
+    def test_invalid_cache_file_starts_fresh(self, tmp_path, mock_llm) -> None:
+        """Should start with empty cache if cache file is invalid."""
+        from voiceobs.eval import EvalConfig, EvalInput, SemanticEvaluator
+        from voiceobs.eval.evaluator import EvalOutput
+
+        # Create an invalid cache file
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+        cache_file = cache_dir / "eval_cache.json"
+        cache_file.write_text("this is not valid json")
+
+        mock_output = EvalOutput(
+            intent_correct=True,
+            relevance_score=0.75,
+            explanation="Fresh result.",
+        )
+        mock_llm.invoke.return_value = mock_output
+
+        with patch("voiceobs.eval.evaluator.get_provider") as mock_get_provider:
+            mock_provider = MagicMock()
+            mock_base_llm = MagicMock()
+            mock_base_llm.with_structured_output.return_value = mock_llm
+            mock_provider.create_llm.return_value = mock_base_llm
+            mock_get_provider.return_value = mock_provider
+
+            config = EvalConfig(cache_enabled=True, cache_dir=str(cache_dir))
+            evaluator = SemanticEvaluator(config)
+
+            inp = EvalInput(user_transcript="Hello", agent_response="Hi!")
+            result = evaluator.evaluate(inp)
+
+            # Should call LLM since cache was invalid
+            assert result.cached is False
+            assert mock_llm.invoke.call_count == 1
+
+    def test_missing_key_in_cache_starts_fresh(self, tmp_path, mock_llm) -> None:
+        """Should start with empty cache if cache file has missing keys."""
+        import json
+
+        from voiceobs.eval import EvalConfig, EvalInput, SemanticEvaluator
+        from voiceobs.eval.evaluator import EvalOutput
+
+        # Create a cache file with missing required keys
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+        cache_file = cache_dir / "eval_cache.json"
+        cache_data = {"some_hash": {"incomplete": "data"}}  # Missing required keys
+        cache_file.write_text(json.dumps(cache_data))
+
+        mock_output = EvalOutput(
+            intent_correct=True,
+            relevance_score=0.75,
+            explanation="Fresh result.",
+        )
+        mock_llm.invoke.return_value = mock_output
+
+        with patch("voiceobs.eval.evaluator.get_provider") as mock_get_provider:
+            mock_provider = MagicMock()
+            mock_base_llm = MagicMock()
+            mock_base_llm.with_structured_output.return_value = mock_llm
+            mock_provider.create_llm.return_value = mock_base_llm
+            mock_get_provider.return_value = mock_provider
+
+            config = EvalConfig(cache_enabled=True, cache_dir=str(cache_dir))
+            evaluator = SemanticEvaluator(config)
+
+            inp = EvalInput(user_transcript="Hello", agent_response="Hi!")
+            result = evaluator.evaluate(inp)
+
+            # Should call LLM since cache was invalid
+            assert result.cached is False
+            assert mock_llm.invoke.call_count == 1
+
+
+class TestRegisterProvider:
+    """Tests for register_provider convenience function."""
+
+    def test_register_provider_adds_to_registry(self) -> None:
+        """register_provider should add provider to default registry."""
+        from voiceobs.eval.providers import LLMProvider, get_registry, register_provider
+
+        class TestProvider(LLMProvider):
+            @property
+            def name(self) -> str:
+                return "test_register_provider"
+
+            @property
+            def default_model(self) -> str:
+                return "test-model"
+
+            def create_llm(self, config):
+                return MagicMock()
+
+        register_provider(TestProvider())
+
+        registry = get_registry()
+        assert registry.is_registered("test_register_provider")
+
+
+class TestGeminiProviderCreateLLM:
+    """Tests for GeminiProvider.create_llm method."""
+
+    def test_create_llm_with_default_model(self) -> None:
+        """Should create LLM with default model when not specified."""
+        import sys
+
+        from voiceobs.eval.providers.gemini import GeminiProvider
+
+        provider = GeminiProvider()
+        config = EvalConfig(provider="gemini", api_key="test-api-key")
+
+        # Create mock module with mock class
+        mock_chat_class = MagicMock()
+        mock_module = MagicMock()
+        mock_module.ChatGoogleGenerativeAI = mock_chat_class
+
+        with patch.dict(sys.modules, {"langchain_google_genai": mock_module}):
+            provider.create_llm(config)
+
+            mock_chat_class.assert_called_once_with(
+                model="gemini-2.0-flash",
+                temperature=0.0,
+                google_api_key="test-api-key",
+            )
+
+    def test_create_llm_with_custom_model(self) -> None:
+        """Should create LLM with custom model when specified."""
+        import sys
+
+        from voiceobs.eval.providers.gemini import GeminiProvider
+
+        provider = GeminiProvider()
+        config = EvalConfig(
+            provider="gemini", model="gemini-1.5-pro", temperature=0.5
+        )
+
+        mock_chat_class = MagicMock()
+        mock_module = MagicMock()
+        mock_module.ChatGoogleGenerativeAI = mock_chat_class
+
+        with patch.dict(sys.modules, {"langchain_google_genai": mock_module}):
+            provider.create_llm(config)
+
+            mock_chat_class.assert_called_once_with(
+                model="gemini-1.5-pro",
+                temperature=0.5,
+            )
+
+    def test_create_llm_raises_import_error(self) -> None:
+        """Should raise ImportError when langchain-google-genai not installed."""
+        import sys
+
+        from voiceobs.eval.providers.gemini import GeminiProvider
+
+        provider = GeminiProvider()
+        config = EvalConfig(provider="gemini")
+
+        # Remove the module from sys.modules to trigger ImportError
+        with patch.dict(sys.modules, {"langchain_google_genai": None}):
+            with pytest.raises(ImportError, match="langchain-google-genai"):
+                provider.create_llm(config)
+
+
+class TestOpenAIProviderCreateLLM:
+    """Tests for OpenAIProvider.create_llm method."""
+
+    def test_create_llm_with_default_model(self) -> None:
+        """Should create LLM with default model when not specified."""
+        import sys
+
+        from voiceobs.eval.providers.openai import OpenAIProvider
+
+        provider = OpenAIProvider()
+        config = EvalConfig(provider="openai", api_key="test-api-key")
+
+        mock_chat_class = MagicMock()
+        mock_module = MagicMock()
+        mock_module.ChatOpenAI = mock_chat_class
+
+        with patch.dict(sys.modules, {"langchain_openai": mock_module}):
+            provider.create_llm(config)
+
+            mock_chat_class.assert_called_once_with(
+                model="gpt-4o-mini",
+                temperature=0.0,
+                api_key="test-api-key",
+            )
+
+    def test_create_llm_with_custom_model(self) -> None:
+        """Should create LLM with custom model when specified."""
+        import sys
+
+        from voiceobs.eval.providers.openai import OpenAIProvider
+
+        provider = OpenAIProvider()
+        config = EvalConfig(provider="openai", model="gpt-4o", temperature=0.3)
+
+        mock_chat_class = MagicMock()
+        mock_module = MagicMock()
+        mock_module.ChatOpenAI = mock_chat_class
+
+        with patch.dict(sys.modules, {"langchain_openai": mock_module}):
+            provider.create_llm(config)
+
+            mock_chat_class.assert_called_once_with(
+                model="gpt-4o",
+                temperature=0.3,
+            )
+
+    def test_create_llm_raises_import_error(self) -> None:
+        """Should raise ImportError when langchain-openai not installed."""
+        import sys
+
+        from voiceobs.eval.providers.openai import OpenAIProvider
+
+        provider = OpenAIProvider()
+        config = EvalConfig(provider="openai")
+
+        with patch.dict(sys.modules, {"langchain_openai": None}):
+            with pytest.raises(ImportError, match="langchain-openai"):
+                provider.create_llm(config)
+
+
+class TestAnthropicProviderCreateLLM:
+    """Tests for AnthropicProvider.create_llm method."""
+
+    def test_create_llm_with_default_model(self) -> None:
+        """Should create LLM with default model when not specified."""
+        import sys
+
+        from voiceobs.eval.providers.anthropic import AnthropicProvider
+
+        provider = AnthropicProvider()
+        config = EvalConfig(provider="anthropic", api_key="test-api-key")
+
+        mock_chat_class = MagicMock()
+        mock_module = MagicMock()
+        mock_module.ChatAnthropic = mock_chat_class
+
+        with patch.dict(sys.modules, {"langchain_anthropic": mock_module}):
+            provider.create_llm(config)
+
+            mock_chat_class.assert_called_once_with(
+                model="claude-3-5-haiku-latest",
+                temperature=0.0,
+                api_key="test-api-key",
+            )
+
+    def test_create_llm_with_custom_model(self) -> None:
+        """Should create LLM with custom model when specified."""
+        import sys
+
+        from voiceobs.eval.providers.anthropic import AnthropicProvider
+
+        provider = AnthropicProvider()
+        config = EvalConfig(
+            provider="anthropic", model="claude-3-5-sonnet-latest", temperature=0.7
+        )
+
+        mock_chat_class = MagicMock()
+        mock_module = MagicMock()
+        mock_module.ChatAnthropic = mock_chat_class
+
+        with patch.dict(sys.modules, {"langchain_anthropic": mock_module}):
+            provider.create_llm(config)
+
+            mock_chat_class.assert_called_once_with(
+                model="claude-3-5-sonnet-latest",
+                temperature=0.7,
+            )
+
+    def test_create_llm_raises_import_error(self) -> None:
+        """Should raise ImportError when langchain-anthropic not installed."""
+        import sys
+
+        from voiceobs.eval.providers.anthropic import AnthropicProvider
+
+        provider = AnthropicProvider()
+        config = EvalConfig(provider="anthropic")
+
+        with patch.dict(sys.modules, {"langchain_anthropic": None}):
+            with pytest.raises(ImportError, match="langchain-anthropic"):
+                provider.create_llm(config)
+
+
 class TestProviderRegistry:
     """Tests for the provider registry."""
 

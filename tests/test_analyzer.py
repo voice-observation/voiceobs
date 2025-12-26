@@ -8,6 +8,7 @@ import pytest
 
 from voiceobs.analyzer import (
     AnalysisResult,
+    EvalMetrics,
     StageMetrics,
     TurnMetrics,
     analyze_file,
@@ -92,6 +93,40 @@ class TestTurnMetrics:
             interruptions=0,
         )
         assert metrics.interruption_rate == 0.0
+
+
+class TestEvalMetrics:
+    """Tests for EvalMetrics class."""
+
+    def test_empty_metrics(self):
+        """Test empty eval metrics."""
+        metrics = EvalMetrics()
+        assert metrics.total_evals == 0
+        assert metrics.intent_correct_rate is None
+        assert metrics.intent_failure_rate is None
+        assert metrics.avg_relevance_score is None
+        assert metrics.min_relevance_score is None
+        assert metrics.max_relevance_score is None
+
+    def test_intent_rates(self):
+        """Test intent correctness and failure rates."""
+        metrics = EvalMetrics(
+            total_evals=10,
+            intent_correct_count=8,
+            intent_incorrect_count=2,
+        )
+        assert metrics.intent_correct_rate == 80.0
+        assert metrics.intent_failure_rate == 20.0
+
+    def test_relevance_scores(self):
+        """Test relevance score aggregation."""
+        metrics = EvalMetrics(
+            total_evals=3,
+            relevance_scores=[0.5, 0.8, 0.9],
+        )
+        assert metrics.avg_relevance_score == pytest.approx(0.7333, rel=0.01)
+        assert metrics.min_relevance_score == 0.5
+        assert metrics.max_relevance_score == 0.9
 
 
 class TestParseJSONL:
@@ -270,6 +305,47 @@ class TestAnalyzeSpans:
         result = analyze_spans(spans)
         assert len(result.turn_metrics.overlap_ms) == 2
 
+    def test_eval_metrics(self):
+        """Test evaluation record parsing."""
+        spans = [
+            {
+                "name": "voiceobs.eval",
+                "attributes": {
+                    "eval.intent_correct": True,
+                    "eval.relevance_score": 0.9,
+                    "voice.conversation.id": "conv-1",
+                    "voice.turn.id": "turn-1",
+                },
+            },
+            {
+                "name": "voiceobs.eval",
+                "attributes": {
+                    "eval.intent_correct": False,
+                    "eval.relevance_score": 0.3,
+                    "voice.conversation.id": "conv-1",
+                    "voice.turn.id": "turn-2",
+                },
+            },
+            {
+                "name": "voiceobs.eval",
+                "attributes": {
+                    "eval.intent_correct": True,
+                    "eval.relevance_score": 0.8,
+                    "voice.conversation.id": "conv-1",
+                    "voice.turn.id": "turn-3",
+                },
+            },
+        ]
+        result = analyze_spans(spans)
+
+        assert result.eval_metrics.total_evals == 3
+        assert result.eval_metrics.intent_correct_count == 2
+        assert result.eval_metrics.intent_incorrect_count == 1
+        assert result.eval_metrics.intent_correct_rate == pytest.approx(66.67, rel=0.01)
+        assert result.eval_metrics.intent_failure_rate == pytest.approx(33.33, rel=0.01)
+        assert len(result.eval_metrics.relevance_scores) == 3
+        assert result.eval_metrics.avg_relevance_score == pytest.approx(0.6667, rel=0.01)
+
 
 class TestAnalyzeFile:
     """Tests for analyze_file function."""
@@ -388,6 +464,14 @@ class TestFormatReport:
               Agent turns: 4
               Interruptions: 1
               Rate: 25.0%
+
+            Semantic Evaluation (probabilistic)
+            ------------------------------
+              Note: These metrics come from LLM-as-judge evaluation
+              and may vary slightly between runs.
+
+              No evaluation data available
+              (Run semantic evaluation to generate eval records)
         """)
 
         assert report == expected
@@ -404,6 +488,8 @@ class TestFormatReport:
         assert "TTS: no data" in report
         assert "No silence data available" in report
         assert "No agent turn data available" in report
+        assert "Semantic Evaluation (probabilistic)" in report
+        assert "No evaluation data available" in report
 
     def test_format_report_partial_data(self):
         """Test report format with partial stage data."""
@@ -421,6 +507,29 @@ class TestFormatReport:
         assert "ASR (n=2):" in report
         assert "LLM: no data" in report
         assert "TTS (n=1):" in report
+
+    def test_format_report_with_eval_data(self):
+        """Test report format with evaluation data."""
+        result = AnalysisResult(
+            total_spans=5,
+            total_conversations=1,
+            total_turns=3,
+            eval_metrics=EvalMetrics(
+                total_evals=3,
+                intent_correct_count=2,
+                intent_incorrect_count=1,
+                relevance_scores=[0.9, 0.3, 0.8],
+            ),
+        )
+
+        report = result.format_report()
+
+        assert "Semantic Evaluation (probabilistic)" in report
+        assert "Evaluated turns: 3" in report
+        assert "Intent correct: 66.7%" in report
+        assert "Intent failures: 33.3%" in report
+        assert "Avg relevance: 0.67" in report
+        assert "Relevance range: 0.30 - 0.90" in report
 
 
 class TestCLIIntegration:
@@ -477,3 +586,20 @@ class TestCLIIntegration:
 
         # Typer validates file existence and should exit with error
         assert result.exit_code != 0
+
+    def test_analyze_command_invalid_json(self, tmp_path):
+        """Test analyze command with invalid JSON file."""
+        from typer.testing import CliRunner
+
+        from voiceobs.cli import app
+
+        # Create a file with invalid JSON
+        file_path = tmp_path / "invalid.jsonl"
+        file_path.write_text("this is not valid json\n")
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["analyze", "--input", str(file_path)])
+
+        # Should exit with error code 1
+        assert result.exit_code == 1
+        assert "Error analyzing file" in result.output

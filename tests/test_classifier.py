@@ -117,6 +117,23 @@ class TestClassificationResult:
         summary = result.summary()
         assert summary == {"interruption": 2, "excessive_silence": 1}
 
+    def test_failures_by_severity(self) -> None:
+        """failures_by_severity should group failures by severity."""
+        from voiceobs.failures import Failure
+
+        result = ClassificationResult()
+        result.failures = [
+            Failure(type=FailureType.INTERRUPTION, severity=Severity.LOW, message="low1"),
+            Failure(type=FailureType.INTERRUPTION, severity=Severity.HIGH, message="high1"),
+            Failure(type=FailureType.EXCESSIVE_SILENCE, severity=Severity.LOW, message="low2"),
+            Failure(type=FailureType.SLOW_RESPONSE, severity=Severity.MEDIUM, message="med1"),
+        ]
+
+        by_severity = result.failures_by_severity
+        assert len(by_severity[Severity.LOW]) == 2
+        assert len(by_severity[Severity.MEDIUM]) == 1
+        assert len(by_severity[Severity.HIGH]) == 1
+
 
 class TestFailureClassifierSlowResponse:
     """Tests for slow response detection."""
@@ -177,6 +194,25 @@ class TestFailureClassifierSlowResponse:
 
         assert result.failure_count == 1
         assert result.failures[0].threshold == 1500.0
+
+    def test_unknown_stage_uses_llm_threshold(self) -> None:
+        """Unknown stage type attribute defaults to LLM threshold."""
+        thresholds = FailureThresholds(slow_llm_ms=1000.0)
+        # Create a span with a recognized name but unknown stage type attribute
+        # The classifier recognizes voice.llm but the stage.type is overridden
+        span = {
+            "name": "voice.llm",
+            "duration_ms": 1500.0,
+            "attributes": {
+                "voice.conversation.id": "conv-1",
+                "voice.stage.type": "custom_unknown",  # Not asr, llm, or tts
+            },
+        }
+        classifier = FailureClassifier(thresholds)
+        result = classifier.classify([span])
+
+        assert result.failure_count == 1
+        assert result.failures[0].threshold == 1000.0  # Uses LLM threshold as default
 
 
 class TestFailureClassifierExcessiveSilence:
@@ -291,6 +327,16 @@ class TestFailureClassifierInterruption:
         classifier = FailureClassifier(thresholds)
         result = classifier.classify(spans)
 
+        assert result.failure_count == 0
+
+    def test_overlap_exactly_at_threshold_no_failure(self) -> None:
+        """No failure when overlap is exactly at threshold."""
+        thresholds = FailureThresholds(interruption_overlap_ms=100.0)
+        spans = [make_turn_span("agent", overlap_ms=100.0)]
+        classifier = FailureClassifier(thresholds)
+        result = classifier.classify(spans)
+
+        # Overlap at exactly threshold should not trigger failure
         assert result.failure_count == 0
 
 

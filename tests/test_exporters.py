@@ -46,6 +46,29 @@ class TestJSONLSpanExporter:
         # Should not raise
         exporter.shutdown()
 
+    def test_export_returns_failure_on_write_error(self, tmp_path):
+        """Test that export returns FAILURE when write fails."""
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import SpanExportResult
+
+        file_path = tmp_path / "spans.jsonl"
+        exporter = JSONLSpanExporter(str(file_path))
+
+        # Create a span to export
+        provider = TracerProvider()
+        tracer = provider.get_tracer("test")
+
+        with tracer.start_as_current_span("test.span") as span:
+            pass
+
+        # Patch open to simulate write failure
+        with patch("builtins.open", side_effect=OSError("Disk full")):
+            # Create a mock span to export
+            mock_span = span
+            result = exporter.export([mock_span])
+
+            assert result == SpanExportResult.FAILURE
+
 
 class TestGetJSONLExporterFromEnv:
     """Tests for get_jsonl_exporter_from_env function."""

@@ -283,6 +283,40 @@ class TestSpeechEventMarkers:
         silence = timeline.compute_silence_after_user_ms()
         assert silence == 500.0
 
+    def test_silence_returns_none_when_no_current_turn(self):
+        """Test that compute_silence_after_user_ms returns None when no current turn."""
+        timeline = ConversationTimeline()
+
+        # User turn that gets ended
+        with patch("time.time_ns", return_value=0):
+            timeline.start_turn(0, "user")
+        with patch("time.time_ns", return_value=1_000_000_000):
+            timeline.end_turn()
+
+        # No current turn active
+        silence = timeline.compute_silence_after_user_ms()
+        assert silence is None
+
+    def test_overlap_returns_none_when_no_current_turn(self):
+        """Test that compute_overlap_ms returns None when no current turn."""
+        timeline = ConversationTimeline()
+
+        # No turn started at all
+        overlap = timeline.compute_overlap_ms()
+        assert overlap is None
+
+    def test_overlap_returns_none_when_current_turn_is_user(self):
+        """Test that compute_overlap_ms returns None when current turn is user."""
+        timeline = ConversationTimeline()
+
+        # Start a user turn
+        with patch("time.time_ns", return_value=0):
+            timeline.start_turn(0, "user")
+
+        # Overlap is only computed for agent turns
+        overlap = timeline.compute_overlap_ms()
+        assert overlap is None
+
 
 class TestSpeechEventsWithVoiceTurn:
     """Tests for speech event markers integrated with voice_turn."""

@@ -93,6 +93,55 @@ class TurnMetrics:
 
 
 @dataclass
+class EvalMetrics:
+    """Metrics from semantic evaluation results.
+
+    Note: These metrics are probabilistic since they come from LLM-as-judge
+    evaluation. Results may vary slightly between runs.
+    """
+
+    total_evals: int = 0
+    intent_correct_count: int = 0
+    intent_incorrect_count: int = 0
+    relevance_scores: list[float] = field(default_factory=list)
+
+    @property
+    def intent_correct_rate(self) -> float | None:
+        """Percentage of turns with correct intent."""
+        if self.total_evals == 0:
+            return None
+        return (self.intent_correct_count / self.total_evals) * 100
+
+    @property
+    def intent_failure_rate(self) -> float | None:
+        """Percentage of turns with incorrect intent."""
+        if self.total_evals == 0:
+            return None
+        return (self.intent_incorrect_count / self.total_evals) * 100
+
+    @property
+    def avg_relevance_score(self) -> float | None:
+        """Average relevance score (0.0 to 1.0)."""
+        if not self.relevance_scores:
+            return None
+        return statistics.mean(self.relevance_scores)
+
+    @property
+    def min_relevance_score(self) -> float | None:
+        """Minimum relevance score."""
+        if not self.relevance_scores:
+            return None
+        return min(self.relevance_scores)
+
+    @property
+    def max_relevance_score(self) -> float | None:
+        """Maximum relevance score."""
+        if not self.relevance_scores:
+            return None
+        return max(self.relevance_scores)
+
+
+@dataclass
 class AnalysisResult:
     """Complete analysis result from a JSONL file."""
 
@@ -105,6 +154,7 @@ class AnalysisResult:
     tts_metrics: StageMetrics = field(default_factory=lambda: StageMetrics("tts"))
 
     turn_metrics: TurnMetrics = field(default_factory=TurnMetrics)
+    eval_metrics: EvalMetrics = field(default_factory=EvalMetrics)
 
     def format_report(self) -> str:
         """Format the analysis result as a plain text report."""
@@ -164,6 +214,36 @@ class AnalysisResult:
                 lines.append(f"  Rate: {rate:.1f}%")
         else:
             lines.append("  No agent turn data available")
+
+        lines.append("")
+
+        # Semantic Evaluation (probabilistic)
+        lines.append("Semantic Evaluation (probabilistic)")
+        lines.append("-" * 30)
+        lines.append("  Note: These metrics come from LLM-as-judge evaluation")
+        lines.append("  and may vary slightly between runs.")
+        lines.append("")
+
+        if self.eval_metrics.total_evals > 0:
+            lines.append(f"  Evaluated turns: {self.eval_metrics.total_evals}")
+
+            if self.eval_metrics.intent_correct_rate is not None:
+                lines.append(f"  Intent correct: {self.eval_metrics.intent_correct_rate:.1f}%")
+
+            if self.eval_metrics.intent_failure_rate is not None:
+                lines.append(f"  Intent failures: {self.eval_metrics.intent_failure_rate:.1f}%")
+
+            if self.eval_metrics.avg_relevance_score is not None:
+                lines.append(f"  Avg relevance: {self.eval_metrics.avg_relevance_score:.2f}")
+
+            if self.eval_metrics.min_relevance_score is not None:
+                lines.append(
+                    f"  Relevance range: {self.eval_metrics.min_relevance_score:.2f} - "
+                    f"{self.eval_metrics.max_relevance_score:.2f}"
+                )
+        else:
+            lines.append("  No evaluation data available")
+            lines.append("  (Run semantic evaluation to generate eval records)")
 
         lines.append("")
 
@@ -265,6 +345,20 @@ def analyze_spans(spans: list[dict]) -> AnalysisResult:
                 interrupted = attrs.get("voice.interruption.detected")
                 if interrupted:
                     result.turn_metrics.interruptions += 1
+
+        # Evaluation records
+        elif name == "voiceobs.eval":
+            result.eval_metrics.total_evals += 1
+
+            intent_correct = attrs.get("eval.intent_correct")
+            if intent_correct is True:
+                result.eval_metrics.intent_correct_count += 1
+            elif intent_correct is False:
+                result.eval_metrics.intent_incorrect_count += 1
+
+            relevance_score = attrs.get("eval.relevance_score")
+            if relevance_score is not None:
+                result.eval_metrics.relevance_scores.append(relevance_score)
 
     result.total_conversations = len(conversation_ids)
 
