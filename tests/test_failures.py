@@ -1,12 +1,9 @@
 """Tests for the failure taxonomy module."""
 
-import pytest
-
 from voiceobs.failures import (
     DEFAULT_THRESHOLDS,
     FAILURE_DEFINITIONS,
     Failure,
-    FailureDefinition,
     FailureThresholds,
     FailureType,
     Severity,

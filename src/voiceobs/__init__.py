@@ -1,6 +1,12 @@
 """voiceobs - Open, vendor-neutral observability for voice AI conversations."""
 
 from voiceobs._version import __version__
+from voiceobs.classifier import (
+    ClassificationResult,
+    FailureClassifier,
+    classify_file,
+    classify_spans,
+)
 from voiceobs.context import (
     VOICE_SCHEMA_VERSION,
     ConversationContext,
@@ -34,8 +40,10 @@ __all__ = [
     "__version__",
     "VOICE_SCHEMA_VERSION",
     "Actor",
+    "ClassificationResult",
     "ConversationContext",
     "Failure",
+    "FailureClassifier",
     "FailureThresholds",
     "FailureType",
     "JSONLSpanExporter",
@@ -43,6 +51,8 @@ __all__ = [
     "StageContext",
     "StageType",
     "TurnContext",
+    "classify_file",
+    "classify_spans",
     "ensure_tracing_initialized",
     "get_current_conversation",
     "get_current_turn",
