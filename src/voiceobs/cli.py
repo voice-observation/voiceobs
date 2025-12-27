@@ -5,6 +5,8 @@ from pathlib import Path
 
 import typer
 
+from voiceobs.config import PROJECT_CONFIG_NAME, generate_default_config
+
 app = typer.Typer(
     name="voiceobs",
     help="Voice AI observability toolkit",
@@ -18,6 +20,57 @@ def version() -> None:
     from voiceobs._version import __version__
 
     typer.echo(f"voiceobs {__version__}")
+
+
+@app.command()
+def init(
+    force: bool = typer.Option(
+        False,
+        "--force",
+        "-f",
+        help="Overwrite existing config file",
+    ),
+    path: Path = typer.Option(
+        None,
+        "--path",
+        "-p",
+        help="Custom path for config file (default: ./voiceobs.yaml)",
+    ),
+) -> None:
+    """Initialize a voiceobs configuration file.
+
+    Creates a voiceobs.yaml file with default settings and helpful comments.
+    The config file controls exporter settings, failure thresholds,
+    regression detection, and LLM evaluator options.
+
+    Example:
+        voiceobs init
+        voiceobs init --force
+        voiceobs init --path ./config/voiceobs.yaml
+    """
+    config_path = path or Path.cwd() / PROJECT_CONFIG_NAME
+
+    if config_path.exists() and not force:
+        typer.echo(f"Config file already exists: {config_path}", err=True)
+        typer.echo("Use --force to overwrite.", err=True)
+        raise typer.Exit(1)
+
+    # Ensure parent directory exists
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Generate and write config
+    config_content = generate_default_config()
+    config_path.write_text(config_content)
+
+    typer.echo(f"Created config file: {config_path}")
+    typer.echo()
+    typer.echo("Configuration options:")
+    typer.echo("  - exporters: Configure JSONL and console output")
+    typer.echo("  - failures: Set detection thresholds")
+    typer.echo("  - regression: Set comparison thresholds")
+    typer.echo("  - eval: Configure LLM evaluator")
+    typer.echo()
+    typer.echo("Edit the file to customize settings for your project.")
 
 
 @app.command()
@@ -146,11 +199,16 @@ def analyze(
 ) -> None:
     """Analyze a JSONL trace file and print latency metrics.
 
-    Reads spans from a JSONL file (created with VOICEOBS_JSONL_OUT env var)
-    and computes:
+    Reads spans from a JSONL file and computes:
     - ASR / LLM / TTS latency percentiles
     - Average and p95 response latency (silence after user)
     - Interruption rate
+
+    To enable JSONL export, configure it in voiceobs.yaml:
+        exporters:
+          jsonl:
+            enabled: true
+            path: "./run.jsonl"
 
     Example:
         voiceobs analyze --input run.jsonl
@@ -165,6 +223,72 @@ def analyze(
         raise typer.Exit(1)
     except Exception as e:
         typer.echo(f"Error analyzing file: {e}", err=True)
+        raise typer.Exit(1)
+
+
+@app.command()
+def compare(
+    baseline_file: Path = typer.Option(
+        ...,
+        "--baseline",
+        "-b",
+        help="Path to the baseline JSONL file",
+        exists=True,
+        readable=True,
+    ),
+    current_file: Path = typer.Option(
+        ...,
+        "--current",
+        "-c",
+        help="Path to the current JSONL file to compare",
+        exists=True,
+        readable=True,
+    ),
+    fail_on_regression: bool = typer.Option(
+        False,
+        "--fail-on-regression",
+        help="Exit with non-zero code if regressions are detected",
+    ),
+) -> None:
+    """Compare two JSONL trace files and detect regressions.
+
+    Compares metrics between a baseline and current run, highlighting:
+    - Latency deltas (ASR, LLM, TTS p95)
+    - Response latency deltas (silence after user)
+    - Interruption rate changes
+    - Semantic score changes (intent correctness, relevance)
+
+    Use --fail-on-regression in CI to fail the build on detected regressions.
+
+    Example:
+        voiceobs compare --baseline baseline.jsonl --current current.jsonl
+        voiceobs compare -b baseline.jsonl -c current.jsonl --fail-on-regression
+    """
+    from voiceobs.analyzer import analyze_file
+    from voiceobs.compare import compare_runs
+
+    try:
+        baseline_result = analyze_file(baseline_file)
+        current_result = analyze_file(current_file)
+
+        comparison = compare_runs(
+            baseline=baseline_result,
+            current=current_result,
+            baseline_file=str(baseline_file),
+            current_file=str(current_file),
+        )
+
+        typer.echo(comparison.format_report())
+
+        if fail_on_regression and comparison.has_regressions:
+            typer.echo("Regression(s) detected. Failing build.", err=True)
+            raise typer.Exit(1)
+
+    except FileNotFoundError as e:
+        typer.echo(f"Error: File not found: {e}", err=True)
+        raise typer.Exit(1)
+    except Exception as e:
+        typer.echo(f"Error comparing files: {e}", err=True)
         raise typer.Exit(1)
 
 

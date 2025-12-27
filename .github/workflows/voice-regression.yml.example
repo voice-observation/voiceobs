@@ -1,0 +1,108 @@
+# Voice AI Regression Test Workflow
+#
+# This is an example workflow for detecting voice AI regressions.
+# Copy this file to your project as .github/workflows/voice-regression.yml
+# and customize it for your needs.
+#
+# Prerequisites:
+# 1. A test script that exercises your voice pipeline (test_voice_pipeline.py)
+# 2. A baseline.jsonl file committed to your repository
+#
+# See docs/ci-workflow.md for detailed documentation.
+
+name: Voice AI Regression Test
+
+on:
+  pull_request:
+    branches: [main]
+  # Optionally run on push to main to update baselines
+  # push:
+  #   branches: [main]
+
+jobs:
+  regression-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install voiceobs
+          # Install your project dependencies
+          # pip install -r requirements.txt
+
+      - name: Capture current run
+        run: |
+          # Run your test script with JSONL output
+          VOICEOBS_JSONL_OUT=current.jsonl python test_voice_pipeline.py
+        env:
+          # Add any API keys needed for your pipeline
+          # OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          PYTHONUNBUFFERED: "1"
+
+      - name: Compare against baseline
+        run: |
+          # Compare current run against committed baseline
+          voiceobs compare \
+            --baseline baseline.jsonl \
+            --current current.jsonl \
+            --fail-on-regression
+
+      - name: Upload artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-artifacts
+          path: |
+            baseline.jsonl
+            current.jsonl
+
+# Alternative: Generate baseline from main branch
+# Uncomment this job and comment out the one above if you prefer
+# to generate baseline dynamically from the main branch.
+#
+#   regression-test-dynamic-baseline:
+#     runs-on: ubuntu-latest
+#
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
+#         with:
+#           fetch-depth: 0
+#
+#       - name: Set up Python
+#         uses: actions/setup-python@v5
+#         with:
+#           python-version: '3.11'
+#
+#       - name: Install dependencies
+#         run: |
+#           pip install voiceobs
+#           pip install -r requirements.txt
+#
+#       - name: Generate baseline from main
+#         run: |
+#           # Stash current changes
+#           git stash
+#
+#           # Checkout main and generate baseline
+#           git checkout origin/main
+#           VOICEOBS_JSONL_OUT=baseline.jsonl python test_voice_pipeline.py
+#
+#           # Return to PR branch
+#           git checkout -
+#           git stash pop || true
+#
+#       - name: Capture current and compare
+#         run: |
+#           VOICEOBS_JSONL_OUT=current.jsonl python test_voice_pipeline.py
+#           voiceobs compare -b baseline.jsonl -c current.jsonl --fail-on-regression

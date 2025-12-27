@@ -1,14 +1,14 @@
 """Tests for voiceobs exporters."""
 
 import json
-import os
 from unittest.mock import patch
 
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
 from voiceobs import JSONLSpanExporter
-from voiceobs.exporters import get_jsonl_exporter_from_env
+from voiceobs.config import ExporterJsonlConfig, ExportersConfig, VoiceobsConfig
+from voiceobs.exporters import get_jsonl_exporter_from_config
 
 
 class TestJSONLSpanExporter:
@@ -70,22 +70,30 @@ class TestJSONLSpanExporter:
             assert result == SpanExportResult.FAILURE
 
 
-class TestGetJSONLExporterFromEnv:
-    """Tests for get_jsonl_exporter_from_env function."""
+class TestGetJSONLExporterFromConfig:
+    """Tests for get_jsonl_exporter_from_config function."""
 
-    def test_returns_none_when_env_not_set(self):
-        """Test that None is returned when env var is not set."""
-        with patch.dict(os.environ, {}, clear=True):
-            # Make sure env var is not set
-            os.environ.pop("VOICEOBS_JSONL_OUT", None)
-            exporter = get_jsonl_exporter_from_env()
+    def test_returns_none_when_disabled(self):
+        """Test that None is returned when jsonl export is disabled."""
+        config = VoiceobsConfig(
+            exporters=ExportersConfig(
+                jsonl=ExporterJsonlConfig(enabled=False)
+            )
+        )
+        with patch("voiceobs.config.get_config", return_value=config):
+            exporter = get_jsonl_exporter_from_config()
             assert exporter is None
 
-    def test_returns_exporter_when_env_set(self, tmp_path):
-        """Test that exporter is returned when env var is set."""
+    def test_returns_exporter_when_enabled(self, tmp_path):
+        """Test that exporter is returned when jsonl export is enabled."""
         file_path = tmp_path / "test.jsonl"
-        with patch.dict(os.environ, {"VOICEOBS_JSONL_OUT": str(file_path)}):
-            exporter = get_jsonl_exporter_from_env()
+        config = VoiceobsConfig(
+            exporters=ExportersConfig(
+                jsonl=ExporterJsonlConfig(enabled=True, path=str(file_path))
+            )
+        )
+        with patch("voiceobs.config.get_config", return_value=config):
+            exporter = get_jsonl_exporter_from_config()
             assert exporter is not None
             assert isinstance(exporter, JSONLSpanExporter)
 

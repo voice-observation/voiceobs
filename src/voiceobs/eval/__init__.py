@@ -1,11 +1,19 @@
 """Semantic evaluation module for voice conversations.
 
+.. warning::
+    **EXPERIMENTAL**: This module is experimental and its API may change
+    in future versions. Use with caution in production environments.
+
 This module provides LLM-as-judge evaluation for assessing the quality
 of voice AI responses. It uses langchain for LLM abstraction, with
 Google Gemini as the default provider.
 
 Note: This module requires the 'eval' optional dependencies:
     pip install voiceobs[eval]
+
+Important: Semantic evaluation results are probabilistic. LLM judgments
+may vary slightly between runs. See docs/failures.md for details on
+interpreting evaluation metrics.
 
 Example:
     from voiceobs.eval import SemanticEvaluator, EvalInput

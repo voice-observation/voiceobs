@@ -2490,6 +2490,7 @@ source = { editable = "." }
 dependencies = [
     { name = "opentelemetry-api" },
     { name = "opentelemetry-sdk" },
+    { name = "pyyaml" },
     { name = "typer" },
 ]
 
@@ -2525,6 +2526,7 @@ requires-dist = [
     { name = "pydantic", marker = "extra == 'dev'", specifier = ">=2.0.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.0.0" },
+    { name = "pyyaml", specifier = ">=6.0.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1.0" },
     { name = "typer", specifier = ">=0.9.0" },
 ]

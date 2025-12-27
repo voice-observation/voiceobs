@@ -7,7 +7,6 @@ JSONL export for local analysis.
 from __future__ import annotations
 
 import json
-import os
 import threading
 from collections.abc import Sequence
 
@@ -121,25 +120,30 @@ class JSONLSpanExporter(SpanExporter):
         return span_dict
 
 
-def get_jsonl_exporter_from_env() -> JSONLSpanExporter | None:
-    """Get a JSONL exporter if configured via environment variable.
+def get_jsonl_exporter_from_config() -> JSONLSpanExporter | None:
+    """Get a JSONL exporter if enabled in config.
 
-    Checks for the VOICEOBS_JSONL_OUT environment variable. If set,
-    creates and returns a JSONLSpanExporter with that file path.
+    Reads the voiceobs configuration and creates a JSONLSpanExporter
+    if exporters.jsonl.enabled is True.
 
     Returns:
-        JSONLSpanExporter if VOICEOBS_JSONL_OUT is set, None otherwise.
+        JSONLSpanExporter if enabled in config, None otherwise.
 
     Example:
-        # In shell:
-        export VOICEOBS_JSONL_OUT=./my_traces.jsonl
+        # In voiceobs.yaml:
+        # exporters:
+        #   jsonl:
+        #     enabled: true
+        #     path: "./traces.jsonl"
 
         # In Python:
-        exporter = get_jsonl_exporter_from_env()
+        exporter = get_jsonl_exporter_from_config()
         if exporter:
             provider.add_span_processor(BatchSpanProcessor(exporter))
     """
-    jsonl_path = os.environ.get("VOICEOBS_JSONL_OUT")
-    if jsonl_path:
-        return JSONLSpanExporter(jsonl_path)
+    from voiceobs.config import get_config
+
+    config = get_config()
+    if config.exporters.jsonl.enabled:
+        return JSONLSpanExporter(config.exporters.jsonl.path)
     return None

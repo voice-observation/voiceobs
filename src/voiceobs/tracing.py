@@ -13,7 +13,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 from opentelemetry.trace import NoOpTracerProvider
 
-from voiceobs.exporters import get_jsonl_exporter_from_env
+from voiceobs.exporters import get_jsonl_exporter_from_config
 
 # Thread-safe initialization flag
 _init_lock = threading.Lock()
@@ -59,12 +59,18 @@ def ensure_tracing_initialized(force: bool = False) -> bool:
     Behavior:
         - If a real TracerProvider is already configured: does nothing, returns False
         - If no provider configured: sets up TracerProvider with ConsoleSpanExporter
-        - If VOICEOBS_JSONL_OUT env var is set: also adds JSONLSpanExporter
+        - If JSONL export is enabled in config: also adds JSONLSpanExporter
         - Thread-safe: safe to call from multiple threads
 
-    Environment Variables:
-        VOICEOBS_JSONL_OUT: Path to JSONL file for span export.
-            Example: VOICEOBS_JSONL_OUT=./traces.jsonl
+    Configuration:
+        Create a voiceobs.yaml file with 'voiceobs init' to configure exporters:
+
+        exporters:
+          jsonl:
+            enabled: true
+            path: "./traces.jsonl"
+          console:
+            enabled: true
 
     Example:
         # At application startup
@@ -91,16 +97,19 @@ def ensure_tracing_initialized(force: bool = False) -> bool:
             return False
 
         # No provider configured, set up defaults
+        from voiceobs.config import get_config
+
+        config = get_config()
         provider = TracerProvider()
 
-        # Add console exporter for out-of-the-box visibility
-        console_exporter = ConsoleSpanExporter()
-        processor = BatchSpanProcessor(console_exporter)
-        provider.add_span_processor(processor)
+        # Add console exporter if enabled in config (default: True)
+        if config.exporters.console.enabled:
+            console_exporter = ConsoleSpanExporter()
+            processor = BatchSpanProcessor(console_exporter)
+            provider.add_span_processor(processor)
 
-        # Add JSONL exporter if configured via env var
-
-        jsonl_exporter = get_jsonl_exporter_from_env()
+        # Add JSONL exporter if enabled in config
+        jsonl_exporter = get_jsonl_exporter_from_config()
         if jsonl_exporter:
             jsonl_processor = BatchSpanProcessor(jsonl_exporter)
             provider.add_span_processor(jsonl_processor)

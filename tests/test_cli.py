@@ -163,6 +163,175 @@ class TestDoctorCommand:
         assert "Run 'voiceobs demo' to see tracing in action." in result.output
 
 
+class TestCompareCommand:
+    """Tests for the compare command."""
+
+    def test_compare_runs_successfully(self, tmp_path):
+        """Test that compare command runs without errors."""
+        import json
+
+        # Create baseline file
+        baseline_file = tmp_path / "baseline.jsonl"
+        baseline_data = [
+            {
+                "name": "voice.llm",
+                "duration_ms": 200.0,
+                "attributes": {
+                    "voice.conversation.id": "conv-1",
+                    "voice.stage.type": "llm",
+                },
+            },
+            {
+                "name": "voice.turn",
+                "duration_ms": 500.0,
+                "attributes": {
+                    "voice.conversation.id": "conv-1",
+                    "voice.actor": "agent",
+                    "voice.silence.after_user_ms": 100.0,
+                },
+            },
+        ]
+        baseline_file.write_text("\n".join(json.dumps(d) for d in baseline_data))
+
+        # Create current file (identical to baseline)
+        current_file = tmp_path / "current.jsonl"
+        current_file.write_text("\n".join(json.dumps(d) for d in baseline_data))
+
+        result = runner.invoke(
+            app, ["compare", "--baseline", str(baseline_file), "--current", str(current_file)]
+        )
+
+        assert result.exit_code == 0
+        assert "voiceobs Comparison Report" in result.output
+        assert "No regressions detected" in result.output
+
+    def test_compare_detects_regression(self, tmp_path):
+        """Test that compare command detects regressions."""
+        import json
+
+        # Create baseline file
+        baseline_file = tmp_path / "baseline.jsonl"
+        baseline_data = [
+            {
+                "name": "voice.llm",
+                "duration_ms": 200.0,
+                "attributes": {"voice.stage.type": "llm"},
+            },
+        ]
+        baseline_file.write_text(json.dumps(baseline_data[0]))
+
+        # Create current file with 50% increase (above critical threshold)
+        current_file = tmp_path / "current.jsonl"
+        current_data = [
+            {
+                "name": "voice.llm",
+                "duration_ms": 300.0,
+                "attributes": {"voice.stage.type": "llm"},
+            },
+        ]
+        current_file.write_text(json.dumps(current_data[0]))
+
+        result = runner.invoke(
+            app, ["compare", "--baseline", str(baseline_file), "--current", str(current_file)]
+        )
+
+        assert result.exit_code == 0  # Without --fail-on-regression, should still succeed
+        assert "Regressions" in result.output
+
+    def test_compare_fail_on_regression_flag(self, tmp_path):
+        """Test that --fail-on-regression exits with code 1 on regressions."""
+        import json
+
+        # Create baseline file
+        baseline_file = tmp_path / "baseline.jsonl"
+        baseline_data = [
+            {
+                "name": "voice.llm",
+                "duration_ms": 200.0,
+                "attributes": {"voice.stage.type": "llm"},
+            },
+        ]
+        baseline_file.write_text(json.dumps(baseline_data[0]))
+
+        # Create current file with 50% increase (above critical threshold)
+        current_file = tmp_path / "current.jsonl"
+        current_data = [
+            {
+                "name": "voice.llm",
+                "duration_ms": 300.0,
+                "attributes": {"voice.stage.type": "llm"},
+            },
+        ]
+        current_file.write_text(json.dumps(current_data[0]))
+
+        result = runner.invoke(
+            app,
+            [
+                "compare",
+                "--baseline",
+                str(baseline_file),
+                "--current",
+                str(current_file),
+                "--fail-on-regression",
+            ],
+        )
+
+        assert result.exit_code == 1
+        assert "Regression(s) detected" in result.output
+
+    def test_compare_no_regression_with_fail_flag(self, tmp_path):
+        """Test that --fail-on-regression exits with code 0 when no regressions."""
+        import json
+
+        # Create identical files
+        baseline_file = tmp_path / "baseline.jsonl"
+        baseline_data = [
+            {
+                "name": "voice.llm",
+                "duration_ms": 200.0,
+                "attributes": {"voice.stage.type": "llm"},
+            },
+        ]
+        baseline_file.write_text(json.dumps(baseline_data[0]))
+
+        current_file = tmp_path / "current.jsonl"
+        current_file.write_text(json.dumps(baseline_data[0]))
+
+        result = runner.invoke(
+            app,
+            [
+                "compare",
+                "--baseline",
+                str(baseline_file),
+                "--current",
+                str(current_file),
+                "--fail-on-regression",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "No regressions detected" in result.output
+
+    def test_compare_missing_baseline_file(self, tmp_path):
+        """Test that compare command handles missing baseline file."""
+        current_file = tmp_path / "current.jsonl"
+        current_file.write_text("{}")
+
+        result = runner.invoke(
+            app,
+            ["compare", "--baseline", "nonexistent.jsonl", "--current", str(current_file)],
+        )
+
+        assert result.exit_code != 0
+
+    def test_compare_shows_in_help(self):
+        """Test that compare command appears in help output."""
+        result = runner.invoke(app, ["--help"])
+
+        assert result.exit_code == 0
+        assert "compare" in result.output
+
+
 class TestCliApp:
     """Tests for the CLI app itself."""
 
@@ -231,3 +400,87 @@ class TestCliApp:
         # Should succeed and show help
         assert result.returncode == 0
         assert "Voice AI observability toolkit" in result.stdout
+
+
+class TestInitCommand:
+    """Tests for the init command."""
+
+    def test_init_creates_config_file(self, tmp_path):
+        """Test that init command creates a config file."""
+        config_path = tmp_path / "voiceobs.yaml"
+
+        result = runner.invoke(app, ["init", "--path", str(config_path)])
+
+        assert result.exit_code == 0
+        assert config_path.exists()
+        assert "Created config file:" in result.output
+
+    def test_init_generates_valid_yaml(self, tmp_path):
+        """Test that init command generates valid YAML."""
+        import yaml
+
+        config_path = tmp_path / "voiceobs.yaml"
+
+        result = runner.invoke(app, ["init", "--path", str(config_path)])
+
+        assert result.exit_code == 0
+        content = config_path.read_text()
+        parsed = yaml.safe_load(content)
+        assert "exporters" in parsed
+        assert "failures" in parsed
+        assert "regression" in parsed
+        assert "eval" in parsed
+
+    def test_init_fails_if_file_exists(self, tmp_path):
+        """Test that init fails if config file already exists."""
+        config_path = tmp_path / "voiceobs.yaml"
+        config_path.write_text("existing: content")
+
+        result = runner.invoke(app, ["init", "--path", str(config_path)])
+
+        assert result.exit_code == 1
+        assert "Config file already exists" in result.output
+        assert "Use --force to overwrite" in result.output
+
+    def test_init_force_overwrites_existing(self, tmp_path):
+        """Test that init with --force overwrites existing config."""
+        config_path = tmp_path / "voiceobs.yaml"
+        config_path.write_text("existing: content")
+
+        result = runner.invoke(app, ["init", "--force", "--path", str(config_path)])
+
+        assert result.exit_code == 0
+        content = config_path.read_text()
+        assert "existing: content" not in content
+        assert "exporters:" in content
+
+    def test_init_creates_parent_directories(self, tmp_path):
+        """Test that init creates parent directories if needed."""
+        config_path = tmp_path / "subdir" / "nested" / "voiceobs.yaml"
+
+        result = runner.invoke(app, ["init", "--path", str(config_path)])
+
+        assert result.exit_code == 0
+        assert config_path.exists()
+
+    def test_init_shows_configuration_options(self, tmp_path):
+        """Test that init shows available configuration options."""
+        config_path = tmp_path / "voiceobs.yaml"
+
+        result = runner.invoke(app, ["init", "--path", str(config_path)])
+
+        assert result.exit_code == 0
+        assert "Configuration options:" in result.output
+        assert "exporters:" in result.output
+        assert "failures:" in result.output
+        assert "regression:" in result.output
+        assert "eval:" in result.output
+
+    def test_init_help_shows_examples(self):
+        """Test that init --help shows usage examples."""
+        result = runner.invoke(app, ["init", "--help"])
+
+        assert result.exit_code == 0
+        assert "voiceobs init" in result.output
+        assert "--force" in result.output
+        assert "--path" in result.output

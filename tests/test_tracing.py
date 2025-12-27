@@ -145,21 +145,34 @@ class TestEnsureTracingInitialized:
         # Clean up
         reset_initialization()
 
-    def test_ensure_tracing_initialized_adds_jsonl_exporter_when_env_set(self, tmp_path):
-        """Test that JSONL exporter is added when VOICEOBS_JSONL_OUT is set."""
-        import os
+    def test_ensure_tracing_initialized_adds_jsonl_exporter_when_config_enabled(self, tmp_path):
+        """Test that JSONL exporter is added when enabled in config."""
+        from voiceobs.config import (
+            ExporterJsonlConfig,
+            ExportersConfig,
+            VoiceobsConfig,
+        )
 
         # Reset initialization state
         reset_initialization()
 
         jsonl_path = tmp_path / "test_traces.jsonl"
 
+        # Create config with JSONL enabled
+        config = VoiceobsConfig(
+            exporters=ExportersConfig(
+                jsonl=ExporterJsonlConfig(enabled=True, path=str(jsonl_path))
+            )
+        )
+
         # Mock _has_real_provider to return False so we initialize
         with patch("voiceobs.tracing._has_real_provider", return_value=False):
-            # Set the env var to enable JSONL export
-            with patch.dict(os.environ, {"VOICEOBS_JSONL_OUT": str(jsonl_path)}):
+            # Mock config to enable JSONL export
+            with patch("voiceobs.config.get_config", return_value=config):
                 # Mock trace.set_tracer_provider to verify it's called
-                with patch("voiceobs.tracing.trace.set_tracer_provider") as mock_set_provider:
+                with patch(
+                    "voiceobs.tracing.trace.set_tracer_provider"
+                ) as mock_set_provider:
                     result = ensure_tracing_initialized()
 
                     assert result is True
@@ -171,7 +184,7 @@ class TestEnsureTracingInitialized:
 
                     # The provider should have 2 span processors:
                     # 1. ConsoleSpanExporter processor
-                    # 2. JSONLSpanExporter processor (because env var was set)
+                    # 2. JSONLSpanExporter processor (because config enabled)
                     # Note: TracerProvider stores processors internally
                     # We can verify by checking the processor was added
                     processors = provider._active_span_processor._span_processors
