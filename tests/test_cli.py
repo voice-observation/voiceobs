@@ -484,3 +484,193 @@ class TestInitCommand:
         assert "voiceobs init" in result.output
         assert "--force" in result.output
         assert "--path" in result.output
+
+
+class TestReportCommand:
+    """Tests for the report command."""
+
+    def test_report_generates_markdown_by_default(self, tmp_path):
+        """Test that report command generates markdown by default."""
+        import json
+
+        # Create a JSONL file
+        input_file = tmp_path / "run.jsonl"
+        data = [
+            {
+                "name": "voice.turn",
+                "duration_ms": 1000.0,
+                "attributes": {"voice.actor": "agent", "voice.conversation.id": "conv-1"},
+            },
+            {
+                "name": "voice.llm",
+                "duration_ms": 500.0,
+                "attributes": {"voice.stage.type": "llm"},
+            },
+        ]
+        input_file.write_text("\n".join(json.dumps(d) for d in data))
+
+        result = runner.invoke(app, ["report", "--input", str(input_file)])
+
+        assert result.exit_code == 0
+        assert "# voiceobs Analysis Report" in result.output
+        assert "## Summary" in result.output
+        assert "## Latency Breakdown" in result.output
+
+    def test_report_generates_html_format(self, tmp_path):
+        """Test that report command generates HTML when specified."""
+        import json
+
+        input_file = tmp_path / "run.jsonl"
+        data = [
+            {
+                "name": "voice.turn",
+                "duration_ms": 1000.0,
+                "attributes": {"voice.actor": "agent"},
+            },
+        ]
+        input_file.write_text(json.dumps(data[0]))
+
+        result = runner.invoke(app, ["report", "--input", str(input_file), "--format", "html"])
+
+        assert result.exit_code == 0
+        assert "<html" in result.output
+        assert "</html>" in result.output
+
+    def test_report_saves_to_output_file(self, tmp_path):
+        """Test that report command saves to output file when specified."""
+        import json
+
+        input_file = tmp_path / "run.jsonl"
+        output_file = tmp_path / "report.md"
+        data = [
+            {
+                "name": "voice.turn",
+                "duration_ms": 1000.0,
+                "attributes": {"voice.actor": "agent"},
+            },
+        ]
+        input_file.write_text(json.dumps(data[0]))
+
+        result = runner.invoke(
+            app, ["report", "--input", str(input_file), "--output", str(output_file)]
+        )
+
+        assert result.exit_code == 0
+        assert output_file.exists()
+        assert "Report saved to:" in result.output
+        content = output_file.read_text()
+        assert "# voiceobs Analysis Report" in content
+
+    def test_report_saves_html_to_output_file(self, tmp_path):
+        """Test that report command saves HTML to output file."""
+        import json
+
+        input_file = tmp_path / "run.jsonl"
+        output_file = tmp_path / "report.html"
+        data = [
+            {
+                "name": "voice.turn",
+                "duration_ms": 1000.0,
+                "attributes": {"voice.actor": "agent"},
+            },
+        ]
+        input_file.write_text(json.dumps(data[0]))
+
+        result = runner.invoke(
+            app,
+            [
+                "report",
+                "--input",
+                str(input_file),
+                "--format",
+                "html",
+                "--output",
+                str(output_file),
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert output_file.exists()
+        content = output_file.read_text()
+        assert "<html" in content
+
+    def test_report_with_custom_title(self, tmp_path):
+        """Test that report command uses custom title."""
+        import json
+
+        input_file = tmp_path / "run.jsonl"
+        data = [
+            {
+                "name": "voice.turn",
+                "duration_ms": 1000.0,
+                "attributes": {"voice.actor": "agent"},
+            },
+        ]
+        input_file.write_text(json.dumps(data[0]))
+
+        result = runner.invoke(
+            app, ["report", "--input", str(input_file), "--title", "My Custom Report"]
+        )
+
+        assert result.exit_code == 0
+        assert "# My Custom Report" in result.output
+
+    def test_report_invalid_format_fails(self, tmp_path):
+        """Test that report command fails with invalid format."""
+        import json
+
+        input_file = tmp_path / "run.jsonl"
+        data = [{"name": "voice.turn", "duration_ms": 1000.0, "attributes": {}}]
+        input_file.write_text(json.dumps(data[0]))
+
+        result = runner.invoke(app, ["report", "--input", str(input_file), "--format", "pdf"])
+
+        assert result.exit_code == 1
+        assert "Invalid format" in result.output
+
+    def test_report_missing_file_fails(self):
+        """Test that report command fails when file is missing."""
+        result = runner.invoke(app, ["report", "--input", "nonexistent.jsonl"])
+
+        assert result.exit_code != 0
+
+    def test_report_creates_parent_directories_for_output(self, tmp_path):
+        """Test that report command creates parent directories for output."""
+        import json
+
+        input_file = tmp_path / "run.jsonl"
+        output_file = tmp_path / "subdir" / "nested" / "report.md"
+        data = [
+            {
+                "name": "voice.turn",
+                "duration_ms": 1000.0,
+                "attributes": {"voice.actor": "agent"},
+            },
+        ]
+        input_file.write_text(json.dumps(data[0]))
+
+        result = runner.invoke(
+            app, ["report", "--input", str(input_file), "--output", str(output_file)]
+        )
+
+        assert result.exit_code == 0
+        assert output_file.exists()
+
+    def test_report_shows_in_help(self):
+        """Test that report command appears in help output."""
+        result = runner.invoke(app, ["--help"])
+
+        assert result.exit_code == 0
+        assert "report" in result.output
+
+    def test_report_help_shows_options(self):
+        """Test that report --help shows all options."""
+        result = runner.invoke(app, ["report", "--help"])
+
+        assert result.exit_code == 0
+        assert "--input" in result.output
+        assert "--format" in result.output
+        assert "--output" in result.output
+        assert "--title" in result.output
+        assert "markdown" in result.output
+        assert "html" in result.output

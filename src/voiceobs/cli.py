@@ -292,5 +292,82 @@ def compare(
         raise typer.Exit(1)
 
 
+@app.command()
+def report(
+    input_file: Path = typer.Option(
+        ...,
+        "--input",
+        "-i",
+        help="Path to the JSONL file to analyze",
+        exists=True,
+        readable=True,
+    ),
+    format: str = typer.Option(
+        "markdown",
+        "--format",
+        "-f",
+        help="Output format: 'markdown' or 'html' (default: markdown)",
+    ),
+    output: Path = typer.Option(
+        None,
+        "--output",
+        "-o",
+        help="Output file path (prints to stdout if not specified)",
+    ),
+    title: str = typer.Option(
+        None,
+        "--title",
+        "-t",
+        help="Custom report title",
+    ),
+) -> None:
+    """Generate a report from a JSONL trace file.
+
+    Creates a formatted report with:
+    - Summary (conversation count, turn count, span count)
+    - Latency breakdown (ASR/LLM/TTS p50/p95/p99)
+    - Failure summary by type and severity
+    - Semantic evaluation summary (if available)
+    - Recommendations based on detected issues
+
+    The report can be output as markdown (for terminal/GitHub) or
+    HTML (self-contained, suitable for sharing via email/Slack).
+
+    Example:
+        voiceobs report --input run.jsonl
+        voiceobs report --input run.jsonl --format html --output report.html
+        voiceobs report -i run.jsonl -f markdown -o report.md
+    """
+    from voiceobs.report import generate_report_from_file
+
+    # Validate format
+    valid_formats = ("markdown", "html")
+    if format not in valid_formats:
+        typer.echo(f"Error: Invalid format '{format}'. Use 'markdown' or 'html'.", err=True)
+        raise typer.Exit(1)
+
+    try:
+        report_content = generate_report_from_file(
+            input_file,
+            format=format,  # type: ignore[arg-type]
+            title=title,
+        )
+
+        if output:
+            # Ensure parent directory exists
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text(report_content)
+            typer.echo(f"Report saved to: {output}")
+        else:
+            typer.echo(report_content)
+
+    except FileNotFoundError:
+        typer.echo(f"Error: File not found: {input_file}", err=True)
+        raise typer.Exit(1)
+    except Exception as e:
+        typer.echo(f"Error generating report: {e}", err=True)
+        raise typer.Exit(1)
+
+
 if __name__ == "__main__":
     app()
