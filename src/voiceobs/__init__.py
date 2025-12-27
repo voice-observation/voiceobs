@@ -35,6 +35,11 @@ from voiceobs.context import (
     voice_conversation,
     voice_turn,
 )
+from voiceobs.decorators import (
+    voice_conversation_decorator,
+    voice_stage_decorator,
+    voice_turn_decorator,
+)
 from voiceobs.exporters import JSONLSpanExporter
 from voiceobs.failures import (
     Failure,
@@ -92,6 +97,9 @@ __all__ = [
     "reload_config",
     "set_config",
     "voice_conversation",
+    "voice_conversation_decorator",
     "voice_stage",
+    "voice_stage_decorator",
     "voice_turn",
+    "voice_turn_decorator",
 ]
