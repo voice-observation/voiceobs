@@ -178,10 +178,10 @@ class AnalysisResult:
         for metrics in [self.asr_metrics, self.llm_metrics, self.tts_metrics]:
             if metrics.count > 0:
                 lines.append(f"  {metrics.stage_type.upper()} (n={metrics.count}):")
-                lines.append(f"    mean: {metrics.mean_ms:.1f}")
-                lines.append(f"    p50:  {metrics.p50_ms:.1f}")
-                lines.append(f"    p95:  {metrics.p95_ms:.1f}")
-                lines.append(f"    p99:  {metrics.p99_ms:.1f}")
+                lines.append(f"    mean: {metrics.mean_ms:.3f}")
+                lines.append(f"    p50:  {metrics.p50_ms:.3f}")
+                lines.append(f"    p95:  {metrics.p95_ms:.3f}")
+                lines.append(f"    p99:  {metrics.p99_ms:.3f}")
             else:
                 lines.append(f"  {metrics.stage_type.upper()}: no data")
 
@@ -312,16 +312,19 @@ def analyze_spans(spans: list[dict]) -> AnalysisResult:
         if conv_id:
             conversation_ids.add(conv_id)
 
-        # Stage spans
-        if name in ("voice.asr", "voice.llm", "voice.tts"):
-            stage_type = attrs.get("voice.stage.type", name.replace("voice.", ""))
-            if duration_ms is not None:
+        # Stage spans - support both voice.asr and voice.stage.asr naming
+        if name in ("voice.asr", "voice.llm", "voice.tts", "voice.stage.asr", "voice.stage.llm", "voice.stage.tts"):
+            stage_type = attrs.get("voice.stage.type", name.replace("voice.stage.", "").replace("voice.", ""))
+            # Prefer voice.stage.duration_ms attribute (from metrics events)
+            # Fall back to span duration (from context manager timing)
+            stage_duration = attrs.get("voice.stage.duration_ms", duration_ms)
+            if stage_duration is not None:
                 if stage_type == "asr":
-                    result.asr_metrics.durations_ms.append(duration_ms)
+                    result.asr_metrics.durations_ms.append(stage_duration)
                 elif stage_type == "llm":
-                    result.llm_metrics.durations_ms.append(duration_ms)
+                    result.llm_metrics.durations_ms.append(stage_duration)
                 elif stage_type == "tts":
-                    result.tts_metrics.durations_ms.append(duration_ms)
+                    result.tts_metrics.durations_ms.append(stage_duration)
 
         # Turn spans
         elif name == "voice.turn":

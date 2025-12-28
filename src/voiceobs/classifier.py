@@ -105,13 +105,15 @@ class FailureClassifier:
             turn_id = attrs.get("voice.turn.id")
             turn_index = attrs.get("voice.turn.index")
 
-            # Check stage spans for slow response
-            if name in ("voice.asr", "voice.llm", "voice.tts"):
-                stage_type = attrs.get("voice.stage.type", name.replace("voice.", ""))
-                if duration_ms is not None:
+            # Check stage spans for slow response - support both naming conventions
+            if name in ("voice.asr", "voice.llm", "voice.tts", "voice.stage.asr", "voice.stage.llm", "voice.stage.tts"):
+                stage_type = attrs.get("voice.stage.type", name.replace("voice.stage.", "").replace("voice.", ""))
+                # Prefer voice.stage.duration_ms attribute (from metrics events)
+                stage_duration = attrs.get("voice.stage.duration_ms", duration_ms)
+                if stage_duration is not None:
                     failure = self._check_slow_response(
                         stage_type=stage_type,
-                        duration_ms=duration_ms,
+                        duration_ms=stage_duration,
                         conv_id=conv_id,
                         turn_id=turn_id,
                         turn_index=turn_index,
