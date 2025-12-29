@@ -160,9 +160,7 @@ class TestEnsureTracingInitialized:
 
         # Create config with JSONL enabled
         config = VoiceobsConfig(
-            exporters=ExportersConfig(
-                jsonl=ExporterJsonlConfig(enabled=True, path=str(jsonl_path))
-            )
+            exporters=ExportersConfig(jsonl=ExporterJsonlConfig(enabled=True, path=str(jsonl_path)))
         )
 
         # Mock _has_real_provider to return False so we initialize
@@ -170,9 +168,7 @@ class TestEnsureTracingInitialized:
             # Mock config to enable JSONL export
             with patch("voiceobs.config.get_config", return_value=config):
                 # Mock trace.set_tracer_provider to verify it's called
-                with patch(
-                    "voiceobs.tracing.trace.set_tracer_provider"
-                ) as mock_set_provider:
+                with patch("voiceobs.tracing.trace.set_tracer_provider") as mock_set_provider:
                     result = ensure_tracing_initialized()
 
                     assert result is True

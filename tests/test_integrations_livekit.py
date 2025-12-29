@@ -355,9 +355,7 @@ class TestLiveKitStartMethod:
 
             await wrapper.start(room="test_room", agent="test_agent")
 
-            mock_session.start.assert_called_once_with(
-                room="test_room", agent="test_agent"
-            )
+            mock_session.start.assert_called_once_with(room="test_room", agent="test_agent")
 
 
 class TestLiveKitExports:

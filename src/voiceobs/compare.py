@@ -222,9 +222,7 @@ class ComparisonResult:
         lines.append("-" * 30)
         if self.regressions:
             for reg in self.regressions:
-                severity_marker = (
-                    "⚠️ " if reg.severity == RegressionSeverity.WARNING else "🔴 "
-                )
+                severity_marker = "⚠️ " if reg.severity == RegressionSeverity.WARNING else "🔴 "
                 lines.append(f"  {severity_marker}{reg.description}")
         else:
             lines.append("  ✅ No regressions detected")
@@ -339,9 +337,7 @@ def compare_runs(
         unit="ms",
         higher_is_worse=True,
     )
-    _check_latency_regression(
-        result.asr_p95_delta, "ASR", thresholds, regressions
-    )
+    _check_latency_regression(result.asr_p95_delta, "ASR", thresholds, regressions)
 
     result.llm_p95_delta = MetricDelta(
         name="LLM p95",
@@ -350,9 +346,7 @@ def compare_runs(
         unit="ms",
         higher_is_worse=True,
     )
-    _check_latency_regression(
-        result.llm_p95_delta, "LLM", thresholds, regressions
-    )
+    _check_latency_regression(result.llm_p95_delta, "LLM", thresholds, regressions)
 
     result.tts_p95_delta = MetricDelta(
         name="TTS p95",
@@ -361,9 +355,7 @@ def compare_runs(
         unit="ms",
         higher_is_worse=True,
     )
-    _check_latency_regression(
-        result.tts_p95_delta, "TTS", thresholds, regressions
-    )
+    _check_latency_regression(result.tts_p95_delta, "TTS", thresholds, regressions)
 
     # Silence deltas
     result.silence_mean_delta = MetricDelta(
@@ -373,9 +365,7 @@ def compare_runs(
         unit="ms",
         higher_is_worse=True,
     )
-    _check_silence_regression(
-        result.silence_mean_delta, "mean", thresholds, regressions
-    )
+    _check_silence_regression(result.silence_mean_delta, "mean", thresholds, regressions)
 
     result.silence_p95_delta = MetricDelta(
         name="Silence p95",
@@ -384,9 +374,7 @@ def compare_runs(
         unit="ms",
         higher_is_worse=True,
     )
-    _check_silence_regression(
-        result.silence_p95_delta, "p95", thresholds, regressions
-    )
+    _check_silence_regression(result.silence_p95_delta, "p95", thresholds, regressions)
 
     # Interruption deltas
     result.interruption_delta = MetricDelta(
@@ -404,9 +392,7 @@ def compare_runs(
         unit="%",
         higher_is_worse=True,
     )
-    _check_interruption_regression(
-        result.interruption_rate_delta, thresholds, regressions
-    )
+    _check_interruption_regression(result.interruption_rate_delta, thresholds, regressions)
 
     # Semantic score deltas
     result.intent_correct_rate_delta = MetricDelta(
@@ -416,9 +402,7 @@ def compare_runs(
         unit="%",
         higher_is_worse=False,  # Lower is worse for correctness
     )
-    _check_intent_regression(
-        result.intent_correct_rate_delta, thresholds, regressions
-    )
+    _check_intent_regression(result.intent_correct_rate_delta, thresholds, regressions)
 
     result.avg_relevance_delta = MetricDelta(
         name="Avg relevance",
@@ -427,9 +411,7 @@ def compare_runs(
         unit="",
         higher_is_worse=False,  # Lower is worse for relevance
     )
-    _check_relevance_regression(
-        result.avg_relevance_delta, thresholds, regressions
-    )
+    _check_relevance_regression(result.avg_relevance_delta, thresholds, regressions)
 
     result.regressions = regressions
 

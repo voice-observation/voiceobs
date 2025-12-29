@@ -540,9 +540,7 @@ class TestGeminiProviderCreateLLM:
         from voiceobs.eval.providers.gemini import GeminiProvider
 
         provider = GeminiProvider()
-        config = EvalConfig(
-            provider="gemini", model="gemini-1.5-pro", temperature=0.5
-        )
+        config = EvalConfig(provider="gemini", model="gemini-1.5-pro", temperature=0.5)
 
         mock_chat_class = MagicMock()
         mock_module = MagicMock()
@@ -663,9 +661,7 @@ class TestAnthropicProviderCreateLLM:
         from voiceobs.eval.providers.anthropic import AnthropicProvider
 
         provider = AnthropicProvider()
-        config = EvalConfig(
-            provider="anthropic", model="claude-3-5-sonnet-latest", temperature=0.7
-        )
+        config = EvalConfig(provider="anthropic", model="claude-3-5-sonnet-latest", temperature=0.7)
 
         mock_chat_class = MagicMock()
         mock_module = MagicMock()

@@ -68,6 +68,7 @@ class VocodeConversationWrapper:
         original_terminate = getattr(self._conversation, "terminate", None)
 
         if original_start is not None:
+
             async def instrumented_start(*args: Any, **kwargs: Any) -> Any:
                 self._instrumented.start()
                 return await original_start(*args, **kwargs)
@@ -75,6 +76,7 @@ class VocodeConversationWrapper:
             self._conversation.start = instrumented_start
 
         if original_terminate is not None:
+
             async def instrumented_terminate(*args: Any, **kwargs: Any) -> Any:
                 result = await original_terminate(*args, **kwargs)
                 self._instrumented.stop()
@@ -118,8 +120,7 @@ def instrument_vocode_conversation(conversation: Any) -> VocodeConversationWrapp
     """
     if not HAS_VOCODE:
         raise ImportError(
-            "vocode is required for Vocode integration. "
-            "Install it with: pip install vocode"
+            "vocode is required for Vocode integration. Install it with: pip install vocode"
         )
 
     return VocodeConversationWrapper(conversation)

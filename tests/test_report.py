@@ -404,9 +404,7 @@ class TestGenerateReportFromFile:
             },
         ]
         jsonl_content = "\n".join(json.dumps(span) for span in spans) + "\n"
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".jsonl", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
             f.write(jsonl_content)
             temp_path = Path(f.name)
 
@@ -427,9 +425,7 @@ class TestGenerateReportFromFile:
             "duration_ms": 1000,
         }
         jsonl_content = json.dumps(span) + "\n"
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".jsonl", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
             f.write(jsonl_content)
             temp_path = Path(f.name)
 
@@ -448,9 +444,7 @@ class TestGenerateReportFromFile:
 class TestRecommendations:
     """Tests for recommendation generation based on failures."""
 
-    def test_slow_response_recommendation(
-        self, sample_analysis: AnalysisResult
-    ) -> None:
+    def test_slow_response_recommendation(self, sample_analysis: AnalysisResult) -> None:
         """Test that slow response failures generate relevant recommendations."""
         failures = ClassificationResult()
         failures.failures = [
@@ -465,9 +459,7 @@ class TestRecommendations:
         # Should recommend optimizing slow component
         assert "Recommendation" in markdown
 
-    def test_excessive_silence_recommendation(
-        self, sample_analysis: AnalysisResult
-    ) -> None:
+    def test_excessive_silence_recommendation(self, sample_analysis: AnalysisResult) -> None:
         """Test that silence failures generate relevant recommendations."""
         failures = ClassificationResult()
         failures.failures = [
@@ -481,9 +473,7 @@ class TestRecommendations:
         markdown = generate_markdown_report(data)
         assert "Recommendation" in markdown
 
-    def test_interruption_recommendation(
-        self, sample_analysis: AnalysisResult
-    ) -> None:
+    def test_interruption_recommendation(self, sample_analysis: AnalysisResult) -> None:
         """Test that interruption failures generate relevant recommendations."""
         failures = ClassificationResult()
         failures.failures = [
@@ -521,9 +511,7 @@ class TestRecommendations:
         markdown = generate_markdown_report(data)
         assert "Fine-tune voice activity" in markdown
 
-    def test_asr_low_confidence_recommendation(
-        self, sample_analysis: AnalysisResult
-    ) -> None:
+    def test_asr_low_confidence_recommendation(self, sample_analysis: AnalysisResult) -> None:
         """Test that ASR low confidence generates relevant recommendation."""
         failures = ClassificationResult()
         failures.failures = [
@@ -537,9 +525,7 @@ class TestRecommendations:
         markdown = generate_markdown_report(data)
         assert "ASR confidence below threshold" in markdown
 
-    def test_llm_incorrect_intent_recommendation(
-        self, sample_analysis: AnalysisResult
-    ) -> None:
+    def test_llm_incorrect_intent_recommendation(self, sample_analysis: AnalysisResult) -> None:
         """Test that LLM incorrect intent generates relevant recommendation."""
         failures = ClassificationResult()
         failures.failures = [

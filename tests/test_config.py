@@ -111,9 +111,7 @@ class TestValidateConfig:
 
     def test_negative_threshold_fails(self) -> None:
         """Test that negative thresholds fail validation."""
-        config = VoiceobsConfig(
-            failures=FailuresConfig(interruption_overlap_ms=-1.0)
-        )
+        config = VoiceobsConfig(failures=FailuresConfig(interruption_overlap_ms=-1.0))
         errors = _validate_config(config)
         assert any("interruption_overlap_ms" in e for e in errors)
 
@@ -148,9 +146,7 @@ class TestValidateConfig:
     def test_jsonl_enabled_without_path_fails(self) -> None:
         """Test that enabling jsonl without path fails."""
         config = VoiceobsConfig(
-            exporters=ExportersConfig(
-                jsonl=ExporterJsonlConfig(enabled=True, path="")
-            )
+            exporters=ExportersConfig(jsonl=ExporterJsonlConfig(enabled=True, path=""))
         )
         errors = _validate_config(config)
         assert any("path is required" in e for e in errors)

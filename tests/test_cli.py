@@ -1,5 +1,6 @@
 """Tests for CLI commands."""
 
+import re
 import subprocess
 import sys
 from unittest.mock import patch
@@ -12,6 +13,12 @@ from voiceobs.cli import app
 from voiceobs.tracing import reset_initialization
 
 runner = CliRunner()
+
+
+def strip_ansi(text: str) -> str:
+    """Strip ANSI escape codes from text."""
+    ansi_pattern = re.compile(r"\x1b\[[0-9;]*m")
+    return ansi_pattern.sub("", text)
 
 
 class TestVersionCommand:
@@ -481,9 +488,10 @@ class TestInitCommand:
         result = runner.invoke(app, ["init", "--help"])
 
         assert result.exit_code == 0
-        assert "voiceobs init" in result.output
-        assert "--force" in result.output
-        assert "--path" in result.output
+        plain_output = strip_ansi(result.output)
+        assert "voiceobs init" in plain_output
+        assert "--force" in plain_output
+        assert "--path" in plain_output
 
 
 class TestReportCommand:
@@ -668,12 +676,13 @@ class TestReportCommand:
         result = runner.invoke(app, ["report", "--help"])
 
         assert result.exit_code == 0
-        assert "--input" in result.output
-        assert "--format" in result.output
-        assert "--output" in result.output
-        assert "--title" in result.output
-        assert "markdown" in result.output
-        assert "html" in result.output
+        plain_output = strip_ansi(result.output)
+        assert "--input" in plain_output
+        assert "--format" in plain_output
+        assert "--output" in plain_output
+        assert "--title" in plain_output
+        assert "markdown" in plain_output
+        assert "html" in plain_output
 
     def test_report_generates_json_format(self, tmp_path):
         """Test that report command generates JSON when specified."""
@@ -965,9 +974,7 @@ class TestCliErrorMessages:
         input_file = tmp_path / "invalid.jsonl"
         input_file.write_text("not json")
 
-        result = runner.invoke(
-            app, ["report", "--input", str(input_file), "--format", "json"]
-        )
+        result = runner.invoke(app, ["report", "--input", str(input_file), "--format", "json"])
 
         assert result.exit_code == 1
         assert "Error" in result.output

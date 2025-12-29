@@ -152,9 +152,7 @@ def voice_stage_decorator(
 
             @functools.wraps(func)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-                with voice_stage(
-                    stage, provider=provider, model=model, input_size=input_size
-                ):
+                with voice_stage(stage, provider=provider, model=model, input_size=input_size):
                     return await func(*args, **kwargs)
 
             return async_wrapper  # type: ignore[return-value]
@@ -162,9 +160,7 @@ def voice_stage_decorator(
 
             @functools.wraps(func)
             def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
-                with voice_stage(
-                    stage, provider=provider, model=model, input_size=input_size
-                ):
+                with voice_stage(stage, provider=provider, model=model, input_size=input_size):
                     return func(*args, **kwargs)
 
             return sync_wrapper  # type: ignore[return-value]

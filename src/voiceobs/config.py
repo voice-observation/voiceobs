@@ -360,7 +360,7 @@ def load_config(
 
 def generate_default_config() -> str:
     """Generate a default configuration file with comments."""
-    return '''# voiceobs configuration file
+    return """# voiceobs configuration file
 # Documentation: https://github.com/voice-observation/voiceobs
 
 # Exporter settings
@@ -443,7 +443,7 @@ eval:
   cache:
     enabled: true
     dir: ".voiceobs_cache"
-'''
+"""
 
 
 # Global config instance (lazy loaded)

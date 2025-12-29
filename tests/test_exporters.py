@@ -75,11 +75,7 @@ class TestGetJSONLExporterFromConfig:
 
     def test_returns_none_when_disabled(self):
         """Test that None is returned when jsonl export is disabled."""
-        config = VoiceobsConfig(
-            exporters=ExportersConfig(
-                jsonl=ExporterJsonlConfig(enabled=False)
-            )
-        )
+        config = VoiceobsConfig(exporters=ExportersConfig(jsonl=ExporterJsonlConfig(enabled=False)))
         with patch("voiceobs.config.get_config", return_value=config):
             exporter = get_jsonl_exporter_from_config()
             assert exporter is None
@@ -88,9 +84,7 @@ class TestGetJSONLExporterFromConfig:
         """Test that exporter is returned when jsonl export is enabled."""
         file_path = tmp_path / "test.jsonl"
         config = VoiceobsConfig(
-            exporters=ExportersConfig(
-                jsonl=ExporterJsonlConfig(enabled=True, path=str(file_path))
-            )
+            exporters=ExportersConfig(jsonl=ExporterJsonlConfig(enabled=True, path=str(file_path)))
         )
         with patch("voiceobs.config.get_config", return_value=config):
             exporter = get_jsonl_exporter_from_config()

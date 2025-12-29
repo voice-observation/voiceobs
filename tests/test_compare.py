@@ -1,6 +1,5 @@
 """Tests for run comparison and regression detection."""
 
-
 from voiceobs.analyzer import AnalysisResult
 from voiceobs.compare import (
     ComparisonResult,
@@ -193,9 +192,7 @@ class TestCompareRuns:
         current = self._create_baseline_result()
 
         # Increase LLM latency by 30% (critical threshold is 25%)
-        current.llm_metrics.durations_ms = [
-            d * 1.30 for d in baseline.llm_metrics.durations_ms
-        ]
+        current.llm_metrics.durations_ms = [d * 1.30 for d in baseline.llm_metrics.durations_ms]
 
         comparison = compare_runs(baseline, current)
 
@@ -208,9 +205,7 @@ class TestCompareRuns:
         current = self._create_baseline_result()
 
         # Increase ASR latency by 15% (warning threshold is 10%)
-        current.asr_metrics.durations_ms = [
-            d * 1.15 for d in baseline.asr_metrics.durations_ms
-        ]
+        current.asr_metrics.durations_ms = [d * 1.15 for d in baseline.asr_metrics.durations_ms]
 
         comparison = compare_runs(baseline, current)
 
@@ -260,9 +255,7 @@ class TestCompareRuns:
         comparison = compare_runs(baseline, current)
 
         assert comparison.has_regressions is True
-        assert any(
-            "Intent correctness" in r.description for r in comparison.regressions
-        )
+        assert any("Intent correctness" in r.description for r in comparison.regressions)
 
     def test_compare_relevance_regression(self) -> None:
         """Should detect relevance score regressions."""
@@ -283,9 +276,7 @@ class TestCompareRuns:
         current = self._create_baseline_result()
 
         # Increase latency by 15% (default warning is 10%, custom is 20%)
-        current.llm_metrics.durations_ms = [
-            d * 1.15 for d in baseline.llm_metrics.durations_ms
-        ]
+        current.llm_metrics.durations_ms = [d * 1.15 for d in baseline.llm_metrics.durations_ms]
 
         # With custom thresholds, 15% shouldn't trigger regression
         lenient_thresholds = RegressionThresholds(
@@ -293,9 +284,7 @@ class TestCompareRuns:
             latency_critical_pct=40.0,
         )
 
-        comparison = compare_runs(
-            baseline, current, thresholds=lenient_thresholds
-        )
+        comparison = compare_runs(baseline, current, thresholds=lenient_thresholds)
 
         assert comparison.has_regressions is False
 
@@ -305,9 +294,7 @@ class TestCompareRuns:
         current = self._create_baseline_result()
 
         # Improve latency (decrease)
-        current.llm_metrics.durations_ms = [
-            d * 0.8 for d in baseline.llm_metrics.durations_ms
-        ]
+        current.llm_metrics.durations_ms = [d * 0.8 for d in baseline.llm_metrics.durations_ms]
         # Improve silence (decrease)
         current.turn_metrics.silence_after_user_ms = [
             s * 0.8 for s in baseline.turn_metrics.silence_after_user_ms

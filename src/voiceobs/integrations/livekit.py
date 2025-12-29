@@ -99,8 +99,7 @@ class LiveKitSessionWrapper:
             if metrics_type == "stt_metrics":
                 # For streaming STT, duration is 0.0; use audio_duration instead
                 stt_duration = (
-                    metrics.duration if metrics.duration
-                    else getattr(metrics, "audio_duration", 0)
+                    metrics.duration if metrics.duration else getattr(metrics, "audio_duration", 0)
                 )
                 self._record_stage(
                     stage="asr",
