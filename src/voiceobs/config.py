@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, fields
 from pathlib import Path
-from typing import Any, Literal, Optional, get_type_hints
+from typing import Any, Literal, get_type_hints
 
 import yaml
 
@@ -163,7 +163,7 @@ class EvalConfig:
     """LLM evaluator configuration."""
 
     provider: Literal["gemini", "openai", "anthropic"] = "gemini"
-    model: Optional[str] = None  # None = use provider default
+    model: str | None = None  # None = use provider default
     temperature: float = 0.0
     cache: EvalCacheConfig = field(default_factory=EvalCacheConfig)
 
@@ -300,7 +300,7 @@ def load_yaml_file(path: Path) -> dict[str, Any]:
         return content if content else {}
 
 
-def find_project_config() -> Optional[Path]:
+def find_project_config() -> Path | None:
     """Find the project config file by searching up from the current directory."""
     current = Path.cwd()
     while current != current.parent:
@@ -318,8 +318,8 @@ def find_project_config() -> Optional[Path]:
 
 
 def load_config(
-    project_path: Optional[Path] = None,
-    user_path: Optional[Path] = None,
+    project_path: Path | None = None,
+    user_path: Path | None = None,
     validate: bool = True,
 ) -> VoiceobsConfig:
     """Load and merge configuration from all sources.
@@ -447,7 +447,7 @@ eval:
 
 
 # Global config instance (lazy loaded)
-_config: Optional[VoiceobsConfig] = None
+_config: VoiceobsConfig | None = None
 
 
 def get_config() -> VoiceobsConfig:
