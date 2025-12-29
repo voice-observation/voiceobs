@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import asyncio
 import functools
-from typing import Any, Callable, TypeVar
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 from voiceobs.context import voice_conversation, voice_turn
 from voiceobs.stages import StageType, voice_stage
