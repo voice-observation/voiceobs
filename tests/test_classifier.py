@@ -1,6 +1,7 @@
 """Tests for the failure classifier module."""
 
 from pathlib import Path
+from typing import Optional
 
 from voiceobs.classifier import (
     ClassificationResult,
@@ -19,7 +20,7 @@ def make_stage_span(
     stage_type: str,
     duration_ms: float,
     conv_id: str = "conv-1",
-    confidence: float | None = None,
+    confidence: Optional[float] = None,
 ) -> dict:
     """Create a synthetic stage span."""
     attrs = {
@@ -41,8 +42,8 @@ def make_turn_span(
     conv_id: str = "conv-1",
     turn_id: str = "turn-1",
     turn_index: int = 0,
-    silence_ms: float | None = None,
-    overlap_ms: float | None = None,
+    silence_ms: Optional[float] = None,
+    overlap_ms: Optional[float] = None,
     interrupted: bool = False,
 ) -> dict:
     """Create a synthetic turn span."""
