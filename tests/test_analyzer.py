@@ -602,4 +602,5 @@ class TestCLIIntegration:
 
         # Should exit with error code 1
         assert result.exit_code == 1
-        assert "Error analyzing file" in result.output
+        assert "Error: Invalid JSON in file" in result.output
+        assert "Hint:" in result.output

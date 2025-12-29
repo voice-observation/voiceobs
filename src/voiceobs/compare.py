@@ -94,6 +94,18 @@ class MetricDelta:
             f"({sign}{delta:.2f}{self.unit}{pct_str}) {direction}"
         )
 
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "name": self.name,
+            "baseline": self.baseline,
+            "current": self.current,
+            "delta": self.delta,
+            "delta_percent": self.delta_percent,
+            "unit": self.unit,
+            "is_regression": self.is_regression,
+        }
+
 
 @dataclass
 class Regression:
@@ -106,6 +118,18 @@ class Regression:
     delta_percent: float | None
     severity: RegressionSeverity
     description: str
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "metric": self.metric,
+            "baseline_value": self.baseline_value,
+            "current_value": self.current_value,
+            "delta": self.delta,
+            "delta_percent": self.delta_percent,
+            "severity": self.severity.value,
+            "description": self.description,
+        }
 
 
 @dataclass
@@ -207,6 +231,47 @@ class ComparisonResult:
         lines.append("")
 
         return "\n".join(lines)
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        deltas = {}
+
+        # Stage latency deltas
+        if self.asr_p95_delta:
+            deltas["asr_p95"] = self.asr_p95_delta.to_dict()
+        if self.llm_p95_delta:
+            deltas["llm_p95"] = self.llm_p95_delta.to_dict()
+        if self.tts_p95_delta:
+            deltas["tts_p95"] = self.tts_p95_delta.to_dict()
+
+        # Silence deltas
+        if self.silence_mean_delta:
+            deltas["silence_mean"] = self.silence_mean_delta.to_dict()
+        if self.silence_p95_delta:
+            deltas["silence_p95"] = self.silence_p95_delta.to_dict()
+
+        # Interruption deltas
+        if self.interruption_delta:
+            deltas["interruptions"] = self.interruption_delta.to_dict()
+        if self.interruption_rate_delta:
+            deltas["interruption_rate"] = self.interruption_rate_delta.to_dict()
+
+        # Semantic deltas
+        if self.intent_correct_rate_delta:
+            deltas["intent_correct_rate"] = self.intent_correct_rate_delta.to_dict()
+        if self.avg_relevance_delta:
+            deltas["avg_relevance"] = self.avg_relevance_delta.to_dict()
+
+        return {
+            "files": {
+                "baseline": self.baseline_file,
+                "current": self.current_file,
+            },
+            "deltas": deltas,
+            "regressions": [r.to_dict() for r in self.regressions],
+            "has_regressions": self.has_regressions,
+            "has_critical_regressions": self.has_critical_regressions,
+        }
 
 
 @dataclass

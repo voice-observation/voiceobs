@@ -15,7 +15,7 @@ from voiceobs.timeline import ConversationTimeline
 from voiceobs.types import Actor
 
 # Schema version for voice observability attributes
-VOICE_SCHEMA_VERSION = "0.0.1"
+VOICE_SCHEMA_VERSION = "0.0.2"
 
 
 def _get_tracer() -> trace.Tracer:

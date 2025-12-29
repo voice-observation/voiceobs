@@ -37,7 +37,7 @@ except ImportError:
     HAS_LIVEKIT = False
 
 
-VOICE_SCHEMA_VERSION = "0.0.1"
+VOICE_SCHEMA_VERSION = "0.0.2"
 
 
 def _get_tracer() -> trace.Tracer:
@@ -98,7 +98,10 @@ class LiveKitSessionWrapper:
             metrics_type = getattr(metrics, "type", None)
             if metrics_type == "stt_metrics":
                 # For streaming STT, duration is 0.0; use audio_duration instead
-                stt_duration = metrics.duration if metrics.duration else getattr(metrics, "audio_duration", 0)
+                stt_duration = (
+                    metrics.duration if metrics.duration
+                    else getattr(metrics, "audio_duration", 0)
+                )
                 self._record_stage(
                     stage="asr",
                     provider=getattr(metrics.metadata, "model_provider", None)

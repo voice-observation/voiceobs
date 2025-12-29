@@ -106,8 +106,15 @@ class FailureClassifier:
             turn_index = attrs.get("voice.turn.index")
 
             # Check stage spans for slow response - support both naming conventions
-            if name in ("voice.asr", "voice.llm", "voice.tts", "voice.stage.asr", "voice.stage.llm", "voice.stage.tts"):
-                stage_type = attrs.get("voice.stage.type", name.replace("voice.stage.", "").replace("voice.", ""))
+            stage_names = (
+                "voice.asr", "voice.llm", "voice.tts",
+                "voice.stage.asr", "voice.stage.llm", "voice.stage.tts",
+            )
+            if name in stage_names:
+                stage_type = attrs.get(
+                    "voice.stage.type",
+                    name.replace("voice.stage.", "").replace("voice.", ""),
+                )
                 # Prefer voice.stage.duration_ms attribute (from metrics events)
                 stage_duration = attrs.get("voice.stage.duration_ms", duration_ms)
                 if stage_duration is not None:

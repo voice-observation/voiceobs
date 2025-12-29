@@ -1,5 +1,6 @@
 """CLI entry point for voiceobs."""
 
+import json
 import time
 from pathlib import Path
 
@@ -196,6 +197,11 @@ def analyze(
         exists=True,
         readable=True,
     ),
+    output_json: bool = typer.Option(
+        False,
+        "--json",
+        help="Output results as JSON for machine processing",
+    ),
 ) -> None:
     """Analyze a JSONL trace file and print latency metrics.
 
@@ -212,14 +218,26 @@ def analyze(
 
     Example:
         voiceobs analyze --input run.jsonl
+        voiceobs analyze --input run.jsonl --json
     """
     from voiceobs.analyzer import analyze_file
 
     try:
         result = analyze_file(input_file)
-        typer.echo(result.format_report())
+        if output_json:
+            typer.echo(json.dumps(result.to_dict(), indent=2))
+        else:
+            typer.echo(result.format_report())
     except FileNotFoundError:
         typer.echo(f"Error: File not found: {input_file}", err=True)
+        typer.echo("Hint: Check the file path and ensure the file exists.", err=True)
+        raise typer.Exit(1)
+    except json.JSONDecodeError as e:
+        typer.echo(f"Error: Invalid JSON in file: {input_file}", err=True)
+        typer.echo(
+            f"Hint: Ensure the file contains valid JSONL (one JSON object per line). Details: {e}",
+            err=True,
+        )
         raise typer.Exit(1)
     except Exception as e:
         typer.echo(f"Error analyzing file: {e}", err=True)
@@ -249,6 +267,11 @@ def compare(
         "--fail-on-regression",
         help="Exit with non-zero code if regressions are detected",
     ),
+    output_json: bool = typer.Option(
+        False,
+        "--json",
+        help="Output results as JSON for machine processing",
+    ),
 ) -> None:
     """Compare two JSONL trace files and detect regressions.
 
@@ -263,6 +286,7 @@ def compare(
     Example:
         voiceobs compare --baseline baseline.jsonl --current current.jsonl
         voiceobs compare -b baseline.jsonl -c current.jsonl --fail-on-regression
+        voiceobs compare -b baseline.jsonl -c current.jsonl --json
     """
     from voiceobs.analyzer import analyze_file
     from voiceobs.compare import compare_runs
@@ -278,7 +302,10 @@ def compare(
             current_file=str(current_file),
         )
 
-        typer.echo(comparison.format_report())
+        if output_json:
+            typer.echo(json.dumps(comparison.to_dict(), indent=2))
+        else:
+            typer.echo(comparison.format_report())
 
         if fail_on_regression and comparison.has_regressions:
             typer.echo("Regression(s) detected. Failing build.", err=True)
@@ -286,6 +313,11 @@ def compare(
 
     except FileNotFoundError as e:
         typer.echo(f"Error: File not found: {e}", err=True)
+        typer.echo("Hint: Check that both baseline and current files exist.", err=True)
+        raise typer.Exit(1)
+    except json.JSONDecodeError as e:
+        typer.echo("Error: Invalid JSON in input file", err=True)
+        typer.echo(f"Hint: Ensure files contain valid JSONL. Details: {e}", err=True)
         raise typer.Exit(1)
     except Exception as e:
         typer.echo(f"Error comparing files: {e}", err=True)
@@ -306,7 +338,7 @@ def report(
         "markdown",
         "--format",
         "-f",
-        help="Output format: 'markdown' or 'html' (default: markdown)",
+        help="Output format: 'markdown', 'html', or 'json' (default: markdown)",
     ),
     output: Path = typer.Option(
         None,
@@ -330,28 +362,39 @@ def report(
     - Semantic evaluation summary (if available)
     - Recommendations based on detected issues
 
-    The report can be output as markdown (for terminal/GitHub) or
-    HTML (self-contained, suitable for sharing via email/Slack).
+    The report can be output as markdown (for terminal/GitHub),
+    HTML (self-contained, suitable for sharing via email/Slack),
+    or JSON (for machine processing and automation).
 
     Example:
         voiceobs report --input run.jsonl
         voiceobs report --input run.jsonl --format html --output report.html
         voiceobs report -i run.jsonl -f markdown -o report.md
+        voiceobs report -i run.jsonl -f json
     """
+    from voiceobs.analyzer import analyze_file
     from voiceobs.report import generate_report_from_file
 
     # Validate format
-    valid_formats = ("markdown", "html")
+    valid_formats = ("markdown", "html", "json")
     if format not in valid_formats:
-        typer.echo(f"Error: Invalid format '{format}'. Use 'markdown' or 'html'.", err=True)
+        typer.echo(
+            f"Error: Invalid format '{format}'. Use 'markdown', 'html', or 'json'.",
+            err=True,
+        )
         raise typer.Exit(1)
 
     try:
-        report_content = generate_report_from_file(
-            input_file,
-            format=format,  # type: ignore[arg-type]
-            title=title,
-        )
+        # Handle JSON format separately (uses analyzer directly)
+        if format == "json":
+            result = analyze_file(input_file)
+            report_content = json.dumps(result.to_dict(), indent=2)
+        else:
+            report_content = generate_report_from_file(
+                input_file,
+                format=format,  # type: ignore[arg-type]
+                title=title,
+            )
 
         if output:
             # Ensure parent directory exists
@@ -363,6 +406,11 @@ def report(
 
     except FileNotFoundError:
         typer.echo(f"Error: File not found: {input_file}", err=True)
+        typer.echo("Hint: Check the file path and ensure the file exists.", err=True)
+        raise typer.Exit(1)
+    except json.JSONDecodeError as e:
+        typer.echo(f"Error: Invalid JSON in file: {input_file}", err=True)
+        typer.echo(f"Hint: Ensure the file contains valid JSONL. Details: {e}", err=True)
         raise typer.Exit(1)
     except Exception as e:
         typer.echo(f"Error generating report: {e}", err=True)

@@ -1,6 +1,6 @@
 [project]
 name = "voiceobs"
-version = "0.0.1"
+version = "0.0.2"
 description = "Open, vendor-neutral observability for voice AI conversations using OpenTelemetry"
 readme = "README.md"
 license = "Apache-2.0"

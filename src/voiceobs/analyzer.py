@@ -58,6 +58,17 @@ class StageMetrics:
         index = int(len(sorted_durations) * 0.99)
         return sorted_durations[min(index, len(sorted_durations) - 1)]
 
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "stage_type": self.stage_type,
+            "count": self.count,
+            "mean_ms": self.mean_ms,
+            "p50_ms": self.p50_ms,
+            "p95_ms": self.p95_ms,
+            "p99_ms": self.p99_ms,
+        }
+
 
 @dataclass
 class TurnMetrics:
@@ -90,6 +101,17 @@ class TurnMetrics:
         if self.total_agent_turns == 0:
             return None
         return (self.interruptions / self.total_agent_turns) * 100
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "silence_samples": len(self.silence_after_user_ms),
+            "silence_mean_ms": self.silence_mean_ms,
+            "silence_p95_ms": self.silence_p95_ms,
+            "total_agent_turns": self.total_agent_turns,
+            "interruptions": self.interruptions,
+            "interruption_rate": self.interruption_rate,
+        }
 
 
 @dataclass
@@ -139,6 +161,19 @@ class EvalMetrics:
         if not self.relevance_scores:
             return None
         return max(self.relevance_scores)
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "total_evals": self.total_evals,
+            "intent_correct_count": self.intent_correct_count,
+            "intent_incorrect_count": self.intent_incorrect_count,
+            "intent_correct_rate": self.intent_correct_rate,
+            "intent_failure_rate": self.intent_failure_rate,
+            "avg_relevance_score": self.avg_relevance_score,
+            "min_relevance_score": self.min_relevance_score,
+            "max_relevance_score": self.max_relevance_score,
+        }
 
 
 @dataclass
@@ -249,6 +284,23 @@ class AnalysisResult:
 
         return "\n".join(lines)
 
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "summary": {
+                "total_spans": self.total_spans,
+                "total_conversations": self.total_conversations,
+                "total_turns": self.total_turns,
+            },
+            "stages": {
+                "asr": self.asr_metrics.to_dict(),
+                "llm": self.llm_metrics.to_dict(),
+                "tts": self.tts_metrics.to_dict(),
+            },
+            "turns": self.turn_metrics.to_dict(),
+            "eval": self.eval_metrics.to_dict(),
+        }
+
 
 def parse_jsonl(file_path: str | Path) -> list[dict]:
     """Parse a JSONL file into a list of span dictionaries.
@@ -313,8 +365,15 @@ def analyze_spans(spans: list[dict]) -> AnalysisResult:
             conversation_ids.add(conv_id)
 
         # Stage spans - support both voice.asr and voice.stage.asr naming
-        if name in ("voice.asr", "voice.llm", "voice.tts", "voice.stage.asr", "voice.stage.llm", "voice.stage.tts"):
-            stage_type = attrs.get("voice.stage.type", name.replace("voice.stage.", "").replace("voice.", ""))
+        stage_names = (
+            "voice.asr", "voice.llm", "voice.tts",
+            "voice.stage.asr", "voice.stage.llm", "voice.stage.tts",
+        )
+        if name in stage_names:
+            stage_type = attrs.get(
+                "voice.stage.type",
+                name.replace("voice.stage.", "").replace("voice.", ""),
+            )
             # Prefer voice.stage.duration_ms attribute (from metrics events)
             # Fall back to span duration (from context manager timing)
             stage_duration = attrs.get("voice.stage.duration_ms", duration_ms)

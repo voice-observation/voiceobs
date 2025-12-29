@@ -674,3 +674,413 @@ class TestReportCommand:
         assert "--title" in result.output
         assert "markdown" in result.output
         assert "html" in result.output
+
+    def test_report_generates_json_format(self, tmp_path):
+        """Test that report command generates JSON when specified."""
+        import json
+
+        input_file = tmp_path / "run.jsonl"
+        data = [
+            {
+                "name": "voice.turn",
+                "duration_ms": 1000.0,
+                "attributes": {"voice.actor": "agent", "voice.conversation.id": "conv-1"},
+            },
+            {
+                "name": "voice.llm",
+                "duration_ms": 500.0,
+                "attributes": {"voice.stage.type": "llm"},
+            },
+        ]
+        input_file.write_text("\n".join(json.dumps(d) for d in data))
+
+        result = runner.invoke(app, ["report", "--input", str(input_file), "--format", "json"])
+
+        assert result.exit_code == 0
+        output_data = json.loads(result.output)
+        assert "summary" in output_data
+        assert "stages" in output_data
+        assert "turns" in output_data
+        assert "eval" in output_data
+        assert output_data["summary"]["total_spans"] == 2
+        assert output_data["summary"]["total_turns"] == 1
+
+
+class TestAnalyzeJsonOutput:
+    """Tests for the analyze command JSON output."""
+
+    def test_analyze_json_output(self, tmp_path):
+        """Test that analyze command outputs valid JSON with --json flag."""
+        import json
+
+        input_file = tmp_path / "run.jsonl"
+        data = [
+            {
+                "name": "voice.turn",
+                "duration_ms": 1000.0,
+                "attributes": {"voice.actor": "agent", "voice.conversation.id": "conv-1"},
+            },
+            {
+                "name": "voice.llm",
+                "duration_ms": 500.0,
+                "attributes": {"voice.stage.type": "llm"},
+            },
+            {
+                "name": "voice.asr",
+                "duration_ms": 100.0,
+                "attributes": {"voice.stage.type": "asr"},
+            },
+        ]
+        input_file.write_text("\n".join(json.dumps(d) for d in data))
+
+        result = runner.invoke(app, ["analyze", "--input", str(input_file), "--json"])
+
+        assert result.exit_code == 0
+        output_data = json.loads(result.output)
+        # Check structure
+        assert "summary" in output_data
+        assert "stages" in output_data
+        assert "turns" in output_data
+        assert "eval" in output_data
+        # Check summary
+        assert output_data["summary"]["total_spans"] == 3
+        assert output_data["summary"]["total_turns"] == 1
+        assert output_data["summary"]["total_conversations"] == 1
+        # Check stages
+        assert "asr" in output_data["stages"]
+        assert "llm" in output_data["stages"]
+        assert "tts" in output_data["stages"]
+        assert output_data["stages"]["asr"]["count"] == 1
+        assert output_data["stages"]["llm"]["count"] == 1
+
+    def test_analyze_json_schema_consistency(self, tmp_path):
+        """Test that JSON output has consistent schema."""
+        import json
+
+        # Empty file should still produce valid JSON with null values
+        input_file = tmp_path / "empty.jsonl"
+        input_file.write_text("")
+
+        result = runner.invoke(app, ["analyze", "--input", str(input_file), "--json"])
+
+        assert result.exit_code == 0
+        output_data = json.loads(result.output)
+        # Schema should be consistent even with no data
+        assert output_data["summary"]["total_spans"] == 0
+        assert output_data["stages"]["asr"]["count"] == 0
+        assert output_data["stages"]["asr"]["mean_ms"] is None
+
+
+class TestCompareJsonOutput:
+    """Tests for the compare command JSON output."""
+
+    def test_compare_json_output(self, tmp_path):
+        """Test that compare command outputs valid JSON with --json flag."""
+        import json
+
+        # Create baseline file
+        baseline_file = tmp_path / "baseline.jsonl"
+        baseline_data = [
+            {
+                "name": "voice.llm",
+                "duration_ms": 200.0,
+                "attributes": {
+                    "voice.conversation.id": "conv-1",
+                    "voice.stage.type": "llm",
+                },
+            },
+            {
+                "name": "voice.turn",
+                "duration_ms": 500.0,
+                "attributes": {
+                    "voice.conversation.id": "conv-1",
+                    "voice.actor": "agent",
+                    "voice.silence.after_user_ms": 100.0,
+                },
+            },
+        ]
+        baseline_file.write_text("\n".join(json.dumps(d) for d in baseline_data))
+
+        # Create current file with regression
+        current_file = tmp_path / "current.jsonl"
+        current_data = [
+            {
+                "name": "voice.llm",
+                "duration_ms": 300.0,  # 50% increase
+                "attributes": {
+                    "voice.conversation.id": "conv-1",
+                    "voice.stage.type": "llm",
+                },
+            },
+            {
+                "name": "voice.turn",
+                "duration_ms": 500.0,
+                "attributes": {
+                    "voice.conversation.id": "conv-1",
+                    "voice.actor": "agent",
+                    "voice.silence.after_user_ms": 150.0,
+                },
+            },
+        ]
+        current_file.write_text("\n".join(json.dumps(d) for d in current_data))
+
+        result = runner.invoke(
+            app,
+            [
+                "compare",
+                "--baseline",
+                str(baseline_file),
+                "--current",
+                str(current_file),
+                "--json",
+            ],
+        )
+
+        assert result.exit_code == 0
+        output_data = json.loads(result.output)
+        # Check structure
+        assert "files" in output_data
+        assert "deltas" in output_data
+        assert "regressions" in output_data
+        assert "has_regressions" in output_data
+        assert "has_critical_regressions" in output_data
+        # Check files
+        assert "baseline" in output_data["files"]
+        assert "current" in output_data["files"]
+        # Check deltas contain expected fields
+        if "llm_p95" in output_data["deltas"]:
+            delta = output_data["deltas"]["llm_p95"]
+            assert "name" in delta
+            assert "baseline" in delta
+            assert "current" in delta
+            assert "delta" in delta
+            assert "delta_percent" in delta
+
+    def test_compare_json_no_regressions(self, tmp_path):
+        """Test compare JSON output when there are no regressions."""
+        import json
+
+        # Create identical files
+        baseline_file = tmp_path / "baseline.jsonl"
+        data = [
+            {
+                "name": "voice.llm",
+                "duration_ms": 200.0,
+                "attributes": {"voice.stage.type": "llm"},
+            },
+        ]
+        baseline_file.write_text(json.dumps(data[0]))
+
+        current_file = tmp_path / "current.jsonl"
+        current_file.write_text(json.dumps(data[0]))
+
+        result = runner.invoke(
+            app,
+            [
+                "compare",
+                "--baseline",
+                str(baseline_file),
+                "--current",
+                str(current_file),
+                "--json",
+            ],
+        )
+
+        assert result.exit_code == 0
+        output_data = json.loads(result.output)
+        assert output_data["has_regressions"] is False
+        assert output_data["regressions"] == []
+
+
+class TestCliErrorMessages:
+    """Tests for CLI error message improvements."""
+
+    def test_analyze_file_not_found_shows_hint(self):
+        """Test that analyze shows hint for missing file."""
+        result = runner.invoke(app, ["analyze", "--input", "nonexistent.jsonl"])
+
+        assert result.exit_code != 0
+
+    def test_compare_file_not_found_shows_hint(self, tmp_path):
+        """Test that compare shows hint for missing file."""
+        current_file = tmp_path / "current.jsonl"
+        current_file.write_text("{}")
+
+        result = runner.invoke(
+            app,
+            ["compare", "--baseline", "nonexistent.jsonl", "--current", str(current_file)],
+        )
+
+        assert result.exit_code != 0
+
+    def test_report_invalid_format_shows_hint(self, tmp_path):
+        """Test that report shows hint for invalid format."""
+        import json
+
+        input_file = tmp_path / "run.jsonl"
+        data = [{"name": "voice.turn", "duration_ms": 1000.0, "attributes": {}}]
+        input_file.write_text(json.dumps(data[0]))
+
+        result = runner.invoke(app, ["report", "--input", str(input_file), "--format", "pdf"])
+
+        assert result.exit_code == 1
+        assert "Invalid format" in result.output
+        assert "markdown" in result.output
+        assert "html" in result.output
+        assert "json" in result.output
+
+    def test_compare_invalid_json_shows_hint(self, tmp_path):
+        """Test that compare shows hint for invalid JSON."""
+        # Create a valid baseline file
+        import json
+
+        baseline_file = tmp_path / "baseline.jsonl"
+        baseline_data = [{"name": "voice.turn", "duration_ms": 100.0, "attributes": {}}]
+        baseline_file.write_text(json.dumps(baseline_data[0]))
+
+        # Create an invalid JSON current file
+        current_file = tmp_path / "current.jsonl"
+        current_file.write_text("not valid json at all")
+
+        result = runner.invoke(
+            app,
+            ["compare", "--baseline", str(baseline_file), "--current", str(current_file)],
+        )
+
+        assert result.exit_code == 1
+        assert "Error" in result.output
+
+    def test_report_invalid_json_shows_hint(self, tmp_path):
+        """Test that report shows hint for invalid JSON."""
+        input_file = tmp_path / "invalid.jsonl"
+        input_file.write_text("this is not valid json\n")
+
+        result = runner.invoke(app, ["report", "--input", str(input_file)])
+
+        assert result.exit_code == 1
+        assert "Error" in result.output
+
+    def test_report_json_format_invalid_json_shows_hint(self, tmp_path):
+        """Test that report with JSON format shows hint for invalid JSON."""
+        input_file = tmp_path / "invalid.jsonl"
+        input_file.write_text("not json")
+
+        result = runner.invoke(
+            app, ["report", "--input", str(input_file), "--format", "json"]
+        )
+
+        assert result.exit_code == 1
+        assert "Error" in result.output
+
+    def test_analyze_generic_exception(self, tmp_path):
+        """Test that analyze handles generic exceptions."""
+        input_file = tmp_path / "test.jsonl"
+        input_file.write_text('{"name": "test"}')
+
+        # Mock analyze_file to raise a generic exception
+        with patch("voiceobs.analyzer.analyze_file") as mock_analyze:
+            mock_analyze.side_effect = RuntimeError("Unexpected error")
+            result = runner.invoke(app, ["analyze", "--input", str(input_file)])
+
+        assert result.exit_code == 1
+        assert "Error analyzing file" in result.output
+
+    def test_compare_generic_exception(self, tmp_path):
+        """Test that compare handles generic exceptions."""
+        import json
+
+        baseline_file = tmp_path / "baseline.jsonl"
+        baseline_file.write_text(json.dumps({"name": "test"}))
+        current_file = tmp_path / "current.jsonl"
+        current_file.write_text(json.dumps({"name": "test"}))
+
+        # Mock analyze_file to raise a generic exception
+        with patch("voiceobs.analyzer.analyze_file") as mock_analyze:
+            mock_analyze.side_effect = RuntimeError("Unexpected error")
+            result = runner.invoke(
+                app,
+                ["compare", "--baseline", str(baseline_file), "--current", str(current_file)],
+            )
+
+        assert result.exit_code == 1
+        assert "Error comparing files" in result.output
+
+    def test_report_generic_exception(self, tmp_path):
+        """Test that report handles generic exceptions."""
+        import json
+
+        input_file = tmp_path / "test.jsonl"
+        input_file.write_text(json.dumps({"name": "test"}))
+
+        # Mock generate_report_from_file to raise a generic exception
+        with patch("voiceobs.report.generate_report_from_file") as mock_report:
+            mock_report.side_effect = RuntimeError("Unexpected error")
+            result = runner.invoke(app, ["report", "--input", str(input_file)])
+
+        assert result.exit_code == 1
+        assert "Error generating report" in result.output
+
+    def test_analyze_file_not_found_internal(self, tmp_path):
+        """Test analyze FileNotFoundError when file is deleted after validation."""
+        input_file = tmp_path / "test.jsonl"
+        input_file.write_text('{"name": "test"}')
+
+        # Mock analyze_file to raise FileNotFoundError
+        with patch("voiceobs.analyzer.analyze_file") as mock_analyze:
+            mock_analyze.side_effect = FileNotFoundError("File disappeared")
+            result = runner.invoke(app, ["analyze", "--input", str(input_file)])
+
+        assert result.exit_code == 1
+        assert "Error: File not found" in result.output
+        assert "Hint:" in result.output
+
+    def test_compare_file_not_found_internal(self, tmp_path):
+        """Test compare FileNotFoundError when file is deleted after validation."""
+        import json
+
+        baseline_file = tmp_path / "baseline.jsonl"
+        baseline_file.write_text(json.dumps({"name": "test"}))
+        current_file = tmp_path / "current.jsonl"
+        current_file.write_text(json.dumps({"name": "test"}))
+
+        # Mock analyze_file to raise FileNotFoundError
+        with patch("voiceobs.analyzer.analyze_file") as mock_analyze:
+            mock_analyze.side_effect = FileNotFoundError("File disappeared")
+            result = runner.invoke(
+                app,
+                ["compare", "--baseline", str(baseline_file), "--current", str(current_file)],
+            )
+
+        assert result.exit_code == 1
+        assert "Error: File not found" in result.output
+        assert "Hint:" in result.output
+
+    def test_report_file_not_found_internal(self, tmp_path):
+        """Test report FileNotFoundError when file is deleted after validation."""
+        input_file = tmp_path / "test.jsonl"
+        input_file.write_text('{"name": "test"}')
+
+        # Mock generate_report_from_file to raise FileNotFoundError
+        with patch("voiceobs.report.generate_report_from_file") as mock_report:
+            mock_report.side_effect = FileNotFoundError("File disappeared")
+            result = runner.invoke(app, ["report", "--input", str(input_file)])
+
+        assert result.exit_code == 1
+        assert "Error: File not found" in result.output
+        assert "Hint:" in result.output
+
+    def test_report_json_decode_error_internal(self, tmp_path):
+        """Test report JSONDecodeError handling."""
+        import json
+
+        input_file = tmp_path / "test.jsonl"
+        input_file.write_text('{"name": "test"}')
+
+        # Mock generate_report_from_file to raise JSONDecodeError
+        with patch("voiceobs.report.generate_report_from_file") as mock_report:
+            mock_report.side_effect = json.JSONDecodeError("Bad JSON", "doc", 0)
+            result = runner.invoke(app, ["report", "--input", str(input_file)])
+
+        assert result.exit_code == 1
+        assert "Error: Invalid JSON" in result.output
+        assert "Hint:" in result.output
