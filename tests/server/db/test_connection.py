@@ -122,9 +122,7 @@ class TestDatabase:
             await db.connect()
             result = await db.execute("INSERT INTO test VALUES ($1)", "value")
 
-            mock_pool.execute.assert_called_once_with(
-                "INSERT INTO test VALUES ($1)", "value"
-            )
+            mock_pool.execute.assert_called_once_with("INSERT INTO test VALUES ($1)", "value")
             assert result == "INSERT 0 1"
 
     @pytest.mark.asyncio
@@ -149,9 +147,7 @@ class TestDatabase:
             await db.connect()
             result = await db.fetch("SELECT * FROM test WHERE id = $1", 1)
 
-            mock_pool.fetch.assert_called_once_with(
-                "SELECT * FROM test WHERE id = $1", 1
-            )
+            mock_pool.fetch.assert_called_once_with("SELECT * FROM test WHERE id = $1", 1)
             assert result == mock_rows
 
     @pytest.mark.asyncio
@@ -176,9 +172,7 @@ class TestDatabase:
             await db.connect()
             result = await db.fetchrow("SELECT * FROM test WHERE id = $1", 1)
 
-            mock_pool.fetchrow.assert_called_once_with(
-                "SELECT * FROM test WHERE id = $1", 1
-            )
+            mock_pool.fetchrow.assert_called_once_with("SELECT * FROM test WHERE id = $1", 1)
             assert result == mock_row
 
     @pytest.mark.asyncio

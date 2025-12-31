@@ -61,19 +61,21 @@ class TestFailureRepository:
         """Test getting a failure by UUID."""
         repo = FailureRepository(mock_db)
         failure_id = uuid4()
-        mock_db.fetchrow.return_value = MockRecord({
-            "id": failure_id,
-            "failure_type": "interruption",
-            "severity": "medium",
-            "message": "Test message",
-            "conversation_id": None,
-            "turn_id": None,
-            "turn_index": None,
-            "signal_name": None,
-            "signal_value": None,
-            "threshold": None,
-            "created_at": None,
-        })
+        mock_db.fetchrow.return_value = MockRecord(
+            {
+                "id": failure_id,
+                "failure_type": "interruption",
+                "severity": "medium",
+                "message": "Test message",
+                "conversation_id": None,
+                "turn_id": None,
+                "turn_index": None,
+                "signal_name": None,
+                "signal_value": None,
+                "threshold": None,
+                "created_at": None,
+            }
+        )
 
         result = await repo.get(failure_id)
 
@@ -96,19 +98,21 @@ class TestFailureRepository:
         """Test getting all failures without filters."""
         repo = FailureRepository(mock_db)
         mock_db.fetch.return_value = [
-            MockRecord({
-                "id": uuid4(),
-                "failure_type": "interruption",
-                "severity": "low",
-                "message": "Test 1",
-                "conversation_id": None,
-                "turn_id": None,
-                "turn_index": None,
-                "signal_name": None,
-                "signal_value": None,
-                "threshold": None,
-                "created_at": None,
-            }),
+            MockRecord(
+                {
+                    "id": uuid4(),
+                    "failure_type": "interruption",
+                    "severity": "low",
+                    "message": "Test 1",
+                    "conversation_id": None,
+                    "turn_id": None,
+                    "turn_index": None,
+                    "signal_name": None,
+                    "signal_value": None,
+                    "threshold": None,
+                    "created_at": None,
+                }
+            ),
         ]
 
         result = await repo.get_all()
@@ -164,19 +168,21 @@ class TestFailureRepository:
         repo = FailureRepository(mock_db)
         conv_id = uuid4()
         mock_db.fetch.return_value = [
-            MockRecord({
-                "id": uuid4(),
-                "failure_type": "interruption",
-                "severity": "low",
-                "message": "Test",
-                "conversation_id": conv_id,
-                "turn_id": None,
-                "turn_index": 1,
-                "signal_name": None,
-                "signal_value": None,
-                "threshold": None,
-                "created_at": None,
-            }),
+            MockRecord(
+                {
+                    "id": uuid4(),
+                    "failure_type": "interruption",
+                    "severity": "low",
+                    "message": "Test",
+                    "conversation_id": conv_id,
+                    "turn_id": None,
+                    "turn_index": 1,
+                    "signal_name": None,
+                    "signal_value": None,
+                    "threshold": None,
+                    "created_at": None,
+                }
+            ),
         ]
 
         result = await repo.get_by_conversation(conv_id)

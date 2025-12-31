@@ -121,6 +121,27 @@ voiceobs compare --baseline baseline.jsonl --current current.jsonl
 voiceobs report --input traces.jsonl --format html --output report.html
 ```
 
+### 🖥️ REST API Server
+Run voiceobs as a standalone server for team-wide observability:
+
+```bash
+# Install server dependencies
+pip install voiceobs[server]
+
+# Start the server
+voiceobs server --host 0.0.0.0 --port 8765
+```
+
+Access the API documentation at `http://localhost:8765/docs` (Swagger UI) or `http://localhost:8765/redoc` (ReDoc).
+
+**Key Endpoints:**
+- `POST /ingest` - Ingest spans from your voice applications
+- `GET /analyze` - Get latency and failure analysis
+- `GET /conversations` - List all conversations
+- `GET /failures` - View detected quality issues
+
+See [Server Setup](#server-setup) for Docker and PostgreSQL configuration.
+
 ### 🔌 Framework Integrations
 Out-of-box support for:
 - **LiveKit Agents** - Auto-instrument LiveKit voice pipelines
@@ -348,6 +369,115 @@ Returns the current conversation context, or `None` if outside a conversation.
 ### `get_current_turn() -> Optional[TurnContext]`
 
 Returns the current turn context, or `None` if outside a turn.
+
+## Server Setup
+
+voiceobs includes a REST API server for centralized observability.
+
+### Quick Start (In-Memory)
+
+For development and testing, run with in-memory storage:
+
+```bash
+pip install voiceobs[server]
+voiceobs server
+```
+
+The server starts at `http://127.0.0.1:8765` with:
+- Swagger UI: `http://127.0.0.1:8765/docs`
+- ReDoc: `http://127.0.0.1:8765/redoc`
+- OpenAPI spec: `http://127.0.0.1:8765/openapi.json`
+
+### Docker Setup (PostgreSQL)
+
+For production use with persistent storage:
+
+```bash
+# Start PostgreSQL
+docker compose up -d postgres
+
+# Run database migrations
+voiceobs db upgrade
+
+# Start the server
+voiceobs server
+```
+
+**docker-compose.yml:**
+```yaml
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: voiceobs
+      POSTGRES_USER: voiceobs
+      POSTGRES_PASSWORD: voiceobs
+    ports:
+      - "5432:5432"
+    volumes:
+      - voiceobs_data:/var/lib/postgresql/data
+
+volumes:
+  voiceobs_data:
+```
+
+**Configuration:**
+```yaml
+# voiceobs.yaml
+server:
+  host: 0.0.0.0
+  port: 8765
+  database_url: postgresql://voiceobs:voiceobs@localhost:5432/voiceobs
+```
+
+Or use environment variable:
+```bash
+export VOICEOBS_DATABASE_URL=postgresql://voiceobs:voiceobs@localhost:5432/voiceobs
+voiceobs server
+```
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check |
+| `/ingest` | POST | Ingest spans (single or batch) |
+| `/spans` | GET | List all spans |
+| `/spans/{id}` | GET | Get span by ID |
+| `/spans` | DELETE | Clear all spans |
+| `/analyze` | GET | Analyze all spans |
+| `/analyze/{conversation_id}` | GET | Analyze specific conversation |
+| `/conversations` | GET | List conversations |
+| `/conversations/{id}` | GET | Get conversation details |
+| `/failures` | GET | List detected failures |
+
+### Example: Ingesting Spans
+
+```bash
+curl -X POST http://localhost:8765/ingest \
+  -H "Content-Type: application/json" \
+  -d '{
+    "spans": [
+      {
+        "name": "voice.turn",
+        "duration_ms": 2500.0,
+        "attributes": {
+          "voice.conversation.id": "conv-123",
+          "voice.actor": "user",
+          "voice.turn.index": 0
+        }
+      }
+    ]
+  }'
+```
+
+### Example: Getting Analysis
+
+```bash
+curl http://localhost:8765/analyze | jq
+```
+
+Response includes latency metrics, failure counts, and conversation summaries.
 
 ## Development
 

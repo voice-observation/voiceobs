@@ -61,19 +61,21 @@ class TestSpanRepository:
         """Test getting an existing span."""
         repo = SpanRepository(mock_db)
         span_id = uuid4()
-        mock_db.fetchrow.return_value = MockRecord({
-            "id": span_id,
-            "name": "voice.turn",
-            "start_time": None,
-            "end_time": None,
-            "duration_ms": 100.0,
-            "attributes": {"key": "value"},
-            "trace_id": "trace123",
-            "span_id": "span456",
-            "parent_span_id": None,
-            "conversation_id": None,
-            "created_at": None,
-        })
+        mock_db.fetchrow.return_value = MockRecord(
+            {
+                "id": span_id,
+                "name": "voice.turn",
+                "start_time": None,
+                "end_time": None,
+                "duration_ms": 100.0,
+                "attributes": {"key": "value"},
+                "trace_id": "trace123",
+                "span_id": "span456",
+                "parent_span_id": None,
+                "conversation_id": None,
+                "created_at": None,
+            }
+        )
 
         result = await repo.get(span_id)
 
@@ -99,32 +101,36 @@ class TestSpanRepository:
         """Test getting all spans."""
         repo = SpanRepository(mock_db)
         mock_db.fetch.return_value = [
-            MockRecord({
-                "id": uuid4(),
-                "name": "span1",
-                "start_time": None,
-                "end_time": None,
-                "duration_ms": 100.0,
-                "attributes": {},
-                "trace_id": None,
-                "span_id": None,
-                "parent_span_id": None,
-                "conversation_id": None,
-                "created_at": None,
-            }),
-            MockRecord({
-                "id": uuid4(),
-                "name": "span2",
-                "start_time": None,
-                "end_time": None,
-                "duration_ms": 200.0,
-                "attributes": {},
-                "trace_id": None,
-                "span_id": None,
-                "parent_span_id": None,
-                "conversation_id": None,
-                "created_at": None,
-            }),
+            MockRecord(
+                {
+                    "id": uuid4(),
+                    "name": "span1",
+                    "start_time": None,
+                    "end_time": None,
+                    "duration_ms": 100.0,
+                    "attributes": {},
+                    "trace_id": None,
+                    "span_id": None,
+                    "parent_span_id": None,
+                    "conversation_id": None,
+                    "created_at": None,
+                }
+            ),
+            MockRecord(
+                {
+                    "id": uuid4(),
+                    "name": "span2",
+                    "start_time": None,
+                    "end_time": None,
+                    "duration_ms": 200.0,
+                    "attributes": {},
+                    "trace_id": None,
+                    "span_id": None,
+                    "parent_span_id": None,
+                    "conversation_id": None,
+                    "created_at": None,
+                }
+            ),
         ]
 
         result = await repo.get_all()
@@ -137,11 +143,13 @@ class TestSpanRepository:
         """Test getting spans as dictionaries."""
         repo = SpanRepository(mock_db)
         mock_db.fetch.return_value = [
-            MockRecord({
-                "name": "voice.turn",
-                "duration_ms": 100.0,
-                "attributes": {"voice.actor": "user"},
-            }),
+            MockRecord(
+                {
+                    "name": "voice.turn",
+                    "duration_ms": 100.0,
+                    "attributes": {"voice.actor": "user"},
+                }
+            ),
         ]
 
         result = await repo.get_as_dicts()
@@ -157,19 +165,21 @@ class TestSpanRepository:
         repo = SpanRepository(mock_db)
         conv_id = uuid4()
         mock_db.fetch.return_value = [
-            MockRecord({
-                "id": uuid4(),
-                "name": "voice.turn",
-                "start_time": None,
-                "end_time": None,
-                "duration_ms": 100.0,
-                "attributes": {},
-                "trace_id": None,
-                "span_id": None,
-                "parent_span_id": None,
-                "conversation_id": conv_id,
-                "created_at": None,
-            }),
+            MockRecord(
+                {
+                    "id": uuid4(),
+                    "name": "voice.turn",
+                    "start_time": None,
+                    "end_time": None,
+                    "duration_ms": 100.0,
+                    "attributes": {},
+                    "trace_id": None,
+                    "span_id": None,
+                    "parent_span_id": None,
+                    "conversation_id": conv_id,
+                    "created_at": None,
+                }
+            ),
         ]
 
         result = await repo.get_by_conversation(conv_id)

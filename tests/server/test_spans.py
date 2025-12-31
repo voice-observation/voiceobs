@@ -84,14 +84,13 @@ class TestIngestEndpoint:
 
         assert response.status_code == 201
 
-    def test_ingest_empty_batch(self, client):
-        """Test ingesting an empty batch."""
+    def test_ingest_empty_batch_rejected(self, client):
+        """Test that empty batch is rejected with 422."""
         response = client.post("/ingest", json={"spans": []})
 
-        assert response.status_code == 201
-        data = response.json()
-        assert data["accepted"] == 0
-        assert data["span_ids"] == []
+        assert response.status_code == 422
+        error = response.json()
+        assert "detail" in error
 
 
 class TestSpansEndpoints:

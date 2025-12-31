@@ -93,13 +93,9 @@ class TestDbStatusCommand:
 
     def test_db_status_shows_current_revision(self):
         """Test that db status shows current revision."""
-        with patch(
-            "voiceobs.server.db.migrations.get_current_revision"
-        ) as mock_revision:
+        with patch("voiceobs.server.db.migrations.get_current_revision") as mock_revision:
             mock_revision.return_value = "abc123"
-            with patch(
-                "voiceobs.server.db.migrations.get_pending_migrations"
-            ) as mock_pending:
+            with patch("voiceobs.server.db.migrations.get_pending_migrations") as mock_pending:
                 mock_pending.return_value = []
                 with patch.dict(
                     "os.environ",
@@ -112,13 +108,9 @@ class TestDbStatusCommand:
 
     def test_db_status_shows_pending_migrations(self):
         """Test that db status shows pending migrations."""
-        with patch(
-            "voiceobs.server.db.migrations.get_current_revision"
-        ) as mock_revision:
+        with patch("voiceobs.server.db.migrations.get_current_revision") as mock_revision:
             mock_revision.return_value = "abc123"
-            with patch(
-                "voiceobs.server.db.migrations.get_pending_migrations"
-            ) as mock_pending:
+            with patch("voiceobs.server.db.migrations.get_pending_migrations") as mock_pending:
                 mock_pending.return_value = ["def456", "ghi789"]
                 with patch.dict(
                     "os.environ",
@@ -131,13 +123,9 @@ class TestDbStatusCommand:
 
     def test_db_status_shows_up_to_date_when_no_pending(self):
         """Test db status shows up to date when no pending migrations."""
-        with patch(
-            "voiceobs.server.db.migrations.get_current_revision"
-        ) as mock_revision:
+        with patch("voiceobs.server.db.migrations.get_current_revision") as mock_revision:
             mock_revision.return_value = "abc123"
-            with patch(
-                "voiceobs.server.db.migrations.get_pending_migrations"
-            ) as mock_pending:
+            with patch("voiceobs.server.db.migrations.get_pending_migrations") as mock_pending:
                 mock_pending.return_value = []
                 with patch.dict(
                     "os.environ",
@@ -155,9 +143,7 @@ class TestDbHistoryCommand:
 
     def test_db_history_shows_migrations(self):
         """Test that db history shows migration history."""
-        with patch(
-            "voiceobs.server.db.migrations.get_migration_history"
-        ) as mock_history:
+        with patch("voiceobs.server.db.migrations.get_migration_history") as mock_history:
             mock_history.return_value = [
                 {"revision": "abc123", "description": "Initial migration"},
                 {"revision": "def456", "description": "Add users table"},

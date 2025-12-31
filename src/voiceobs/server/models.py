@@ -28,7 +28,9 @@ class SpanInput(BaseModel):
     name: str = Field(..., description="Span name (e.g., 'voice.turn', 'voice.asr')")
     start_time: datetime | None = Field(None, description="Span start time (ISO 8601)")
     end_time: datetime | None = Field(None, description="Span end time (ISO 8601)")
-    duration_ms: float | None = Field(None, description="Span duration in milliseconds")
+    duration_ms: float | None = Field(
+        None, ge=0, description="Span duration in milliseconds (must be non-negative)"
+    )
     attributes: dict[str, Any] = Field(default_factory=dict, description="Span attributes")
     trace_id: str | None = Field(None, description="OpenTelemetry trace ID")
     span_id: str | None = Field(None, description="OpenTelemetry span ID")
@@ -72,7 +74,9 @@ class SpanBatchInput(BaseModel):
     for better efficiency.
     """
 
-    spans: list[SpanInput] = Field(..., description="List of spans to ingest")
+    spans: list[SpanInput] = Field(
+        ..., min_length=1, description="List of spans to ingest (at least 1 required)"
+    )
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -149,9 +153,7 @@ class HealthResponse(BaseModel):
 
     status: str = Field(default="healthy", description="Server health status")
     version: str = Field(..., description="voiceobs version")
-    timestamp: datetime = Field(
-        default_factory=datetime.utcnow, description="Current server time"
-    )
+    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Current server time")
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -370,18 +372,14 @@ class ConversationDetail(BaseModel):
     id: str = Field(..., description="Conversation ID")
     turns: list[TurnResponse] = Field(..., description="List of turns")
     span_count: int = Field(..., description="Total spans in conversation")
-    analysis: AnalysisResponse | None = Field(
-        None, description="Analysis for this conversation"
-    )
+    analysis: AnalysisResponse | None = Field(None, description="Analysis for this conversation")
 
 
 class ConversationsListResponse(BaseModel):
     """Response model for listing conversations."""
 
     count: int = Field(..., description="Number of conversations")
-    conversations: list[ConversationSummary] = Field(
-        ..., description="List of conversations"
-    )
+    conversations: list[ConversationSummary] = Field(..., description="List of conversations")
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -455,9 +453,7 @@ class FailuresListResponse(BaseModel):
     by_severity: dict[str, int] = Field(
         default_factory=dict, description="Count of failures by severity"
     )
-    by_type: dict[str, int] = Field(
-        default_factory=dict, description="Count of failures by type"
-    )
+    by_type: dict[str, int] = Field(default_factory=dict, description="Count of failures by type")
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -505,9 +501,7 @@ class SpanListItem(BaseModel):
     id: str = Field(..., description="Span UUID")
     name: str = Field(..., description="Span name")
     duration_ms: float | None = Field(None, description="Duration in milliseconds")
-    attributes: dict[str, Any] = Field(
-        default_factory=dict, description="Span attributes"
-    )
+    attributes: dict[str, Any] = Field(default_factory=dict, description="Span attributes")
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -561,9 +555,7 @@ class SpanDetailResponse(BaseModel):
     start_time: str | None = Field(None, description="Start time (ISO 8601)")
     end_time: str | None = Field(None, description="End time (ISO 8601)")
     duration_ms: float | None = Field(None, description="Duration in milliseconds")
-    attributes: dict[str, Any] = Field(
-        default_factory=dict, description="Span attributes"
-    )
+    attributes: dict[str, Any] = Field(default_factory=dict, description="Span attributes")
     trace_id: str | None = Field(None, description="OpenTelemetry trace ID")
     span_id: str | None = Field(None, description="OpenTelemetry span ID")
     parent_span_id: str | None = Field(None, description="Parent span ID")

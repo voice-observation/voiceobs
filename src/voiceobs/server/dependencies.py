@@ -190,9 +190,7 @@ class PostgresSpanStoreAdapter:
         # Auto-create conversation if span has conversation ID attribute
         conv_external_id = attrs.get("voice.conversation.id")
         if conv_external_id:
-            conversation = await self._conversation_repo.get_or_create(
-                conv_external_id
-            )
+            conversation = await self._conversation_repo.get_or_create(conv_external_id)
             conversation_id = conversation.id
 
         return await self._span_repo.add(

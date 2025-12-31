@@ -64,18 +64,20 @@ class TestTurnRepository:
         turn_id = uuid4()
         conv_id = uuid4()
         span_id = uuid4()
-        mock_db.fetchrow.return_value = MockRecord({
-            "id": turn_id,
-            "turn_id": "ext-turn-123",
-            "conversation_id": conv_id,
-            "span_id": span_id,
-            "actor": "user",
-            "turn_index": 1,
-            "duration_ms": 100.0,
-            "transcript": "Hello",
-            "attributes": {},
-            "created_at": None,
-        })
+        mock_db.fetchrow.return_value = MockRecord(
+            {
+                "id": turn_id,
+                "turn_id": "ext-turn-123",
+                "conversation_id": conv_id,
+                "span_id": span_id,
+                "actor": "user",
+                "turn_index": 1,
+                "duration_ms": 100.0,
+                "transcript": "Hello",
+                "attributes": {},
+                "created_at": None,
+            }
+        )
 
         result = await repo.get(turn_id)
 
@@ -100,30 +102,34 @@ class TestTurnRepository:
         repo = TurnRepository(mock_db)
         conv_id = uuid4()
         mock_db.fetch.return_value = [
-            MockRecord({
-                "id": uuid4(),
-                "turn_id": "turn-1",
-                "conversation_id": conv_id,
-                "span_id": uuid4(),
-                "actor": "user",
-                "turn_index": 1,
-                "duration_ms": 100.0,
-                "transcript": "Hi",
-                "attributes": {},
-                "created_at": None,
-            }),
-            MockRecord({
-                "id": uuid4(),
-                "turn_id": "turn-2",
-                "conversation_id": conv_id,
-                "span_id": uuid4(),
-                "actor": "agent",
-                "turn_index": 2,
-                "duration_ms": 200.0,
-                "transcript": "Hello!",
-                "attributes": {},
-                "created_at": None,
-            }),
+            MockRecord(
+                {
+                    "id": uuid4(),
+                    "turn_id": "turn-1",
+                    "conversation_id": conv_id,
+                    "span_id": uuid4(),
+                    "actor": "user",
+                    "turn_index": 1,
+                    "duration_ms": 100.0,
+                    "transcript": "Hi",
+                    "attributes": {},
+                    "created_at": None,
+                }
+            ),
+            MockRecord(
+                {
+                    "id": uuid4(),
+                    "turn_id": "turn-2",
+                    "conversation_id": conv_id,
+                    "span_id": uuid4(),
+                    "actor": "agent",
+                    "turn_index": 2,
+                    "duration_ms": 200.0,
+                    "transcript": "Hello!",
+                    "attributes": {},
+                    "created_at": None,
+                }
+            ),
         ]
 
         result = await repo.get_by_conversation(conv_id)

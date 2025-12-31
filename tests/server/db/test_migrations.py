@@ -71,19 +71,13 @@ class TestMigrationOperations:
             mock_conn.return_value.__enter__ = MagicMock()
             mock_conn.return_value.__exit__ = MagicMock(return_value=False)
 
-            with patch(
-                "voiceobs.server.db.migrations._get_migration_context"
-            ) as mock_context:
+            with patch("voiceobs.server.db.migrations._get_migration_context") as mock_context:
                 mock_context.return_value.get_current_revision.return_value = None
 
-                with patch(
-                    "voiceobs.server.db.migrations._get_script_directory"
-                ) as mock_scripts:
+                with patch("voiceobs.server.db.migrations._get_script_directory") as mock_scripts:
                     mock_scripts.return_value.walk_revisions.return_value = []
 
-                    result = get_pending_migrations(
-                        "postgresql://test:test@localhost/test"
-                    )
+                    result = get_pending_migrations("postgresql://test:test@localhost/test")
                     assert isinstance(result, list)
 
 

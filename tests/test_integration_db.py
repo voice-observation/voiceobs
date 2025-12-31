@@ -46,13 +46,11 @@ class TestImportExportIntegration:
         input_file.write_text("\n".join(json.dumps(s) for s in spans))
 
         # Mock the database and repository where they're imported in cli.py
-        with patch(
-            "voiceobs.cli.Database"
-        ) as mock_db_class, patch(
-            "voiceobs.cli.SpanRepository"
-        ) as mock_span_repo_class, patch(
-            "voiceobs.cli.ConversationRepository"
-        ) as mock_conv_repo_class:
+        with (
+            patch("voiceobs.cli.Database") as mock_db_class,
+            patch("voiceobs.cli.SpanRepository") as mock_span_repo_class,
+            patch("voiceobs.cli.ConversationRepository") as mock_conv_repo_class,
+        ):
             mock_db = AsyncMock()
             mock_db_class.return_value = mock_db
 
@@ -65,9 +63,7 @@ class TestImportExportIntegration:
             mock_conv_repo.get_or_create.return_value = mock_conv
             mock_conv_repo_class.return_value = mock_conv_repo
 
-            result = import_spans_to_db(
-                input_file, "postgresql://test:test@localhost/test"
-            )
+            result = import_spans_to_db(input_file, "postgresql://test:test@localhost/test")
 
             assert result["imported"] == 3
             assert result["errors"] == 0
@@ -84,13 +80,11 @@ class TestImportExportIntegration:
         ]
         input_file.write_text(json.dumps(spans[0]))
 
-        with patch(
-            "voiceobs.cli.Database"
-        ) as mock_db_class, patch(
-            "voiceobs.cli.SpanRepository"
-        ) as mock_span_repo_class, patch(
-            "voiceobs.cli.ConversationRepository"
-        ) as mock_conv_repo_class:
+        with (
+            patch("voiceobs.cli.Database") as mock_db_class,
+            patch("voiceobs.cli.SpanRepository") as mock_span_repo_class,
+            patch("voiceobs.cli.ConversationRepository") as mock_conv_repo_class,
+        ):
             mock_db = AsyncMock()
             mock_db_class.return_value = mock_db
 
@@ -100,9 +94,7 @@ class TestImportExportIntegration:
             mock_conv_repo = AsyncMock()
             mock_conv_repo_class.return_value = mock_conv_repo
 
-            result = import_spans_to_db(
-                input_file, "postgresql://test:test@localhost/test"
-            )
+            result = import_spans_to_db(input_file, "postgresql://test:test@localhost/test")
 
             assert result["imported"] == 1
 
@@ -110,13 +102,11 @@ class TestImportExportIntegration:
         """Test that export retrieves all spans from database."""
         output_file = tmp_path / "output.jsonl"
 
-        with patch(
-            "voiceobs.cli.Database"
-        ) as mock_db_class, patch(
-            "voiceobs.cli.SpanRepository"
-        ) as mock_span_repo_class, patch(
-            "voiceobs.cli.ConversationRepository"
-        ) as mock_conv_repo_class:
+        with (
+            patch("voiceobs.cli.Database") as mock_db_class,
+            patch("voiceobs.cli.SpanRepository") as mock_span_repo_class,
+            patch("voiceobs.cli.ConversationRepository") as mock_conv_repo_class,
+        ):
             mock_db = AsyncMock()
             mock_db_class.return_value = mock_db
 
@@ -169,13 +159,11 @@ class TestImportExportIntegration:
         """Test that export can filter by conversation ID."""
         output_file = tmp_path / "output.jsonl"
 
-        with patch(
-            "voiceobs.cli.Database"
-        ) as mock_db_class, patch(
-            "voiceobs.cli.SpanRepository"
-        ) as mock_span_repo_class, patch(
-            "voiceobs.cli.ConversationRepository"
-        ) as mock_conv_repo_class:
+        with (
+            patch("voiceobs.cli.Database") as mock_db_class,
+            patch("voiceobs.cli.SpanRepository") as mock_span_repo_class,
+            patch("voiceobs.cli.ConversationRepository") as mock_conv_repo_class,
+        ):
             mock_db = AsyncMock()
             mock_db_class.return_value = mock_db
 
@@ -210,13 +198,11 @@ class TestImportExportIntegration:
 
     def test_export_to_stdout(self):
         """Test that export returns spans list when no output file."""
-        with patch(
-            "voiceobs.cli.Database"
-        ) as mock_db_class, patch(
-            "voiceobs.cli.SpanRepository"
-        ) as mock_span_repo_class, patch(
-            "voiceobs.cli.ConversationRepository"
-        ) as mock_conv_repo_class:
+        with (
+            patch("voiceobs.cli.Database") as mock_db_class,
+            patch("voiceobs.cli.SpanRepository") as mock_span_repo_class,
+            patch("voiceobs.cli.ConversationRepository") as mock_conv_repo_class,
+        ):
             mock_db = AsyncMock()
             mock_db_class.return_value = mock_db
 

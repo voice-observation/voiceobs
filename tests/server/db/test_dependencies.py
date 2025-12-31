@@ -124,9 +124,7 @@ class TestPostgresSpanStoreAdapter:
         return AsyncMock()
 
     @pytest.mark.asyncio
-    async def test_add_span_without_conversation(
-        self, mock_span_repo, mock_conversation_repo
-    ):
+    async def test_add_span_without_conversation(self, mock_span_repo, mock_conversation_repo):
         """Test add_span without conversation ID."""
         adapter = PostgresSpanStoreAdapter(
             span_repo=mock_span_repo,
@@ -146,9 +144,7 @@ class TestPostgresSpanStoreAdapter:
         assert result == span_id
 
     @pytest.mark.asyncio
-    async def test_add_span_with_conversation(
-        self, mock_span_repo, mock_conversation_repo
-    ):
+    async def test_add_span_with_conversation(self, mock_span_repo, mock_conversation_repo):
         """Test add_span with conversation ID."""
         adapter = PostgresSpanStoreAdapter(
             span_repo=mock_span_repo,
@@ -253,9 +249,7 @@ class TestDependencyFunctions:
         """Test init_database uses in-memory when no URL configured."""
         # Ensure no URL is set
         with patch.dict("os.environ", {}, clear=True):
-            with patch(
-                "voiceobs.server.dependencies._get_database_url", return_value=None
-            ):
+            with patch("voiceobs.server.dependencies._get_database_url", return_value=None):
                 await init_database()
 
         assert not is_using_postgres()
@@ -273,9 +267,7 @@ class TestDependencyFunctions:
             "voiceobs.server.dependencies._get_database_url",
             return_value="postgresql://test:test@localhost/test",
         ):
-            with patch(
-                "voiceobs.server.dependencies.Database", return_value=mock_db
-            ):
+            with patch("voiceobs.server.dependencies.Database", return_value=mock_db):
                 await init_database()
 
         assert is_using_postgres()
@@ -295,9 +287,7 @@ class TestDependencyFunctions:
             "voiceobs.server.dependencies._get_database_url",
             return_value="postgresql://test:test@localhost/test",
         ):
-            with patch(
-                "voiceobs.server.dependencies.Database", return_value=mock_db
-            ):
+            with patch("voiceobs.server.dependencies.Database", return_value=mock_db):
                 await init_database()
 
         assert is_using_postgres()
@@ -343,9 +333,7 @@ class TestGetDatabaseUrl:
 
     def test_returns_env_var_if_set(self):
         """Test returns env var when set."""
-        with patch.dict(
-            "os.environ", {"VOICEOBS_DATABASE_URL": "postgresql://env/db"}
-        ):
+        with patch.dict("os.environ", {"VOICEOBS_DATABASE_URL": "postgresql://env/db"}):
             from voiceobs.server.dependencies import _get_database_url
 
             url = _get_database_url()
@@ -357,9 +345,7 @@ class TestGetDatabaseUrl:
         mock_config.server.database_url = "postgresql://config/db"
 
         with patch.dict("os.environ", {}, clear=True):
-            with patch(
-                "voiceobs.config.get_config", return_value=mock_config
-            ):
+            with patch("voiceobs.config.get_config", return_value=mock_config):
                 from voiceobs.server.dependencies import _get_database_url
 
                 url = _get_database_url()

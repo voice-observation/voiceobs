@@ -18,12 +18,14 @@ class TestConversationRepository:
         """Test get_or_create returns existing conversation."""
         repo = ConversationRepository(mock_db)
         existing_id = uuid4()
-        mock_db.fetchrow.return_value = MockRecord({
-            "id": existing_id,
-            "conversation_id": "conv-123",
-            "created_at": None,
-            "updated_at": None,
-        })
+        mock_db.fetchrow.return_value = MockRecord(
+            {
+                "id": existing_id,
+                "conversation_id": "conv-123",
+                "created_at": None,
+                "updated_at": None,
+            }
+        )
 
         result = await repo.get_or_create("conv-123")
 
@@ -49,12 +51,14 @@ class TestConversationRepository:
         """Test getting a conversation by UUID."""
         repo = ConversationRepository(mock_db)
         conv_id = uuid4()
-        mock_db.fetchrow.return_value = MockRecord({
-            "id": conv_id,
-            "conversation_id": "conv-123",
-            "created_at": None,
-            "updated_at": None,
-        })
+        mock_db.fetchrow.return_value = MockRecord(
+            {
+                "id": conv_id,
+                "conversation_id": "conv-123",
+                "created_at": None,
+                "updated_at": None,
+            }
+        )
 
         result = await repo.get(conv_id)
 
@@ -76,12 +80,14 @@ class TestConversationRepository:
         """Test getting a conversation by external ID."""
         repo = ConversationRepository(mock_db)
         conv_id = uuid4()
-        mock_db.fetchrow.return_value = MockRecord({
-            "id": conv_id,
-            "conversation_id": "ext-conv-123",
-            "created_at": None,
-            "updated_at": None,
-        })
+        mock_db.fetchrow.return_value = MockRecord(
+            {
+                "id": conv_id,
+                "conversation_id": "ext-conv-123",
+                "created_at": None,
+                "updated_at": None,
+            }
+        )
 
         result = await repo.get_by_external_id("ext-conv-123")
 
@@ -93,18 +99,22 @@ class TestConversationRepository:
         """Test getting all conversations."""
         repo = ConversationRepository(mock_db)
         mock_db.fetch.return_value = [
-            MockRecord({
-                "id": uuid4(),
-                "conversation_id": "conv-1",
-                "created_at": None,
-                "updated_at": None,
-            }),
-            MockRecord({
-                "id": uuid4(),
-                "conversation_id": "conv-2",
-                "created_at": None,
-                "updated_at": None,
-            }),
+            MockRecord(
+                {
+                    "id": uuid4(),
+                    "conversation_id": "conv-1",
+                    "created_at": None,
+                    "updated_at": None,
+                }
+            ),
+            MockRecord(
+                {
+                    "id": uuid4(),
+                    "conversation_id": "conv-2",
+                    "created_at": None,
+                    "updated_at": None,
+                }
+            ),
         ]
 
         result = await repo.get_all()
@@ -117,13 +127,15 @@ class TestConversationRepository:
         """Test getting conversation summaries."""
         repo = ConversationRepository(mock_db)
         mock_db.fetch.return_value = [
-            MockRecord({
-                "id": uuid4(),
-                "conversation_id": "conv-1",
-                "span_count": 10,
-                "turn_count": 5,
-                "has_failures": False,
-            }),
+            MockRecord(
+                {
+                    "id": uuid4(),
+                    "conversation_id": "conv-1",
+                    "span_count": 10,
+                    "turn_count": 5,
+                    "has_failures": False,
+                }
+            ),
         ]
 
         result = await repo.get_summary()
