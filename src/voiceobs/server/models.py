@@ -378,13 +378,19 @@ class ConversationDetail(BaseModel):
 class ConversationsListResponse(BaseModel):
     """Response model for listing conversations."""
 
-    count: int = Field(..., description="Number of conversations")
+    count: int = Field(..., description="Number of conversations in this page")
+    total: int = Field(..., description="Total number of conversations matching filters")
     conversations: list[ConversationSummary] = Field(..., description="List of conversations")
+    limit: int = Field(default=50, description="Maximum number of results per page")
+    offset: int = Field(default=0, description="Number of results skipped")
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
                 "count": 2,
+                "total": 2,
+                "limit": 50,
+                "offset": 0,
                 "conversations": [
                     {
                         "id": "conv-123",

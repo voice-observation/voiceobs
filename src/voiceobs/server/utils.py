@@ -1,5 +1,7 @@
 """Utility functions for the voiceobs server."""
 
+from datetime import datetime
+
 from voiceobs.analyzer import AnalysisResult
 from voiceobs.server.models import (
     AnalysisResponse,
@@ -71,3 +73,23 @@ def analysis_result_to_response(result: AnalysisResult) -> AnalysisResponse:
             max_relevance_score=result.eval_metrics.max_relevance_score,
         ),
     )
+
+
+def parse_iso_datetime(dt_str: str) -> datetime | None:
+    """Parse ISO datetime string.
+
+    Args:
+        dt_str: ISO 8601 datetime string.
+
+    Returns:
+        Parsed datetime object or None if parsing fails.
+    """
+    try:
+        if isinstance(dt_str, str):
+            # Remove Z and convert to +00:00 if needed
+            if dt_str.endswith("Z"):
+                dt_str = dt_str[:-1] + "+00:00"
+            return datetime.fromisoformat(dt_str)
+    except (ValueError, AttributeError, TypeError):
+        return None
+    return None

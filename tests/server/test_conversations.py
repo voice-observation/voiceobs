@@ -11,6 +11,7 @@ class TestConversationsEndpoints:
         assert response.status_code == 200
         data = response.json()
         assert data["count"] == 0
+        assert data["total"] == 0
         assert data["conversations"] == []
 
     def test_list_conversations_with_data(self, client):
@@ -44,6 +45,7 @@ class TestConversationsEndpoints:
         assert response.status_code == 200
         data = response.json()
         assert data["count"] == 2
+        assert data["total"] == 2
 
         # Find conv-1 in the list
         conv1 = next((c for c in data["conversations"] if c["id"] == "conv-1"), None)
