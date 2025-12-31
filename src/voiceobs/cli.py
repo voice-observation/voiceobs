@@ -417,5 +417,69 @@ def report(
         raise typer.Exit(1)
 
 
+@app.command()
+def server(
+    host: str = typer.Option(
+        "127.0.0.1",
+        "--host",
+        "-h",
+        help="Host to bind the server to",
+    ),
+    port: int = typer.Option(
+        8765,
+        "--port",
+        "-p",
+        help="Port to bind the server to",
+    ),
+    reload: bool = typer.Option(
+        False,
+        "--reload",
+        help="Enable auto-reload for development",
+    ),
+) -> None:
+    """Start the voiceobs REST API server.
+
+    Starts a FastAPI server that accepts spans via HTTP and provides
+    analysis endpoints. Use this to integrate voiceobs with external
+    tools or build custom dashboards.
+
+    Example:
+        voiceobs server
+        voiceobs server --port 9000
+        voiceobs server --host 0.0.0.0 --port 8080 --reload
+    """
+    try:
+        import uvicorn
+    except ImportError:
+        typer.echo(
+            "Error: Server dependencies not installed.",
+            err=True,
+        )
+        typer.echo(
+            "Hint: Install with: pip install voiceobs[server]",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    from voiceobs._version import __version__
+
+    typer.echo(f"Starting voiceobs server v{__version__}")
+    typer.echo(f"  Host: {host}")
+    typer.echo(f"  Port: {port}")
+    typer.echo(f"  Reload: {reload}")
+    typer.echo()
+    typer.echo(f"API docs: http://{host}:{port}/docs")
+    typer.echo(f"Health check: http://{host}:{port}/health")
+    typer.echo()
+
+    uvicorn.run(
+        "voiceobs.server.app:create_app",
+        host=host,
+        port=port,
+        reload=reload,
+        factory=True,
+    )
+
+
 if __name__ == "__main__":
     app()
