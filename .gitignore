@@ -48,3 +48,11 @@ external-repos/
 
 # test configuration file
 voiceobs.yaml
+
+# Next.js UI
+ui/.next/
+ui/out/
+ui/node_modules/
+ui/.env.local
+ui/.env*.local
+ui/.vercel

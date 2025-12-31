@@ -25,8 +25,6 @@ def _parse_datetime(value: str | datetime | None) -> datetime | None:
     if isinstance(value, datetime):
         return value
     # Parse ISO 8601 string
-    if isinstance(value, str) and value.endswith("Z"):
-        value = value.replace("Z", "+00:00")
     return datetime.fromisoformat(value)
 
 
