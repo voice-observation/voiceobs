@@ -69,6 +69,12 @@ def voice_conversation_decorator(
 
 def voice_turn_decorator(
     actor: Actor,
+    *,
+    audio_url: str | None = None,
+    audio_duration_ms: float | None = None,
+    audio_format: str | None = None,
+    audio_sample_rate: int | None = None,
+    audio_channels: int | None = None,
 ) -> Callable[[F], F]:
     """Decorator that wraps a function in a voice turn context.
 
@@ -77,6 +83,11 @@ def voice_turn_decorator(
 
     Args:
         actor: The actor for this turn - "user", "agent", or "system".
+        audio_url: Optional URL or path to the audio file for this turn.
+        audio_duration_ms: Optional duration of the audio in milliseconds.
+        audio_format: Optional audio format (e.g., "wav", "mp3", "ogg").
+        audio_sample_rate: Optional sample rate in Hz (e.g., 16000, 44100).
+        audio_channels: Optional number of audio channels (1=mono, 2=stereo).
 
     Returns:
         A decorator that wraps the function in a voice_turn context.
@@ -84,7 +95,7 @@ def voice_turn_decorator(
     Example:
         @voice_conversation_decorator()
         def handle_call():
-            @voice_turn_decorator(actor="user")
+            @voice_turn_decorator(actor="user", audio_url="s3://bucket/user.wav")
             def process_user():
                 return transcribe_audio()
 
@@ -101,7 +112,14 @@ def voice_turn_decorator(
 
             @functools.wraps(func)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-                with voice_turn(actor):
+                with voice_turn(
+                    actor,
+                    audio_url=audio_url,
+                    audio_duration_ms=audio_duration_ms,
+                    audio_format=audio_format,
+                    audio_sample_rate=audio_sample_rate,
+                    audio_channels=audio_channels,
+                ):
                     return await func(*args, **kwargs)
 
             return async_wrapper  # type: ignore[return-value]
@@ -109,7 +127,14 @@ def voice_turn_decorator(
 
             @functools.wraps(func)
             def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
-                with voice_turn(actor):
+                with voice_turn(
+                    actor,
+                    audio_url=audio_url,
+                    audio_duration_ms=audio_duration_ms,
+                    audio_format=audio_format,
+                    audio_sample_rate=audio_sample_rate,
+                    audio_channels=audio_channels,
+                ):
                     return func(*args, **kwargs)
 
             return sync_wrapper  # type: ignore[return-value]

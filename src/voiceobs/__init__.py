@@ -25,6 +25,11 @@ from voiceobs.config import (
     set_config,
 )
 from voiceobs.context import (
+    AUDIO_CHANNELS_ATTR,
+    AUDIO_DURATION_MS_ATTR,
+    AUDIO_FORMAT_ATTR,
+    AUDIO_SAMPLE_RATE_ATTR,
+    AUDIO_URL_ATTR,
     VOICE_SCHEMA_VERSION,
     ConversationContext,
     TurnContext,
@@ -60,6 +65,11 @@ from voiceobs.types import Actor
 
 __all__ = [
     "__version__",
+    "AUDIO_CHANNELS_ATTR",
+    "AUDIO_DURATION_MS_ATTR",
+    "AUDIO_FORMAT_ATTR",
+    "AUDIO_SAMPLE_RATE_ATTR",
+    "AUDIO_URL_ATTR",
     "VOICE_SCHEMA_VERSION",
     "Actor",
     "ClassificationResult",

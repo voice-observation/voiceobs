@@ -17,6 +17,13 @@ from voiceobs.types import Actor
 # Schema version for voice observability attributes
 VOICE_SCHEMA_VERSION = "0.0.2"
 
+# Audio attribute names
+AUDIO_URL_ATTR = "voice.turn.audio_url"
+AUDIO_DURATION_MS_ATTR = "voice.turn.audio_duration_ms"
+AUDIO_FORMAT_ATTR = "voice.turn.audio_format"
+AUDIO_SAMPLE_RATE_ATTR = "voice.turn.audio_sample_rate"
+AUDIO_CHANNELS_ATTR = "voice.turn.audio_channels"
+
 
 def _get_tracer() -> trace.Tracer:
     """Get the tracer for voice observability."""
@@ -112,7 +119,15 @@ _current_turn_span: ContextVar[Span | None] = ContextVar("voice_current_turn_spa
 
 
 @contextmanager
-def voice_turn(actor: Actor) -> Generator[TurnContext, None, None]:
+def voice_turn(
+    actor: Actor,
+    *,
+    audio_url: str | None = None,
+    audio_duration_ms: float | None = None,
+    audio_format: str | None = None,
+    audio_sample_rate: int | None = None,
+    audio_channels: int | None = None,
+) -> Generator[TurnContext, None, None]:
     """Context manager for a voice turn.
 
     Creates a turn context and emits an OpenTelemetry span for the turn.
@@ -120,6 +135,11 @@ def voice_turn(actor: Actor) -> Generator[TurnContext, None, None]:
 
     Args:
         actor: The actor for this turn - "user", "agent", or "system".
+        audio_url: Optional URL or path to the audio file for this turn.
+        audio_duration_ms: Optional duration of the audio in milliseconds.
+        audio_format: Optional audio format (e.g., "wav", "mp3", "ogg").
+        audio_sample_rate: Optional sample rate in Hz (e.g., 16000, 44100).
+        audio_channels: Optional number of audio channels (1=mono, 2=stereo).
 
     Yields:
         The turn context.
@@ -129,7 +149,7 @@ def voice_turn(actor: Actor) -> Generator[TurnContext, None, None]:
 
     Example:
         with voice_conversation():
-            with voice_turn("user") as turn:
+            with voice_turn("user", audio_url="s3://bucket/audio.wav") as turn:
                 print(f"Turn {turn.turn_index} by {turn.actor}")
                 # Process user utterance
     """
@@ -153,6 +173,18 @@ def voice_turn(actor: Actor) -> Generator[TurnContext, None, None]:
     ) as span:
         span_token = _current_turn_span.set(span)
         _set_turn_attributes(span, conversation, turn_ctx)
+
+        # Set audio metadata attributes if provided
+        if audio_url is not None:
+            span.set_attribute(AUDIO_URL_ATTR, audio_url)
+        if audio_duration_ms is not None:
+            span.set_attribute(AUDIO_DURATION_MS_ATTR, audio_duration_ms)
+        if audio_format is not None:
+            span.set_attribute(AUDIO_FORMAT_ATTR, audio_format)
+        if audio_sample_rate is not None:
+            span.set_attribute(AUDIO_SAMPLE_RATE_ATTR, audio_sample_rate)
+        if audio_channels is not None:
+            span.set_attribute(AUDIO_CHANNELS_ATTR, audio_channels)
 
         try:
             yield turn_ctx

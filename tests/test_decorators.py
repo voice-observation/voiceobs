@@ -374,3 +374,56 @@ class TestDecoratorReturnValues:
 
         result = conversation()
         assert result == (1, 2, 3)
+
+
+class TestVoiceTurnDecoratorAudioMetadata:
+    """Tests for audio metadata support in voice_turn_decorator."""
+
+    def test_decorator_with_audio_url(self, span_exporter):
+        """Test decorator passes audio_url to span."""
+
+        @voice_conversation_decorator()
+        def conversation():
+            @voice_turn_decorator(actor="user", audio_url="s3://bucket/audio.wav")
+            def user_turn():
+                pass
+
+            user_turn()
+
+        conversation()
+
+        spans = span_exporter.get_finished_spans()
+        turn_span = [s for s in spans if s.name == "voice.turn"][0]
+        attrs = dict(turn_span.attributes)
+
+        assert attrs["voice.turn.audio_url"] == "s3://bucket/audio.wav"
+
+    def test_decorator_with_all_audio_params(self, span_exporter):
+        """Test decorator passes all audio parameters to span."""
+
+        @voice_conversation_decorator()
+        def conversation():
+            @voice_turn_decorator(
+                actor="agent",
+                audio_url="https://cdn.example.com/response.mp3",
+                audio_duration_ms=2500.0,
+                audio_format="mp3",
+                audio_sample_rate=22050,
+                audio_channels=1,
+            )
+            def agent_turn():
+                pass
+
+            agent_turn()
+
+        conversation()
+
+        spans = span_exporter.get_finished_spans()
+        turn_span = [s for s in spans if s.name == "voice.turn"][0]
+        attrs = dict(turn_span.attributes)
+
+        assert attrs["voice.turn.audio_url"] == "https://cdn.example.com/response.mp3"
+        assert attrs["voice.turn.audio_duration_ms"] == 2500.0
+        assert attrs["voice.turn.audio_format"] == "mp3"
+        assert attrs["voice.turn.audio_sample_rate"] == 22050
+        assert attrs["voice.turn.audio_channels"] == 1

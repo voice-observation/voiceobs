@@ -244,3 +244,122 @@ class TestOpenTelemetrySpans:
 
         assert turn_span.parent is not None
         assert turn_span.parent.span_id == conv_span.context.span_id
+
+
+class TestAudioMetadata:
+    """Tests for audio metadata support in voice turns."""
+
+    def test_audio_url_attribute_set(self, span_exporter):
+        """Test that audio_url attribute is set on the span."""
+        with voice_conversation():
+            with voice_turn("user", audio_url="s3://bucket/audio.wav"):
+                pass
+
+        spans = span_exporter.get_finished_spans()
+        turn_span = [s for s in spans if s.name == "voice.turn"][0]
+        attrs = dict(turn_span.attributes)
+
+        assert attrs["voice.turn.audio_url"] == "s3://bucket/audio.wav"
+
+    def test_audio_duration_ms_attribute_set(self, span_exporter):
+        """Test that audio_duration_ms attribute is set on the span."""
+        with voice_conversation():
+            with voice_turn("user", audio_duration_ms=5000.5):
+                pass
+
+        spans = span_exporter.get_finished_spans()
+        turn_span = [s for s in spans if s.name == "voice.turn"][0]
+        attrs = dict(turn_span.attributes)
+
+        assert attrs["voice.turn.audio_duration_ms"] == 5000.5
+
+    def test_audio_format_attribute_set(self, span_exporter):
+        """Test that audio_format attribute is set on the span."""
+        with voice_conversation():
+            with voice_turn("user", audio_format="wav"):
+                pass
+
+        spans = span_exporter.get_finished_spans()
+        turn_span = [s for s in spans if s.name == "voice.turn"][0]
+        attrs = dict(turn_span.attributes)
+
+        assert attrs["voice.turn.audio_format"] == "wav"
+
+    def test_audio_sample_rate_attribute_set(self, span_exporter):
+        """Test that audio_sample_rate attribute is set on the span."""
+        with voice_conversation():
+            with voice_turn("user", audio_sample_rate=16000):
+                pass
+
+        spans = span_exporter.get_finished_spans()
+        turn_span = [s for s in spans if s.name == "voice.turn"][0]
+        attrs = dict(turn_span.attributes)
+
+        assert attrs["voice.turn.audio_sample_rate"] == 16000
+
+    def test_audio_channels_attribute_set(self, span_exporter):
+        """Test that audio_channels attribute is set on the span."""
+        with voice_conversation():
+            with voice_turn("user", audio_channels=1):
+                pass
+
+        spans = span_exporter.get_finished_spans()
+        turn_span = [s for s in spans if s.name == "voice.turn"][0]
+        attrs = dict(turn_span.attributes)
+
+        assert attrs["voice.turn.audio_channels"] == 1
+
+    def test_all_audio_attributes_set_together(self, span_exporter):
+        """Test that all audio attributes can be set together."""
+        with voice_conversation():
+            with voice_turn(
+                "user",
+                audio_url="https://example.com/audio.mp3",
+                audio_duration_ms=3500.0,
+                audio_format="mp3",
+                audio_sample_rate=44100,
+                audio_channels=2,
+            ):
+                pass
+
+        spans = span_exporter.get_finished_spans()
+        turn_span = [s for s in spans if s.name == "voice.turn"][0]
+        attrs = dict(turn_span.attributes)
+
+        assert attrs["voice.turn.audio_url"] == "https://example.com/audio.mp3"
+        assert attrs["voice.turn.audio_duration_ms"] == 3500.0
+        assert attrs["voice.turn.audio_format"] == "mp3"
+        assert attrs["voice.turn.audio_sample_rate"] == 44100
+        assert attrs["voice.turn.audio_channels"] == 2
+
+    def test_audio_attributes_not_set_when_none(self, span_exporter):
+        """Test that audio attributes are not set when not provided."""
+        with voice_conversation():
+            with voice_turn("user"):
+                pass
+
+        spans = span_exporter.get_finished_spans()
+        turn_span = [s for s in spans if s.name == "voice.turn"][0]
+        attrs = dict(turn_span.attributes)
+
+        assert "voice.turn.audio_url" not in attrs
+        assert "voice.turn.audio_duration_ms" not in attrs
+        assert "voice.turn.audio_format" not in attrs
+        assert "voice.turn.audio_sample_rate" not in attrs
+        assert "voice.turn.audio_channels" not in attrs
+
+    def test_partial_audio_attributes(self, span_exporter):
+        """Test that only provided audio attributes are set."""
+        with voice_conversation():
+            with voice_turn("user", audio_url="file:///tmp/audio.ogg", audio_format="ogg"):
+                pass
+
+        spans = span_exporter.get_finished_spans()
+        turn_span = [s for s in spans if s.name == "voice.turn"][0]
+        attrs = dict(turn_span.attributes)
+
+        assert attrs["voice.turn.audio_url"] == "file:///tmp/audio.ogg"
+        assert attrs["voice.turn.audio_format"] == "ogg"
+        assert "voice.turn.audio_duration_ms" not in attrs
+        assert "voice.turn.audio_sample_rate" not in attrs
+        assert "voice.turn.audio_channels" not in attrs
