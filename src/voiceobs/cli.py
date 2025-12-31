@@ -1,18 +1,31 @@
 """CLI entry point for voiceobs."""
 
+import asyncio
 import json
+import os
 import time
 from pathlib import Path
+from typing import Any
 
 import typer
 
 from voiceobs.config import PROJECT_CONFIG_NAME, generate_default_config
+from voiceobs.server.db.connection import Database
+from voiceobs.server.db.repositories import ConversationRepository, SpanRepository
 
 app = typer.Typer(
     name="voiceobs",
     help="Voice AI observability toolkit",
     no_args_is_help=True,
 )
+
+# Database subcommand group
+db_app = typer.Typer(
+    name="db",
+    help="Database management commands",
+    no_args_is_help=True,
+)
+app.add_typer(db_app, name="db")
 
 
 @app.command()
@@ -479,6 +492,374 @@ def server(
         reload=reload,
         factory=True,
     )
+
+
+def _get_database_url() -> str | None:
+    """Get the database URL from environment or config.
+
+    Returns:
+        Database URL or None if not configured.
+    """
+    # First check environment variable
+    env_url = os.environ.get("VOICEOBS_DATABASE_URL")
+    if env_url:
+        return env_url
+
+    # Then try config file
+    try:
+        from voiceobs.config import get_config
+
+        config = get_config()
+        return config.server.database_url
+    except Exception:
+        return None
+
+
+def import_spans_to_db(
+    input_file: Path,
+    database_url: str,
+) -> dict[str, Any]:
+    """Import spans from a JSONL file to the database.
+
+    Args:
+        input_file: Path to the JSONL file.
+        database_url: Database URL to connect to.
+
+    Returns:
+        Dictionary with import results.
+    """
+
+    async def _import() -> dict[str, Any]:
+        db = Database(database_url=database_url)
+        await db.connect()
+        await db.init_schema()
+
+        span_repo = SpanRepository(db)
+        conv_repo = ConversationRepository(db)
+
+        imported = 0
+        errors = 0
+
+        with open(input_file) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+
+                try:
+                    span_data = json.loads(line)
+                    attrs = span_data.get("attributes", {})
+                    conversation_id = None
+
+                    # Auto-create conversation if span has conversation ID
+                    conv_external_id = attrs.get("voice.conversation.id")
+                    if conv_external_id:
+                        conv = await conv_repo.get_or_create(conv_external_id)
+                        conversation_id = conv.id
+
+                    await span_repo.add(
+                        name=span_data.get("name", "unknown"),
+                        start_time=span_data.get("start_time"),
+                        end_time=span_data.get("end_time"),
+                        duration_ms=span_data.get("duration_ms"),
+                        attributes=attrs,
+                        trace_id=span_data.get("trace_id"),
+                        span_id=span_data.get("span_id"),
+                        parent_span_id=span_data.get("parent_span_id"),
+                        conversation_id=conversation_id,
+                    )
+                    imported += 1
+                except Exception:
+                    errors += 1
+
+        await db.disconnect()
+        return {"imported": imported, "errors": errors}
+
+    return asyncio.run(_import())
+
+
+def export_spans_from_db(
+    database_url: str,
+    output_file: Path | None = None,
+    conversation_id: str | None = None,
+) -> dict[str, Any]:
+    """Export spans from the database to a JSONL file.
+
+    Args:
+        database_url: Database URL to connect to.
+        output_file: Path to write the JSONL file. If None, returns spans.
+        conversation_id: Optional conversation ID to filter by.
+
+    Returns:
+        Dictionary with export results.
+    """
+
+    async def _export() -> dict[str, Any]:
+        db = Database(database_url=database_url)
+        await db.connect()
+
+        span_repo = SpanRepository(db)
+        conv_repo = ConversationRepository(db)
+
+        if conversation_id:
+            # Find conversation by external ID
+            conv = await conv_repo.get_by_external_id(conversation_id)
+            if conv:
+                spans = await span_repo.get_by_conversation(conv.id)
+            else:
+                spans = []
+        else:
+            spans = await span_repo.get_all()
+
+        # Convert to dicts
+        span_dicts = []
+        for span in spans:
+            span_dict = {
+                "name": span.name,
+                "start_time": span.start_time,
+                "end_time": span.end_time,
+                "duration_ms": span.duration_ms,
+                "attributes": span.attributes,
+                "trace_id": span.trace_id,
+                "span_id": span.span_id,
+                "parent_span_id": span.parent_span_id,
+            }
+            span_dicts.append(span_dict)
+
+        await db.disconnect()
+
+        if output_file:
+            with open(output_file, "w") as f:
+                for span_dict in span_dicts:
+                    f.write(json.dumps(span_dict) + "\n")
+            return {"exported": len(span_dicts), "path": str(output_file)}
+        else:
+            return {"exported": len(span_dicts), "spans": span_dicts}
+
+    return asyncio.run(_export())
+
+
+# Database commands
+@db_app.command("migrate")
+def db_migrate(
+    revision: str = typer.Option(
+        "head",
+        "--revision",
+        "-r",
+        help="Target revision (default: head)",
+    ),
+) -> None:
+    """Run database migrations.
+
+    Applies pending migrations to bring the database to the target revision.
+
+    Example:
+        voiceobs db migrate
+        voiceobs db migrate --revision abc123
+    """
+    database_url = _get_database_url()
+    if not database_url:
+        typer.echo("Error: No database URL configured.", err=True)
+        typer.echo(
+            "Hint: Set VOICEOBS_DATABASE_URL or configure server.database_url in voiceobs.yaml",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    try:
+        from voiceobs.server.db.migrations import run_migrations
+
+        typer.echo(f"Running migrations to revision: {revision}")
+        result = run_migrations(database_url=database_url, revision=revision)
+
+        if result["success"]:
+            typer.echo("Migrations completed successfully.")
+        else:
+            typer.echo(f"Error running migrations: {result.get('error')}", err=True)
+            raise typer.Exit(1)
+
+    except ImportError:
+        typer.echo("Error: Server dependencies not installed.", err=True)
+        typer.echo("Hint: Install with: pip install voiceobs[server]", err=True)
+        raise typer.Exit(1)
+
+
+@db_app.command("status")
+def db_status() -> None:
+    """Show database migration status.
+
+    Displays the current revision and any pending migrations.
+
+    Example:
+        voiceobs db status
+    """
+    database_url = _get_database_url()
+    if not database_url:
+        typer.echo("Error: No database URL configured.", err=True)
+        typer.echo(
+            "Hint: Set VOICEOBS_DATABASE_URL or configure server.database_url in voiceobs.yaml",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    try:
+        from voiceobs.server.db.migrations import (
+            get_current_revision,
+            get_pending_migrations,
+        )
+
+        current = get_current_revision(database_url)
+        pending = get_pending_migrations(database_url)
+
+        typer.echo("Database Migration Status")
+        typer.echo("=" * 40)
+        typer.echo()
+        typer.echo(f"Current revision: {current or '(none)'}")
+
+        if pending:
+            typer.echo(f"Pending migrations: {len(pending)}")
+            for rev in pending:
+                typer.echo(f"  - {rev}")
+        else:
+            typer.echo("Status: Database is up to date")
+
+    except ImportError:
+        typer.echo("Error: Server dependencies not installed.", err=True)
+        typer.echo("Hint: Install with: pip install voiceobs[server]", err=True)
+        raise typer.Exit(1)
+    except Exception as e:
+        typer.echo(f"Error checking status: {e}", err=True)
+        raise typer.Exit(1)
+
+
+@db_app.command("history")
+def db_history() -> None:
+    """Show migration history.
+
+    Lists all available migrations in the project.
+
+    Example:
+        voiceobs db history
+    """
+    try:
+        from voiceobs.server.db.migrations import get_migration_history
+
+        history = get_migration_history()
+
+        typer.echo("Migration History")
+        typer.echo("=" * 40)
+        typer.echo()
+
+        if history:
+            for migration in history:
+                typer.echo(f"  {migration['revision']}: {migration['description']}")
+        else:
+            typer.echo("No migrations found.")
+
+    except ImportError:
+        typer.echo("Error: Server dependencies not installed.", err=True)
+        typer.echo("Hint: Install with: pip install voiceobs[server]", err=True)
+        raise typer.Exit(1)
+
+
+# Import command
+@app.command("import")
+def import_command(
+    input_file: Path = typer.Option(
+        ...,
+        "--input",
+        "-i",
+        help="Path to the JSONL file to import",
+        exists=True,
+        readable=True,
+    ),
+) -> None:
+    """Import spans from a JSONL file to the database.
+
+    Reads span data from a JSONL file and stores it in the database.
+    Automatically creates conversations for spans with voice.conversation.id.
+
+    Example:
+        voiceobs import --input run.jsonl
+    """
+    database_url = _get_database_url()
+    if not database_url:
+        typer.echo("Error: No database URL configured.", err=True)
+        typer.echo(
+            "Hint: Set VOICEOBS_DATABASE_URL or configure server.database_url in voiceobs.yaml",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    try:
+        typer.echo(f"Importing spans from: {input_file}")
+        result = import_spans_to_db(input_file, database_url)
+
+        typer.echo(f"Imported {result['imported']} spans")
+        if result["errors"] > 0:
+            typer.echo(f"Errors: {result['errors']}", err=True)
+
+    except json.JSONDecodeError as e:
+        typer.echo(f"Error: Invalid JSON in file: {input_file}", err=True)
+        typer.echo(f"Details: {e}", err=True)
+        raise typer.Exit(1)
+    except Exception as e:
+        typer.echo(f"Error importing spans: {e}", err=True)
+        raise typer.Exit(1)
+
+
+# Export command
+@app.command("export")
+def export_command(
+    output_file: Path = typer.Option(
+        None,
+        "--output",
+        "-o",
+        help="Path to write the JSONL file (prints to stdout if not specified)",
+    ),
+    conversation: str = typer.Option(
+        None,
+        "--conversation",
+        "-c",
+        help="Filter by conversation ID",
+    ),
+) -> None:
+    """Export spans from the database to a JSONL file.
+
+    Reads span data from the database and writes it to a JSONL file
+    or stdout if no output file is specified.
+
+    Example:
+        voiceobs export --output run.jsonl
+        voiceobs export --conversation conv-123 --output run.jsonl
+        voiceobs export
+    """
+    database_url = _get_database_url()
+    if not database_url:
+        typer.echo("Error: No database URL configured.", err=True)
+        typer.echo(
+            "Hint: Set VOICEOBS_DATABASE_URL or configure server.database_url in voiceobs.yaml",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    try:
+        result = export_spans_from_db(
+            database_url=database_url,
+            output_file=output_file,
+            conversation_id=conversation,
+        )
+
+        if output_file:
+            typer.echo(f"Exported {result['exported']} spans to: {output_file}")
+        else:
+            # Print to stdout
+            for span in result.get("spans", []):
+                typer.echo(json.dumps(span))
+
+    except Exception as e:
+        typer.echo(f"Error exporting spans: {e}", err=True)
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":
