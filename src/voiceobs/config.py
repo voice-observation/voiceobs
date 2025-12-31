@@ -169,6 +169,19 @@ class EvalConfig:
 
 
 @dataclass
+class ServerConfig:
+    """Server configuration."""
+
+    # Database URL for PostgreSQL persistence
+    # Set to None or empty string to use in-memory storage
+    database_url: str | None = None
+
+    # Connection pool settings
+    database_pool_min_size: int = 2
+    database_pool_max_size: int = 10
+
+
+@dataclass
 class VoiceobsConfig:
     """Root configuration for voiceobs."""
 
@@ -176,6 +189,7 @@ class VoiceobsConfig:
     failures: FailuresConfig = field(default_factory=FailuresConfig)
     regression: RegressionConfig = field(default_factory=RegressionConfig)
     eval: EvalConfig = field(default_factory=EvalConfig)
+    server: ServerConfig = field(default_factory=ServerConfig)
 
 
 class ConfigValidationError(Exception):
@@ -443,6 +457,17 @@ eval:
   cache:
     enabled: true
     dir: ".voiceobs_cache"
+
+# Server settings
+server:
+  # PostgreSQL database URL for persistence
+  # Leave null/empty to use in-memory storage (default)
+  # Example: postgresql://voiceobs:voiceobs@localhost:5432/voiceobs
+  database_url: null
+
+  # Connection pool settings (only used when database_url is set)
+  database_pool_min_size: 2
+  database_pool_max_size: 10
 """
 
 

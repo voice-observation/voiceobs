@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from voiceobs._version import __version__
+from voiceobs.server.dependencies import init_database, shutdown_database
 from voiceobs.server.routes import (
     analysis_router,
     conversations_router,
@@ -13,6 +17,19 @@ from voiceobs.server.routes import (
     health_router,
     spans_router,
 )
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Application lifespan handler.
+
+    Manages database connection on startup and shutdown.
+    """
+    # Startup: initialize database connection
+    await init_database()
+    yield
+    # Shutdown: close database connection
+    await shutdown_database()
 
 
 def create_app() -> FastAPI:
@@ -28,6 +45,7 @@ def create_app() -> FastAPI:
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
+        lifespan=lifespan,
     )
 
     # Configure CORS for UI integration

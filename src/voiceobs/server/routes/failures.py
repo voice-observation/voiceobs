@@ -3,8 +3,8 @@
 from fastapi import APIRouter
 
 from voiceobs.classifier import FailureClassifier
+from voiceobs.server.dependencies import get_storage
 from voiceobs.server.models import FailureResponse, FailuresListResponse
-from voiceobs.server.store import get_span_store
 
 router = APIRouter(tags=["Failures"])
 
@@ -20,8 +20,8 @@ async def list_failures(
     type: str | None = None,
 ) -> FailuresListResponse:
     """List all detected failures."""
-    store = get_span_store()
-    all_spans = store.get_spans_as_dicts()
+    storage = get_storage()
+    all_spans = await storage.get_spans_as_dicts()
 
     # Classify failures
     classifier = FailureClassifier()

@@ -3,6 +3,7 @@
 from fastapi import APIRouter, HTTPException, status
 
 from voiceobs.analyzer import analyze_spans
+from voiceobs.server.dependencies import get_storage
 from voiceobs.server.models import (
     ConversationDetail,
     ConversationsListResponse,
@@ -10,7 +11,6 @@ from voiceobs.server.models import (
     ErrorResponse,
     TurnResponse,
 )
-from voiceobs.server.store import get_span_store
 from voiceobs.server.utils import analysis_result_to_response
 
 router = APIRouter(tags=["Conversations"])
@@ -24,8 +24,8 @@ router = APIRouter(tags=["Conversations"])
 )
 async def list_conversations() -> ConversationsListResponse:
     """List all conversations."""
-    store = get_span_store()
-    all_spans = store.get_spans_as_dicts()
+    storage = get_storage()
+    all_spans = await storage.get_spans_as_dicts()
 
     # Group spans by conversation ID
     conversations: dict[str, list[dict]] = {}
@@ -66,8 +66,8 @@ async def list_conversations() -> ConversationsListResponse:
 )
 async def get_conversation(conversation_id: str) -> ConversationDetail:
     """Get detailed conversation information."""
-    store = get_span_store()
-    all_spans = store.get_spans_as_dicts()
+    storage = get_storage()
+    all_spans = await storage.get_spans_as_dicts()
 
     # Filter spans by conversation ID
     conv_spans = [

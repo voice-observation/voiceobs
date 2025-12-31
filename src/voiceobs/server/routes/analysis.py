@@ -3,8 +3,8 @@
 from fastapi import APIRouter, HTTPException, status
 
 from voiceobs.analyzer import analyze_spans
+from voiceobs.server.dependencies import get_storage
 from voiceobs.server.models import AnalysisResponse, ErrorResponse
-from voiceobs.server.store import get_span_store
 from voiceobs.server.utils import analysis_result_to_response
 
 router = APIRouter(tags=["Analysis"])
@@ -18,8 +18,8 @@ router = APIRouter(tags=["Analysis"])
 )
 async def analyze_all() -> AnalysisResponse:
     """Analyze all ingested spans."""
-    store = get_span_store()
-    spans = store.get_spans_as_dicts()
+    storage = get_storage()
+    spans = await storage.get_spans_as_dicts()
     result = analyze_spans(spans)
     return analysis_result_to_response(result)
 
@@ -35,8 +35,8 @@ async def analyze_all() -> AnalysisResponse:
 )
 async def analyze_conversation(conversation_id: str) -> AnalysisResponse:
     """Analyze spans for a specific conversation."""
-    store = get_span_store()
-    all_spans = store.get_spans_as_dicts()
+    storage = get_storage()
+    all_spans = await storage.get_spans_as_dicts()
 
     # Filter spans by conversation ID
     conv_spans = [

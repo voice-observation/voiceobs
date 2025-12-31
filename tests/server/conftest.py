@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from voiceobs.server.app import create_app
+from voiceobs.server.dependencies import reset_dependencies
 from voiceobs.server.store import get_span_store, reset_span_store
 
 
@@ -11,10 +12,12 @@ from voiceobs.server.store import get_span_store, reset_span_store
 def client():
     """Create a test client for the server."""
     reset_span_store()
+    reset_dependencies()
     app = create_app()
     with TestClient(app) as client:
         yield client
     reset_span_store()
+    reset_dependencies()
 
 
 @pytest.fixture

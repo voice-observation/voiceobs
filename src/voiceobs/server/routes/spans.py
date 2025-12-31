@@ -4,6 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
 
+from voiceobs.server.dependencies import get_storage
 from voiceobs.server.models import (
     ClearSpansResponse,
     ErrorResponse,
@@ -14,7 +15,6 @@ from voiceobs.server.models import (
     SpanListItem,
     SpansListResponse,
 )
-from voiceobs.server.store import get_span_store
 
 router = APIRouter(tags=["Spans"])
 
@@ -36,7 +36,7 @@ async def ingest(
 
     Accepts either a single span or a batch of spans.
     """
-    store = get_span_store()
+    storage = get_storage()
     span_ids: list[UUID] = []
 
     # Handle single span or batch
@@ -50,7 +50,7 @@ async def ingest(
         start_time_str = span.start_time.isoformat() if span.start_time else None
         end_time_str = span.end_time.isoformat() if span.end_time else None
 
-        span_id = store.add_span(
+        span_id = await storage.add_span(
             name=span.name,
             start_time=start_time_str,
             end_time=end_time_str,
@@ -76,8 +76,8 @@ async def ingest(
 )
 async def list_spans() -> SpansListResponse:
     """List all ingested spans."""
-    store = get_span_store()
-    spans = store.get_all_spans()
+    storage = get_storage()
+    spans = await storage.get_all_spans()
     return SpansListResponse(
         count=len(spans),
         spans=[
@@ -103,8 +103,8 @@ async def list_spans() -> SpansListResponse:
 )
 async def get_span(span_id: UUID) -> SpanDetailResponse:
     """Get a specific span by ID."""
-    store = get_span_store()
-    span = store.get_span(span_id)
+    storage = get_storage()
+    span = await storage.get_span(span_id)
 
     if span is None:
         raise HTTPException(
@@ -133,6 +133,6 @@ async def get_span(span_id: UUID) -> SpanDetailResponse:
 )
 async def clear_spans() -> ClearSpansResponse:
     """Clear all spans from the store."""
-    store = get_span_store()
-    count = store.clear()
+    storage = get_storage()
+    count = await storage.clear()
     return ClearSpansResponse(cleared=count)
