@@ -33,6 +33,8 @@ class TestSpanRepository:
     @pytest.mark.asyncio
     async def test_add_span_with_all_fields(self, mock_db):
         """Test adding a span with all fields."""
+        from datetime import datetime, timezone
+
         repo = SpanRepository(mock_db)
         conv_id = uuid4()
 
@@ -50,8 +52,9 @@ class TestSpanRepository:
 
         assert isinstance(span_id, UUID)
         call_args = mock_db.execute.call_args[0]
-        assert call_args[3] == "2024-01-01T00:00:00Z"
-        assert call_args[4] == "2024-01-01T00:00:01Z"
+        # _parse_datetime converts ISO strings to datetime objects
+        assert call_args[3] == datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+        assert call_args[4] == datetime(2024, 1, 1, 0, 0, 1, tzinfo=timezone.utc)
         assert call_args[5] == 1000.0
         assert call_args[7] == "trace123"
         assert call_args[10] == conv_id
