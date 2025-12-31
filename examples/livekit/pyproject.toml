@@ -17,4 +17,3 @@ dev = []
 
 [tool.uv.sources]
 voiceobs = { path = "../../" }
-

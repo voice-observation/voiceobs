@@ -17,14 +17,12 @@ import asyncio
 import io
 import signal
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from deepgram import DeepgramClient
-
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from vocode.helpers import create_streaming_microphone_input_and_speaker_output
 from vocode.logging import configure_pretty_logging
 from vocode.streaming.agent.chat_gpt_agent import ChatGPTAgent
 from vocode.streaming.models.agent import ChatGPTAgentConfig
-from vocode.streaming.models.audio import AudioEncoding
 from vocode.streaming.models.message import BaseMessage
 from vocode.streaming.models.synthesizer import SynthesizerConfig
 from vocode.streaming.models.transcriber import (
@@ -35,7 +33,12 @@ from vocode.streaming.streaming_conversation import StreamingConversation
 from vocode.streaming.synthesizer.base_synthesizer import BaseSynthesizer, SynthesisResult
 from vocode.streaming.transcriber.deepgram_transcriber import DeepgramTranscriber
 
-from voiceobs import ensure_tracing_initialized, voice_conversation, mark_speech_end, mark_speech_start
+from voiceobs import (
+    ensure_tracing_initialized,
+    mark_speech_end,
+    mark_speech_start,
+    voice_conversation,
+)
 from voiceobs.decorators import voice_stage_decorator, voice_turn_decorator
 
 configure_pretty_logging()
@@ -138,7 +141,9 @@ class InstrumentedDeepgramTranscriber(DeepgramTranscriber):
 # Decorated helper for agent turn with TTS stage
 @voice_turn_decorator(actor="agent")
 @voice_stage_decorator(stage="tts", provider="deepgram", model="aura-2-thalia-en")
-async def record_agent_turn(synthesizer, message, chunk_size, is_first_text_chunk, is_sole_text_chunk):
+async def record_agent_turn(
+    synthesizer, message, chunk_size, is_first_text_chunk, is_sole_text_chunk
+):
     """Record an agent turn with TTS stage instrumentation."""
     mark_speech_start()
     # Call the parent class method directly
@@ -151,9 +156,13 @@ async def record_agent_turn(synthesizer, message, chunk_size, is_first_text_chun
 class InstrumentedDeepgramSynthesizer(DeepgramSynthesizer):
     """DeepgramSynthesizer with voiceobs TTS instrumentation."""
 
-    async def create_speech_uncached(self, message, chunk_size, is_first_text_chunk=False, is_sole_text_chunk=False):
+    async def create_speech_uncached(
+        self, message, chunk_size, is_first_text_chunk=False, is_sole_text_chunk=False
+    ):
         """Instrumented speech synthesis with agent turn tracking."""
-        return await record_agent_turn(self, message, chunk_size, is_first_text_chunk, is_sole_text_chunk)
+        return await record_agent_turn(
+            self, message, chunk_size, is_first_text_chunk, is_sole_text_chunk
+        )
 
 
 async def main():

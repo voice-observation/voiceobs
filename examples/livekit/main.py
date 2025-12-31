@@ -11,15 +11,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from livekit import agents, rtc
-from livekit.agents import AgentServer, AgentSession, Agent, room_io
-from livekit.plugins import noise_cancellation, silero, openai, deepgram
+from livekit.agents import Agent, AgentServer, AgentSession, room_io
+from livekit.plugins import deepgram, noise_cancellation, openai, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
+
 # from livekit.agents import AutoSubscribe, JobContext, WorkerOptions, cli
 # from livekit.agents.voice import VoicePipelineAgent
 # from livekit.plugins import deepgram, openai, silero
-
 from voiceobs import ensure_tracing_initialized
 from voiceobs.integrations import instrument_livekit_session
+
 
 class Assistant(Agent):
     def __init__(self) -> None:
@@ -30,7 +31,9 @@ class Assistant(Agent):
             You are curious, friendly, and have a sense of humor.""",
         )
 
+
 server = AgentServer()
+
 
 @server.rtc_session()
 async def entrypoint(ctx: agents.JobContext):
@@ -48,11 +51,17 @@ async def entrypoint(ctx: agents.JobContext):
     # Instrument the session for voiceobs tracing
     instrumented_session = instrument_livekit_session(session)
 
-    await instrumented_session.start(room=ctx.room, agent=Assistant(), room_options=room_io.RoomOptions(
-        audio_input=room_io.AudioInputOptions(
-          noise_cancellation=lambda params: noise_cancellation.BVCTelephony() if params.participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_SIP else noise_cancellation.BVC(),
+    await instrumented_session.start(
+        room=ctx.room,
+        agent=Assistant(),
+        room_options=room_io.RoomOptions(
+            audio_input=room_io.AudioInputOptions(
+                noise_cancellation=lambda params: noise_cancellation.BVCTelephony()
+                if params.participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_SIP
+                else noise_cancellation.BVC(),
+            ),
         ),
-    ))
+    )
 
     await session.generate_reply(
         instructions="Greet the user and offer your assistance.",

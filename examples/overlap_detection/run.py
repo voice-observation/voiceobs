@@ -147,6 +147,7 @@ class BargeInRecorder:
                             # Capture the barge-in timestamp - this is when agent
                             # logically starts speaking (user is still talking!)
                             import time as time_module
+
                             self.barge_in_time_ns = time_module.time_ns()
                             break
                 elif self.has_speech:
@@ -218,7 +219,7 @@ def generate_response(user_text: str, is_barge_in: bool = False) -> str:
     # If barge-in, add context to the prompt
     if is_barge_in:
         prompt = f"""The user was saying: "{user_text}"
-        
+
 You interrupted them because you understood their intent early.
 Respond briefly and acknowledge you got the gist of what they were saying."""
     else:
@@ -293,9 +294,7 @@ async def pipeline(barge_in_mode: bool = False) -> None:
                 print(f"\n[Conversation: {conv.conversation_id[:8]}...]")
 
                 # Create recorder with optional barge-in
-                recorder = BargeInRecorder(
-                    barge_in_after_ms=2000 if barge_in_mode else None
-                )
+                recorder = BargeInRecorder(barge_in_after_ms=2000 if barge_in_mode else None)
 
                 # User turn
                 with voice_turn("user"):
@@ -320,10 +319,7 @@ async def pipeline(barge_in_mode: bool = False) -> None:
 
                 # Agent turn
                 with voice_turn("agent"):
-                    ai_text = generate_response(
-                        transcript,
-                        is_barge_in=recorder.barge_in_triggered
-                    )
+                    ai_text = generate_response(transcript, is_barge_in=recorder.barge_in_triggered)
                     print(f"\nAI: {ai_text}")
 
                     # Synthesize speech
