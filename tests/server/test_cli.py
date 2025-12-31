@@ -6,7 +6,7 @@ from typer.testing import CliRunner
 
 from voiceobs.cli import app as cli_app
 
-runner = CliRunner()
+runner = CliRunner(env={"NO_COLOR": "1", "TERM": "dumb"})
 
 
 class TestServerCLI:

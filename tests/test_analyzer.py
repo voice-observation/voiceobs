@@ -541,7 +541,7 @@ class TestCLIIntegration:
 
         from voiceobs.cli import app
 
-        runner = CliRunner()
+        runner = CliRunner(env={"NO_COLOR": "1", "TERM": "dumb"})
         result = runner.invoke(app, ["analyze", "--help"])
 
         assert result.exit_code == 0
@@ -567,7 +567,7 @@ class TestCLIIntegration:
         ]
         file_path.write_text("\n".join(json.dumps(s) for s in spans) + "\n")
 
-        runner = CliRunner()
+        runner = CliRunner(env={"NO_COLOR": "1", "TERM": "dumb"})
         result = runner.invoke(app, ["analyze", "--input", str(file_path)])
 
         assert result.exit_code == 0
@@ -581,7 +581,7 @@ class TestCLIIntegration:
 
         from voiceobs.cli import app
 
-        runner = CliRunner()
+        runner = CliRunner(env={"NO_COLOR": "1", "TERM": "dumb"})
         result = runner.invoke(app, ["analyze", "--input", str(tmp_path / "missing.jsonl")])
 
         # Typer validates file existence and should exit with error
@@ -597,7 +597,7 @@ class TestCLIIntegration:
         file_path = tmp_path / "invalid.jsonl"
         file_path.write_text("this is not valid json\n")
 
-        runner = CliRunner()
+        runner = CliRunner(env={"NO_COLOR": "1", "TERM": "dumb"})
         result = runner.invoke(app, ["analyze", "--input", str(file_path)])
 
         # Should exit with error code 1

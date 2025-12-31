@@ -12,7 +12,7 @@ from typer.testing import CliRunner
 from voiceobs.cli import app
 from voiceobs.tracing import reset_initialization
 
-runner = CliRunner()
+runner = CliRunner(env={"NO_COLOR": "1", "TERM": "dumb"})
 
 
 def strip_ansi(text: str) -> str:
