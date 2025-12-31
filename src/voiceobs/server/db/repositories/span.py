@@ -3,11 +3,29 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
 
 from voiceobs.server.db.connection import Database
 from voiceobs.server.db.models import SpanRow
+
+
+def _parse_datetime(value: str | datetime | None) -> datetime | None:
+    """Parse a datetime value from string or datetime object.
+
+    Args:
+        value: ISO 8601 string, datetime object, or None.
+
+    Returns:
+        datetime object or None.
+    """
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    # Parse ISO 8601 string
+    return datetime.fromisoformat(value)
 
 
 class SpanRepository:
@@ -24,8 +42,8 @@ class SpanRepository:
     async def add(
         self,
         name: str,
-        start_time: str | None = None,
-        end_time: str | None = None,
+        start_time: str | datetime | None = None,
+        end_time: str | datetime | None = None,
         duration_ms: float | None = None,
         attributes: dict[str, Any] | None = None,
         trace_id: str | None = None,
@@ -37,8 +55,8 @@ class SpanRepository:
 
         Args:
             name: Span name.
-            start_time: Start time as ISO 8601 string.
-            end_time: End time as ISO 8601 string.
+            start_time: Start time as ISO 8601 string or datetime object.
+            end_time: End time as ISO 8601 string or datetime object.
             duration_ms: Duration in milliseconds.
             attributes: Span attributes.
             trace_id: OpenTelemetry trace ID.
@@ -57,12 +75,12 @@ class SpanRepository:
             INSERT INTO spans (
                 id, name, start_time, end_time, duration_ms,
                 attributes, trace_id, span_id, parent_span_id, conversation_id
-            ) VALUES ($1, $2, $3::timestamptz, $4::timestamptz, $5, $6::jsonb, $7, $8, $9, $10)
+            ) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10)
             """,
             span_uuid,
             name,
-            start_time,
-            end_time,
+            _parse_datetime(start_time),
+            _parse_datetime(end_time),
             duration_ms,
             json.dumps(attrs),
             trace_id,

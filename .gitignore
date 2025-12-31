@@ -45,3 +45,6 @@ Thumbs.db
 
 # External repositories (cloned for testing/integration)
 external-repos/
+
+# test configuration file
+voiceobs.yaml
