@@ -5,10 +5,14 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, status
 
 from voiceobs.server.models import (
+    ClearSpansResponse,
     ErrorResponse,
     IngestResponse,
     SpanBatchInput,
+    SpanDetailResponse,
     SpanInput,
+    SpanListItem,
+    SpansListResponse,
 )
 from voiceobs.server.store import get_span_store
 
@@ -66,36 +70,38 @@ async def ingest(
 
 @router.get(
     "/spans",
+    response_model=SpansListResponse,
     summary="List all spans",
-    description="Get all ingested spans.",
+    description="Get all ingested spans with summary information.",
 )
-async def list_spans() -> dict:
+async def list_spans() -> SpansListResponse:
     """List all ingested spans."""
     store = get_span_store()
     spans = store.get_all_spans()
-    return {
-        "count": len(spans),
-        "spans": [
-            {
-                "id": str(span.id),
-                "name": span.name,
-                "duration_ms": span.duration_ms,
-                "attributes": span.attributes,
-            }
+    return SpansListResponse(
+        count=len(spans),
+        spans=[
+            SpanListItem(
+                id=str(span.id),
+                name=span.name,
+                duration_ms=span.duration_ms,
+                attributes=span.attributes,
+            )
             for span in spans
         ],
-    }
+    )
 
 
 @router.get(
     "/spans/{span_id}",
+    response_model=SpanDetailResponse,
     summary="Get span by ID",
-    description="Get a specific span by its ID.",
+    description="Get a specific span by its UUID with full details.",
     responses={
         404: {"model": ErrorResponse, "description": "Span not found"},
     },
 )
-async def get_span(span_id: UUID) -> dict:
+async def get_span(span_id: UUID) -> SpanDetailResponse:
     """Get a specific span by ID."""
     store = get_span_store()
     span = store.get_span(span_id)
@@ -106,26 +112,27 @@ async def get_span(span_id: UUID) -> dict:
             detail=f"Span with ID {span_id} not found",
         )
 
-    return {
-        "id": str(span.id),
-        "name": span.name,
-        "start_time": span.start_time,
-        "end_time": span.end_time,
-        "duration_ms": span.duration_ms,
-        "attributes": span.attributes,
-        "trace_id": span.trace_id,
-        "span_id": span.span_id,
-        "parent_span_id": span.parent_span_id,
-    }
+    return SpanDetailResponse(
+        id=str(span.id),
+        name=span.name,
+        start_time=span.start_time,
+        end_time=span.end_time,
+        duration_ms=span.duration_ms,
+        attributes=span.attributes,
+        trace_id=span.trace_id,
+        span_id=span.span_id,
+        parent_span_id=span.parent_span_id,
+    )
 
 
 @router.delete(
     "/spans",
+    response_model=ClearSpansResponse,
     summary="Clear all spans",
     description="Delete all ingested spans from the store.",
 )
-async def clear_spans() -> dict:
+async def clear_spans() -> ClearSpansResponse:
     """Clear all spans from the store."""
     store = get_span_store()
     count = store.clear()
-    return {"cleared": count}
+    return ClearSpansResponse(cleared=count)

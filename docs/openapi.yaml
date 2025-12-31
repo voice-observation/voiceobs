@@ -1,0 +1,1127 @@
+openapi: 3.1.0
+info:
+  title: voiceobs
+  description: Voice AI observability server
+  version: 0.0.2
+paths:
+  /health:
+    get:
+      tags:
+      - System
+      summary: Health check
+      description: Check if the server is running and healthy.
+      operationId: health_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /ingest:
+    post:
+      tags:
+      - Spans
+      summary: Ingest spans
+      description: Ingest one or more spans for analysis.
+      operationId: ingest_ingest_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              anyOf:
+              - $ref: '#/components/schemas/SpanInput'
+              - $ref: '#/components/schemas/SpanBatchInput'
+              title: Payload
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestResponse'
+        '400':
+          description: Invalid span data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /spans:
+    get:
+      tags:
+      - Spans
+      summary: List all spans
+      description: Get all ingested spans with summary information.
+      operationId: list_spans_spans_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpansListResponse'
+    delete:
+      tags:
+      - Spans
+      summary: Clear all spans
+      description: Delete all ingested spans from the store.
+      operationId: clear_spans_spans_delete
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClearSpansResponse'
+  /spans/{span_id}:
+    get:
+      tags:
+      - Spans
+      summary: Get span by ID
+      description: Get a specific span by its UUID with full details.
+      operationId: get_span_spans__span_id__get
+      parameters:
+      - name: span_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Span Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpanDetailResponse'
+        '404':
+          description: Span not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /analyze:
+    get:
+      tags:
+      - Analysis
+      summary: Analyze all spans
+      description: Analyze all ingested spans and return metrics.
+      operationId: analyze_all_analyze_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisResponse'
+  /analyze/{conversation_id}:
+    get:
+      tags:
+      - Analysis
+      summary: Analyze specific conversation
+      description: Analyze spans for a specific conversation.
+      operationId: analyze_conversation_analyze__conversation_id__get
+      parameters:
+      - name: conversation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Conversation Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisResponse'
+        '404':
+          description: Conversation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /conversations:
+    get:
+      tags:
+      - Conversations
+      summary: List all conversations
+      description: Get a list of all conversations.
+      operationId: list_conversations_conversations_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationsListResponse'
+  /conversations/{conversation_id}:
+    get:
+      tags:
+      - Conversations
+      summary: Get conversation details
+      description: Get detailed information about a specific conversation.
+      operationId: get_conversation_conversations__conversation_id__get
+      parameters:
+      - name: conversation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Conversation Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationDetail'
+        '404':
+          description: Conversation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /failures:
+    get:
+      tags:
+      - Failures
+      summary: List detected failures
+      description: Get all detected failures with optional filtering by severity.
+      operationId: list_failures_failures_get
+      parameters:
+      - name: severity
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Severity
+      - name: type
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Type
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FailuresListResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    AnalysisResponse:
+      properties:
+        summary:
+          $ref: '#/components/schemas/AnalysisSummary'
+          description: Analysis summary
+        stages:
+          $ref: '#/components/schemas/StagesResponse'
+          description: Stage latency metrics
+        turns:
+          $ref: '#/components/schemas/TurnMetricsResponse'
+          description: Turn timing metrics
+        eval:
+          $ref: '#/components/schemas/EvalMetricsResponse'
+          description: Semantic evaluation metrics
+      type: object
+      required:
+      - summary
+      - stages
+      - turns
+      - eval
+      title: AnalysisResponse
+      description: Response model for analysis results.
+    AnalysisSummary:
+      properties:
+        total_spans:
+          type: integer
+          title: Total Spans
+          description: Total number of spans
+        total_conversations:
+          type: integer
+          title: Total Conversations
+          description: Number of unique conversations
+        total_turns:
+          type: integer
+          title: Total Turns
+          description: Number of voice turns
+      type: object
+      required:
+      - total_spans
+      - total_conversations
+      - total_turns
+      title: AnalysisSummary
+      description: Summary section of analysis response.
+      example:
+        total_conversations: 3
+        total_spans: 50
+        total_turns: 20
+    ClearSpansResponse:
+      properties:
+        cleared:
+          type: integer
+          title: Cleared
+          description: Number of spans cleared
+      type: object
+      required:
+      - cleared
+      title: ClearSpansResponse
+      description: Response model for clearing all spans.
+      example:
+        cleared: 15
+    ConversationDetail:
+      properties:
+        id:
+          type: string
+          title: Id
+          description: Conversation ID
+        turns:
+          items:
+            $ref: '#/components/schemas/TurnResponse'
+          type: array
+          title: Turns
+          description: List of turns
+        span_count:
+          type: integer
+          title: Span Count
+          description: Total spans in conversation
+        analysis:
+          anyOf:
+          - $ref: '#/components/schemas/AnalysisResponse'
+          - type: 'null'
+          description: Analysis for this conversation
+      type: object
+      required:
+      - id
+      - turns
+      - span_count
+      title: ConversationDetail
+      description: 'Detailed model for a conversation.
+
+
+        Includes all turns and optional analysis results.'
+    ConversationSummary:
+      properties:
+        id:
+          type: string
+          title: Id
+          description: Conversation ID
+        turn_count:
+          type: integer
+          title: Turn Count
+          description: Number of turns
+        span_count:
+          type: integer
+          title: Span Count
+          description: Number of spans
+        has_failures:
+          type: boolean
+          title: Has Failures
+          description: Whether failures were detected
+          default: false
+      type: object
+      required:
+      - id
+      - turn_count
+      - span_count
+      title: ConversationSummary
+      description: Summary model for a conversation.
+      example:
+        has_failures: false
+        id: conv-123
+        span_count: 24
+        turn_count: 8
+    ConversationsListResponse:
+      properties:
+        count:
+          type: integer
+          title: Count
+          description: Number of conversations
+        conversations:
+          items:
+            $ref: '#/components/schemas/ConversationSummary'
+          type: array
+          title: Conversations
+          description: List of conversations
+      type: object
+      required:
+      - count
+      - conversations
+      title: ConversationsListResponse
+      description: Response model for listing conversations.
+      example:
+        conversations:
+        - has_failures: false
+          id: conv-123
+          span_count: 24
+          turn_count: 8
+        - has_failures: true
+          id: conv-456
+          span_count: 15
+          turn_count: 5
+        count: 2
+    ErrorResponse:
+      properties:
+        error:
+          type: string
+          title: Error
+          description: Error type
+        message:
+          type: string
+          title: Message
+          description: Error message
+        detail:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Detail
+          description: Additional error details
+      type: object
+      required:
+      - error
+      - message
+      title: ErrorResponse
+      description: 'Response model for errors.
+
+
+        Returned when an API request fails.'
+      example:
+        detail: Span with ID 550e8400-e29b-41d4-a716-446655440000 not found
+        error: not_found
+        message: Resource not found
+    EvalMetricsResponse:
+      properties:
+        total_evals:
+          type: integer
+          title: Total Evals
+          description: Number of evaluated turns
+        intent_correct_count:
+          type: integer
+          title: Intent Correct Count
+          description: Turns with correct intent
+        intent_incorrect_count:
+          type: integer
+          title: Intent Incorrect Count
+          description: Turns with incorrect intent
+        intent_correct_rate:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Intent Correct Rate
+          description: Intent correctness percentage
+        intent_failure_rate:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Intent Failure Rate
+          description: Intent failure percentage
+        avg_relevance_score:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Avg Relevance Score
+          description: Average relevance score
+        min_relevance_score:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Min Relevance Score
+          description: Minimum relevance score
+        max_relevance_score:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Max Relevance Score
+          description: Maximum relevance score
+      type: object
+      required:
+      - total_evals
+      - intent_correct_count
+      - intent_incorrect_count
+      title: EvalMetricsResponse
+      description: 'Response model for semantic evaluation metrics.
+
+
+        Contains intent accuracy and relevance scoring metrics.'
+      example:
+        avg_relevance_score: 0.85
+        intent_correct_count: 9
+        intent_correct_rate: 90.0
+        intent_failure_rate: 10.0
+        intent_incorrect_count: 1
+        max_relevance_score: 0.98
+        min_relevance_score: 0.65
+        total_evals: 10
+    FailureResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+          description: Failure ID
+        type:
+          type: string
+          title: Type
+          description: Failure type
+        severity:
+          type: string
+          title: Severity
+          description: Severity level (low, medium, high, critical)
+        message:
+          type: string
+          title: Message
+          description: Failure description
+        conversation_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Conversation Id
+          description: Associated conversation ID
+        turn_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Turn Id
+          description: Associated turn ID
+        turn_index:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Turn Index
+          description: Turn index
+        signal_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Signal Name
+          description: Signal that triggered failure
+        signal_value:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Signal Value
+          description: Signal value
+        threshold:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Threshold
+          description: Threshold that was exceeded
+      type: object
+      required:
+      - id
+      - type
+      - severity
+      - message
+      title: FailureResponse
+      description: 'Response model for a detected failure.
+
+
+        Represents a quality issue detected in the voice conversation.'
+      example:
+        conversation_id: conv-123
+        id: '0'
+        message: High latency detected in LLM stage
+        severity: high
+        signal_name: llm_latency_ms
+        signal_value: 3500.0
+        threshold: 2000.0
+        turn_id: turn-003
+        turn_index: 2
+        type: high_latency
+    FailuresListResponse:
+      properties:
+        count:
+          type: integer
+          title: Count
+          description: Number of failures
+        failures:
+          items:
+            $ref: '#/components/schemas/FailureResponse'
+          type: array
+          title: Failures
+          description: List of failures
+        by_severity:
+          additionalProperties:
+            type: integer
+          type: object
+          title: By Severity
+          description: Count of failures by severity
+        by_type:
+          additionalProperties:
+            type: integer
+          type: object
+          title: By Type
+          description: Count of failures by type
+      type: object
+      required:
+      - count
+      - failures
+      title: FailuresListResponse
+      description: 'Response model for listing failures.
+
+
+        Includes failure counts grouped by severity and type.'
+      example:
+        by_severity:
+          high: 1
+          medium: 1
+        by_type:
+          high_latency: 1
+          interruption: 1
+        count: 2
+        failures:
+        - conversation_id: conv-123
+          id: '0'
+          message: High latency detected in LLM stage
+          severity: high
+          signal_name: llm_latency_ms
+          signal_value: 3500.0
+          threshold: 2000.0
+          turn_id: turn-003
+          turn_index: 2
+          type: high_latency
+        - conversation_id: conv-123
+          id: '1'
+          message: User interrupted agent response
+          severity: medium
+          turn_id: turn-005
+          turn_index: 4
+          type: interruption
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    HealthResponse:
+      properties:
+        status:
+          type: string
+          title: Status
+          description: Server health status
+          default: healthy
+        version:
+          type: string
+          title: Version
+          description: voiceobs version
+        timestamp:
+          type: string
+          format: date-time
+          title: Timestamp
+          description: Current server time
+      type: object
+      required:
+      - version
+      title: HealthResponse
+      description: 'Response model for health check.
+
+
+        Indicates the server is running and healthy.'
+      example:
+        status: healthy
+        timestamp: '2024-01-15T10:30:00Z'
+        version: 0.0.2
+    IngestResponse:
+      properties:
+        accepted:
+          type: integer
+          title: Accepted
+          description: Number of spans accepted
+        span_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+          title: Span Ids
+          description: IDs of ingested spans
+      type: object
+      required:
+      - accepted
+      - span_ids
+      title: IngestResponse
+      description: 'Response model for span ingestion.
+
+
+        Returned after successfully ingesting one or more spans.'
+      example:
+        accepted: 2
+        span_ids:
+        - 550e8400-e29b-41d4-a716-446655440000
+        - 550e8400-e29b-41d4-a716-446655440001
+    SpanBatchInput:
+      properties:
+        spans:
+          items:
+            $ref: '#/components/schemas/SpanInput'
+          type: array
+          title: Spans
+          description: List of spans to ingest
+      type: object
+      required:
+      - spans
+      title: SpanBatchInput
+      description: 'Input model for a batch of spans.
+
+
+        Use this model to ingest multiple spans in a single request
+
+        for better efficiency.'
+      example:
+        spans:
+        - attributes:
+            voice.actor: user
+            voice.conversation.id: conv-123
+            voice.turn.id: turn-001
+          duration_ms: 2500.0
+          name: voice.turn
+        - attributes:
+            voice.conversation.id: conv-123
+            voice.stage.type: asr
+          duration_ms: 150.5
+          name: voice.asr
+    SpanDetailResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+          description: Span UUID
+        name:
+          type: string
+          title: Name
+          description: Span name
+        start_time:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Start Time
+          description: Start time (ISO 8601)
+        end_time:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: End Time
+          description: End time (ISO 8601)
+        duration_ms:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Duration Ms
+          description: Duration in milliseconds
+        attributes:
+          additionalProperties: true
+          type: object
+          title: Attributes
+          description: Span attributes
+        trace_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Trace Id
+          description: OpenTelemetry trace ID
+        span_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Span Id
+          description: OpenTelemetry span ID
+        parent_span_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parent Span Id
+          description: Parent span ID
+      type: object
+      required:
+      - id
+      - name
+      title: SpanDetailResponse
+      description: Response model for a single span with full details.
+      example:
+        attributes:
+          voice.actor: user
+          voice.conversation.id: conv-123
+          voice.transcript: Hello, I need help
+          voice.turn.id: turn-001
+        duration_ms: 2500.0
+        end_time: '2024-01-15T10:30:02.500Z'
+        id: 550e8400-e29b-41d4-a716-446655440000
+        name: voice.turn
+        span_id: span-001
+        start_time: '2024-01-15T10:30:00Z'
+        trace_id: abc123def456
+    SpanInput:
+      properties:
+        name:
+          type: string
+          title: Name
+          description: Span name (e.g., 'voice.turn', 'voice.asr')
+        start_time:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Start Time
+          description: Span start time (ISO 8601)
+        end_time:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: End Time
+          description: Span end time (ISO 8601)
+        duration_ms:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Duration Ms
+          description: Span duration in milliseconds
+        attributes:
+          additionalProperties: true
+          type: object
+          title: Attributes
+          description: Span attributes
+        trace_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Trace Id
+          description: OpenTelemetry trace ID
+        span_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Span Id
+          description: OpenTelemetry span ID
+        parent_span_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parent Span Id
+          description: Parent span ID
+      type: object
+      required:
+      - name
+      title: SpanInput
+      description: 'Input model for a single span.
+
+
+        Represents a single observability span from a voice AI pipeline.
+
+        Spans track timing and metadata for individual operations like
+
+        speech recognition (ASR), language model inference (LLM), or
+
+        text-to-speech (TTS).'
+      examples:
+      - attributes:
+          voice.actor: user
+          voice.conversation.id: conv-123
+          voice.transcript: Hello, how can I help you?
+          voice.turn.id: turn-001
+          voice.turn.index: 0
+        duration_ms: 2500.0
+        end_time: '2024-01-15T10:30:02.500Z'
+        name: voice.turn
+        span_id: span-001
+        start_time: '2024-01-15T10:30:00Z'
+        trace_id: abc123def456
+      - attributes:
+          voice.conversation.id: conv-123
+          voice.stage.type: asr
+        duration_ms: 150.5
+        name: voice.asr
+    SpanListItem:
+      properties:
+        id:
+          type: string
+          title: Id
+          description: Span UUID
+        name:
+          type: string
+          title: Name
+          description: Span name
+        duration_ms:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Duration Ms
+          description: Duration in milliseconds
+        attributes:
+          additionalProperties: true
+          type: object
+          title: Attributes
+          description: Span attributes
+      type: object
+      required:
+      - id
+      - name
+      title: SpanListItem
+      description: Summary of a span in the list response.
+      example:
+        attributes:
+          voice.actor: user
+          voice.conversation.id: conv-123
+        duration_ms: 2500.0
+        id: 550e8400-e29b-41d4-a716-446655440000
+        name: voice.turn
+    SpansListResponse:
+      properties:
+        count:
+          type: integer
+          title: Count
+          description: Total number of spans
+        spans:
+          items:
+            $ref: '#/components/schemas/SpanListItem'
+          type: array
+          title: Spans
+          description: List of spans
+      type: object
+      required:
+      - count
+      - spans
+      title: SpansListResponse
+      description: Response model for listing all spans.
+      example:
+        count: 2
+        spans:
+        - attributes:
+            voice.actor: user
+          duration_ms: 2500.0
+          id: 550e8400-e29b-41d4-a716-446655440000
+          name: voice.turn
+        - attributes:
+            voice.stage.type: asr
+          duration_ms: 150.0
+          id: 550e8400-e29b-41d4-a716-446655440001
+          name: voice.asr
+    StageMetricsResponse:
+      properties:
+        stage_type:
+          type: string
+          title: Stage Type
+          description: Stage type (asr, llm, tts)
+        count:
+          type: integer
+          title: Count
+          description: Number of spans for this stage
+        mean_ms:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Mean Ms
+          description: Mean duration in milliseconds
+        p50_ms:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: P50 Ms
+          description: Median (p50) duration
+        p95_ms:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: P95 Ms
+          description: 95th percentile duration
+        p99_ms:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: P99 Ms
+          description: 99th percentile duration
+      type: object
+      required:
+      - stage_type
+      - count
+      title: StageMetricsResponse
+      description: 'Response model for stage metrics (ASR/LLM/TTS).
+
+
+        Contains latency percentiles for a specific voice pipeline stage.'
+      example:
+        count: 15
+        mean_ms: 145.5
+        p50_ms: 132.0
+        p95_ms: 210.5
+        p99_ms: 285.0
+        stage_type: asr
+    StagesResponse:
+      properties:
+        asr:
+          $ref: '#/components/schemas/StageMetricsResponse'
+          description: ASR stage metrics
+        llm:
+          $ref: '#/components/schemas/StageMetricsResponse'
+          description: LLM stage metrics
+        tts:
+          $ref: '#/components/schemas/StageMetricsResponse'
+          description: TTS stage metrics
+      type: object
+      required:
+      - asr
+      - llm
+      - tts
+      title: StagesResponse
+      description: Response model for all stage metrics.
+    TurnMetricsResponse:
+      properties:
+        silence_samples:
+          type: integer
+          title: Silence Samples
+          description: Number of silence measurements
+        silence_mean_ms:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Silence Mean Ms
+          description: Mean silence after user turn
+        silence_p95_ms:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Silence P95 Ms
+          description: 95th percentile silence
+        total_agent_turns:
+          type: integer
+          title: Total Agent Turns
+          description: Total number of agent turns
+        interruptions:
+          type: integer
+          title: Interruptions
+          description: Number of detected interruptions
+        interruption_rate:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Interruption Rate
+          description: Interruption rate percentage
+      type: object
+      required:
+      - silence_samples
+      - total_agent_turns
+      - interruptions
+      title: TurnMetricsResponse
+      description: 'Response model for turn metrics.
+
+
+        Tracks conversation flow metrics including silence timing and interruptions.'
+      example:
+        interruption_rate: 12.5
+        interruptions: 1
+        silence_mean_ms: 850.0
+        silence_p95_ms: 1200.0
+        silence_samples: 10
+        total_agent_turns: 8
+    TurnResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+          description: Turn ID
+        actor:
+          type: string
+          title: Actor
+          description: Actor (user, agent, system)
+        turn_index:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Turn Index
+          description: Turn index in conversation
+        duration_ms:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Duration Ms
+          description: Turn duration
+        transcript:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Transcript
+          description: Turn transcript if available
+        attributes:
+          additionalProperties: true
+          type: object
+          title: Attributes
+          description: Turn attributes
+      type: object
+      required:
+      - id
+      - actor
+      title: TurnResponse
+      description: 'Response model for a conversation turn.
+
+
+        Represents a single turn (user or agent utterance) in a conversation.'
+      example:
+        actor: user
+        attributes:
+          voice.conversation.id: conv-123
+          voice.turn.id: turn-001
+        duration_ms: 2500.0
+        id: turn-001
+        transcript: Hello, I need help with my order
+        turn_index: 0
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
