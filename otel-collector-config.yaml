@@ -1,0 +1,59 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4318
+      http:
+        endpoint: 0.0.0.0:4317
+        cors:
+          allowed_origins:
+            - "*"
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+
+  # Convert spans to basic metrics (duration, count)
+  spanmetrics:
+    metrics_exporter: prometheus
+    latency_histogram_buckets: [100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s]
+    dimensions:
+      - name: voice.stage.type
+        default: "unknown"
+      - name: voice.conversation.id
+        default: "unknown"
+      - name: voice.actor
+        default: "unknown"
+
+  # Add resource attributes
+  resource:
+    attributes:
+      - key: service.name
+        value: voiceobs
+        action: upsert
+
+exporters:
+  # Export traces to Tempo
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+
+  # Export metrics to Prometheus
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    const_labels:
+      service: voiceobs
+    namespace: voiceobs
+
+service:
+  pipelines:
+  traces:
+    receivers: [otlp]
+    processors: [batch, resource, spanmetrics]
+    exporters: [otlp/tempo]
+  metrics:
+    receivers: [otlp]
+    processors: [batch, resource]
+    exporters: [prometheus]

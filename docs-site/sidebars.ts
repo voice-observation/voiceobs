@@ -30,6 +30,7 @@ const sidebars: SidebarsConfig = {
         'guides/server',
         'guides/ui',
         'guides/configuration',
+        'guides/grafana-setup',
       ],
     },
     {
