@@ -113,13 +113,20 @@ class SpanRepository:
         if row is None:
             return None
 
+        attrs = row["attributes"]
+        # Parse JSONB if it's a string (asyncpg might return it as string)
+        if isinstance(attrs, str):
+            attrs = json.loads(attrs) if attrs else {}
+        elif attrs is None:
+            attrs = {}
+
         return SpanRow(
             id=row["id"],
             name=row["name"],
             start_time=row["start_time"],
             end_time=row["end_time"],
             duration_ms=row["duration_ms"],
-            attributes=row["attributes"] or {},
+            attributes=attrs,
             trace_id=row["trace_id"],
             span_id=row["span_id"],
             parent_span_id=row["parent_span_id"],
@@ -142,22 +149,32 @@ class SpanRepository:
             """
         )
 
-        return [
-            SpanRow(
-                id=row["id"],
-                name=row["name"],
-                start_time=row["start_time"],
-                end_time=row["end_time"],
-                duration_ms=row["duration_ms"],
-                attributes=row["attributes"] or {},
-                trace_id=row["trace_id"],
-                span_id=row["span_id"],
-                parent_span_id=row["parent_span_id"],
-                conversation_id=row["conversation_id"],
-                created_at=row["created_at"],
+        result = []
+        for row in rows:
+            attrs = row["attributes"]
+            # Parse JSONB if it's a string (asyncpg might return it as string)
+            if isinstance(attrs, str):
+                attrs = json.loads(attrs) if attrs else {}
+            elif attrs is None:
+                attrs = {}
+
+            result.append(
+                SpanRow(
+                    id=row["id"],
+                    name=row["name"],
+                    start_time=row["start_time"],
+                    end_time=row["end_time"],
+                    duration_ms=row["duration_ms"],
+                    attributes=attrs,
+                    trace_id=row["trace_id"],
+                    span_id=row["span_id"],
+                    parent_span_id=row["parent_span_id"],
+                    conversation_id=row["conversation_id"],
+                    created_at=row["created_at"],
+                )
             )
-            for row in rows
-        ]
+
+        return result
 
     async def get_as_dicts(self) -> list[dict[str, Any]]:
         """Get all spans as dictionaries (for analysis).
@@ -172,14 +189,24 @@ class SpanRepository:
             """
         )
 
-        return [
-            {
-                "name": row["name"],
-                "duration_ms": row["duration_ms"],
-                "attributes": row["attributes"] or {},
-            }
-            for row in rows
-        ]
+        result = []
+        for row in rows:
+            attrs = row["attributes"]
+            # Parse JSONB if it's a string (asyncpg might return it as string)
+            if isinstance(attrs, str):
+                attrs = json.loads(attrs) if attrs else {}
+            elif attrs is None:
+                attrs = {}
+
+            result.append(
+                {
+                    "name": row["name"],
+                    "duration_ms": row["duration_ms"],
+                    "attributes": attrs,
+                }
+            )
+
+        return result
 
     async def get_by_conversation(self, conversation_id: UUID) -> list[SpanRow]:
         """Get all spans for a conversation.

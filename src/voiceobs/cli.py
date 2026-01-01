@@ -10,8 +10,6 @@ from typing import Any
 import typer
 
 from voiceobs.config import PROJECT_CONFIG_NAME, generate_default_config
-from voiceobs.server.db.connection import Database
-from voiceobs.server.db.repositories import ConversationRepository, SpanRepository
 
 app = typer.Typer(
     name="voiceobs",
@@ -538,6 +536,12 @@ def import_spans_to_db(
     """
 
     async def _import() -> dict[str, Any]:
+        # Lazy import to avoid requiring server dependencies unless needed
+        # Import directly from modules to avoid importing server.__init__ which imports FastAPI
+        from voiceobs.server.db.connection import Database
+        from voiceobs.server.db.repositories.conversation import ConversationRepository
+        from voiceobs.server.db.repositories.span import SpanRepository
+
         db = Database(database_url=database_url)
         await db.connect()
         await db.init_schema()
@@ -603,6 +607,12 @@ def export_spans_from_db(
     """
 
     async def _export() -> dict[str, Any]:
+        # Lazy import to avoid requiring server dependencies unless needed
+        # Import directly from modules to avoid importing server.__init__ which imports FastAPI
+        from voiceobs.server.db.connection import Database
+        from voiceobs.server.db.repositories.conversation import ConversationRepository
+        from voiceobs.server.db.repositories.span import SpanRepository
+
         db = Database(database_url=database_url)
         await db.connect()
 
@@ -1017,7 +1027,7 @@ def _load_spans_from_database(conversation_id: str | None) -> list[dict[str, Any
         List of span dictionaries.
 
     Raises:
-        typer.Exit: If database URL is not configured.
+        typer.Exit: If database URL is not configured or server dependencies missing.
     """
     database_url = _get_database_url()
     if not database_url:
@@ -1028,14 +1038,25 @@ def _load_spans_from_database(conversation_id: str | None) -> list[dict[str, Any
         )
         raise typer.Exit(1)
 
-    result = export_spans_from_db(
-        database_url=database_url,
-        output_file=None,  # Get spans as dicts
-        conversation_id=conversation_id,
-    )
-    spans: list[dict[str, Any]] = result.get("spans", [])
-    typer.echo(f"Loaded {len(spans)} spans from database")
-    return spans
+    try:
+        result = export_spans_from_db(
+            database_url=database_url,
+            output_file=None,  # Get spans as dicts
+            conversation_id=conversation_id,
+        )
+        spans: list[dict[str, Any]] = result.get("spans", [])
+        typer.echo(f"Loaded {len(spans)} spans from database")
+        return spans
+    except ImportError as e:
+        if "fastapi" in str(e).lower() or "server" in str(e).lower():
+            typer.echo("Error: Server dependencies not installed.", err=True)
+            typer.echo(
+                "Hint: Install with: pip install voiceobs[server] "
+                "or uv pip install voiceobs[server]",
+                err=True,
+            )
+            raise typer.Exit(1)
+        raise
 
 
 def _convert_span_dicts_to_otel_spans(
@@ -1052,6 +1073,7 @@ def _convert_span_dicts_to_otel_spans(
     from collections.abc import Sequence
 
     from opentelemetry import trace
+    from opentelemetry.sdk.resources import Resource
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import (
         SimpleSpanProcessor,
@@ -1060,8 +1082,14 @@ def _convert_span_dicts_to_otel_spans(
     )
     from opentelemetry.trace import SpanContext, Status, StatusCode, TraceFlags
 
-    # Create a provider and collect spans
-    provider = TracerProvider()
+    # Create a provider with resource attributes (required for Grafana queries)
+    resource = Resource.create(
+        {
+            "service.name": "voiceobs",
+            "service.version": "0.0.2",
+        }
+    )
+    provider = TracerProvider(resource=resource)
     collected: list[Any] = []
 
     class Collector(SpanExporter):
@@ -1081,11 +1109,42 @@ def _convert_span_dicts_to_otel_spans(
     # Create spans by replaying them
     for span_dict in span_dicts:
         try:
-            trace_id_hex = span_dict.get("trace_id", "0" * 32)
-            span_id_hex = span_dict.get("span_id", "0" * 16)
+            # Handle trace_id and span_id - they might be hex strings, integers, or None
+            trace_id_val = span_dict.get("trace_id")
+            span_id_val = span_dict.get("span_id")
 
-            trace_id = int(trace_id_hex, 16)
-            span_id = int(span_id_hex, 16)
+            # Convert to integers - handle None, strings (hex), and integers
+            def parse_trace_id(value: Any) -> int:
+                """Parse trace_id from various formats."""
+                if value is None:
+                    return 0
+                if isinstance(value, int):
+                    return value
+                if isinstance(value, str):
+                    if not value:
+                        return 0
+                    try:
+                        return int(value, 16)
+                    except ValueError:
+                        # Not a valid hex string, try as decimal
+                        try:
+                            return int(value, 10)
+                        except ValueError:
+                            return 0
+                # For other types, try converting to string first
+                try:
+                    str_val = str(value)
+                    if not str_val:
+                        return 0
+                    try:
+                        return int(str_val, 16)
+                    except ValueError:
+                        return int(str_val, 10)
+                except (ValueError, TypeError):
+                    return 0
+
+            trace_id = parse_trace_id(trace_id_val)
+            span_id = parse_trace_id(span_id_val)
 
             ctx = trace.set_span_in_context(
                 trace.NonRecordingSpan(

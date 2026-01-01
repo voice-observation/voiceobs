@@ -47,9 +47,11 @@ class TestImportExportIntegration:
 
         # Mock the database and repository where they're imported in cli.py
         with (
-            patch("voiceobs.cli.Database") as mock_db_class,
-            patch("voiceobs.cli.SpanRepository") as mock_span_repo_class,
-            patch("voiceobs.cli.ConversationRepository") as mock_conv_repo_class,
+            patch("voiceobs.server.db.connection.Database") as mock_db_class,
+            patch("voiceobs.server.db.repositories.span.SpanRepository") as mock_span_repo_class,
+            patch(
+                "voiceobs.server.db.repositories.conversation.ConversationRepository"
+            ) as mock_conv_repo_class,
         ):
             mock_db = AsyncMock()
             mock_db_class.return_value = mock_db
@@ -81,9 +83,11 @@ class TestImportExportIntegration:
         input_file.write_text(json.dumps(spans[0]))
 
         with (
-            patch("voiceobs.cli.Database") as mock_db_class,
-            patch("voiceobs.cli.SpanRepository") as mock_span_repo_class,
-            patch("voiceobs.cli.ConversationRepository") as mock_conv_repo_class,
+            patch("voiceobs.server.db.connection.Database") as mock_db_class,
+            patch("voiceobs.server.db.repositories.span.SpanRepository") as mock_span_repo_class,
+            patch(
+                "voiceobs.server.db.repositories.conversation.ConversationRepository"
+            ) as mock_conv_repo_class,
         ):
             mock_db = AsyncMock()
             mock_db_class.return_value = mock_db
@@ -103,9 +107,11 @@ class TestImportExportIntegration:
         output_file = tmp_path / "output.jsonl"
 
         with (
-            patch("voiceobs.cli.Database") as mock_db_class,
-            patch("voiceobs.cli.SpanRepository") as mock_span_repo_class,
-            patch("voiceobs.cli.ConversationRepository") as mock_conv_repo_class,
+            patch("voiceobs.server.db.connection.Database") as mock_db_class,
+            patch("voiceobs.server.db.repositories.span.SpanRepository") as mock_span_repo_class,
+            patch(
+                "voiceobs.server.db.repositories.conversation.ConversationRepository"
+            ) as mock_conv_repo_class,
         ):
             mock_db = AsyncMock()
             mock_db_class.return_value = mock_db
@@ -160,9 +166,11 @@ class TestImportExportIntegration:
         output_file = tmp_path / "output.jsonl"
 
         with (
-            patch("voiceobs.cli.Database") as mock_db_class,
-            patch("voiceobs.cli.SpanRepository") as mock_span_repo_class,
-            patch("voiceobs.cli.ConversationRepository") as mock_conv_repo_class,
+            patch("voiceobs.server.db.connection.Database") as mock_db_class,
+            patch("voiceobs.server.db.repositories.span.SpanRepository") as mock_span_repo_class,
+            patch(
+                "voiceobs.server.db.repositories.conversation.ConversationRepository"
+            ) as mock_conv_repo_class,
         ):
             mock_db = AsyncMock()
             mock_db_class.return_value = mock_db
@@ -199,9 +207,11 @@ class TestImportExportIntegration:
     def test_export_to_stdout(self):
         """Test that export returns spans list when no output file."""
         with (
-            patch("voiceobs.cli.Database") as mock_db_class,
-            patch("voiceobs.cli.SpanRepository") as mock_span_repo_class,
-            patch("voiceobs.cli.ConversationRepository") as mock_conv_repo_class,
+            patch("voiceobs.server.db.connection.Database") as mock_db_class,
+            patch("voiceobs.server.db.repositories.span.SpanRepository") as mock_span_repo_class,
+            patch(
+                "voiceobs.server.db.repositories.conversation.ConversationRepository"
+            ) as mock_conv_repo_class,
         ):
             mock_db = AsyncMock()
             mock_db_class.return_value = mock_db

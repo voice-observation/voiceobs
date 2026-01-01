@@ -14,10 +14,17 @@ processors:
     timeout: 1s
     send_batch_size: 1024
 
+  # Add resource attributes
+  resource:
+    attributes:
+      - key: service.name
+        value: voiceobs
+        action: upsert
+
+connectors:
   # Convert spans to basic metrics (duration, count)
+  # spanmetrics connector generates metrics from traces and exports them via metrics pipeline
   spanmetrics:
-    metrics_exporter: prometheus
-    latency_histogram_buckets: [100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s]
     dimensions:
       - name: voice.stage.type
         default: "unknown"
@@ -25,13 +32,6 @@ processors:
         default: "unknown"
       - name: voice.actor
         default: "unknown"
-
-  # Add resource attributes
-  resource:
-    attributes:
-      - key: service.name
-        value: voiceobs
-        action: upsert
 
 exporters:
   # Export traces to Tempo
@@ -49,11 +49,11 @@ exporters:
 
 service:
   pipelines:
-  traces:
-    receivers: [otlp]
-    processors: [batch, resource, spanmetrics]
-    exporters: [otlp/tempo]
-  metrics:
-    receivers: [otlp]
-    processors: [batch, resource]
-    exporters: [prometheus]
+    traces:
+      receivers: [otlp]
+      processors: [batch, resource]
+      exporters: [otlp/tempo, spanmetrics]
+    metrics:
+      receivers: [spanmetrics]
+      processors: [batch, resource]
+      exporters: [prometheus]
