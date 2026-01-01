@@ -38,6 +38,7 @@ from voiceobs.server.db.connection import Database
 from voiceobs.server.db.repositories import (
     ConversationRepository,
     FailureRepository,
+    MetricsRepository,
     SpanRepository,
     TurnRepository,
 )
@@ -235,6 +236,7 @@ _span_storage: SpanStorageProtocol | None = None
 _conversation_repo: ConversationRepository | None = None
 _turn_repo: TurnRepository | None = None
 _failure_repo: FailureRepository | None = None
+_metrics_repo: MetricsRepository | None = None
 _use_postgres: bool = False
 
 
@@ -271,7 +273,7 @@ async def init_database() -> None:
     uses in-memory storage.
     """
     global _database, _span_storage
-    global _conversation_repo, _turn_repo, _failure_repo, _use_postgres
+    global _conversation_repo, _turn_repo, _failure_repo, _metrics_repo, _use_postgres
 
     database_url = _get_database_url()
 
@@ -286,6 +288,7 @@ async def init_database() -> None:
         _conversation_repo = ConversationRepository(_database)
         _turn_repo = TurnRepository(_database)
         _failure_repo = FailureRepository(_database)
+        _metrics_repo = MetricsRepository(_database)
 
         # Create span storage adapter
         _span_storage = PostgresSpanStoreAdapter(
@@ -299,6 +302,7 @@ async def init_database() -> None:
         _conversation_repo = None
         _turn_repo = None
         _failure_repo = None
+        _metrics_repo = None
 
 
 async def shutdown_database() -> None:
@@ -307,7 +311,7 @@ async def shutdown_database() -> None:
     Call this on application shutdown.
     """
     global _database, _span_storage
-    global _conversation_repo, _turn_repo, _failure_repo, _use_postgres
+    global _conversation_repo, _turn_repo, _failure_repo, _metrics_repo, _use_postgres
 
     if _database is not None:
         await _database.disconnect()
@@ -317,6 +321,7 @@ async def shutdown_database() -> None:
     _conversation_repo = None
     _turn_repo = None
     _failure_repo = None
+    _metrics_repo = None
     _use_postgres = False
 
 
@@ -360,6 +365,15 @@ def get_failure_repository() -> FailureRepository | None:
     return _failure_repo
 
 
+def get_metrics_repository() -> MetricsRepository | None:
+    """Get the metrics repository.
+
+    Returns:
+        Metrics repository or None if using in-memory storage.
+    """
+    return _metrics_repo
+
+
 def is_using_postgres() -> bool:
     """Check if using PostgreSQL storage.
 
@@ -372,10 +386,11 @@ def is_using_postgres() -> bool:
 def reset_dependencies() -> None:
     """Reset all dependencies (for testing)."""
     global _database, _span_storage
-    global _conversation_repo, _turn_repo, _failure_repo, _use_postgres
+    global _conversation_repo, _turn_repo, _failure_repo, _metrics_repo, _use_postgres
     _database = None
     _span_storage = None
     _conversation_repo = None
     _turn_repo = None
     _failure_repo = None
+    _metrics_repo = None
     _use_postgres = False

@@ -15,6 +15,7 @@ from voiceobs.server.routes import (
     conversations_router,
     failures_router,
     health_router,
+    metrics_router,
     spans_router,
 )
 
@@ -63,5 +64,6 @@ def create_app() -> FastAPI:
     app.include_router(analysis_router)
     app.include_router(conversations_router)
     app.include_router(failures_router)
+    app.include_router(metrics_router)
 
     return app
