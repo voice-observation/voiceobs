@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import time
 from collections.abc import Sequence
+from typing import Any
 
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
@@ -62,6 +63,8 @@ class OTLPSpanExporter(SpanExporter):
         self._max_retries = max_retries
 
         # Lazy import to avoid requiring OTLP dependencies unless used
+        # Type: Any because gRPC and HTTP exporters have different types
+        self._otlp_exporter: Any
         try:
             if protocol == "grpc":
                 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (

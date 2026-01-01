@@ -1033,7 +1033,7 @@ def _load_spans_from_database(conversation_id: str | None) -> list[dict[str, Any
         output_file=None,  # Get spans as dicts
         conversation_id=conversation_id,
     )
-    spans = result.get("spans", [])
+    spans: list[dict[str, Any]] = result.get("spans", [])
     typer.echo(f"Loaded {len(spans)} spans from database")
     return spans
 
@@ -1053,15 +1053,19 @@ def _convert_span_dicts_to_otel_spans(
 
     from opentelemetry import trace
     from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExportResult
+    from opentelemetry.sdk.trace.export import (
+        SimpleSpanProcessor,
+        SpanExporter,
+        SpanExportResult,
+    )
     from opentelemetry.trace import SpanContext, Status, StatusCode, TraceFlags
 
     # Create a provider and collect spans
     provider = TracerProvider()
     collected: list[Any] = []
 
-    class Collector:
-        def export(self, spans: Sequence[Any]) -> Any:
+    class Collector(SpanExporter):
+        def export(self, spans: Sequence[Any]) -> SpanExportResult:
             collected.extend(spans)
             return SpanExportResult.SUCCESS
 
@@ -1109,11 +1113,11 @@ def _convert_span_dicts_to_otel_spans(
                 elif status_code == "OK":
                     span.set_status(Status(StatusCode.OK, status_data.get("description")))
 
-                # Override timestamps
+                # Override timestamps (SDK internal attributes)
                 if start_time := span_dict.get("start_time_ns"):
-                    span.start_time = start_time
+                    span.start_time = start_time  # type: ignore[attr-defined]
                 if end_time := span_dict.get("end_time_ns"):
-                    span.end_time = end_time
+                    span.end_time = end_time  # type: ignore[attr-defined]
 
         except (ValueError, KeyError) as e:
             typer.echo(

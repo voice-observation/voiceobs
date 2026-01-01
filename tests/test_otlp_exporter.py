@@ -1,5 +1,7 @@
 """Tests for OTLP exporter."""
 
+import sys
+from types import ModuleType
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -11,30 +13,77 @@ from voiceobs.config import (
 )
 
 
+def _create_mock_module(name: str) -> ModuleType:
+    """Create a mock module."""
+    module = ModuleType(name)
+    sys.modules[name] = module
+    return module
+
+
+@pytest.fixture(autouse=True)
+def setup_opentelemetry_mocks():
+    """Set up mock opentelemetry.exporter modules before each test."""
+    # Create the module structure
+    exporter_module = _create_mock_module("opentelemetry.exporter")
+    otlp_module = _create_mock_module("opentelemetry.exporter.otlp")
+    proto_module = _create_mock_module("opentelemetry.exporter.otlp.proto")
+    grpc_module = _create_mock_module("opentelemetry.exporter.otlp.proto.grpc")
+    http_module = _create_mock_module("opentelemetry.exporter.otlp.proto.http")
+    grpc_trace_module = _create_mock_module("opentelemetry.exporter.otlp.proto.grpc.trace_exporter")
+    http_trace_module = _create_mock_module("opentelemetry.exporter.otlp.proto.http.trace_exporter")
+
+    # Set up module hierarchy
+    exporter_module.otlp = otlp_module
+    otlp_module.proto = proto_module
+    proto_module.grpc = grpc_module
+    proto_module.http = http_module
+    grpc_module.trace_exporter = grpc_trace_module
+    http_module.trace_exporter = http_trace_module
+
+    # Create mock OTLPSpanExporter classes
+    grpc_exporter_class = MagicMock()
+    http_exporter_class = MagicMock()
+
+    grpc_trace_module.OTLPSpanExporter = grpc_exporter_class
+    http_trace_module.OTLPSpanExporter = http_exporter_class
+
+    yield grpc_exporter_class, http_exporter_class
+
+    # Cleanup
+    modules_to_remove = [
+        "opentelemetry.exporter",
+        "opentelemetry.exporter.otlp",
+        "opentelemetry.exporter.otlp.proto",
+        "opentelemetry.exporter.otlp.proto.grpc",
+        "opentelemetry.exporter.otlp.proto.grpc.trace_exporter",
+        "opentelemetry.exporter.otlp.proto.http",
+        "opentelemetry.exporter.otlp.proto.http.trace_exporter",
+    ]
+    for module_name in modules_to_remove:
+        if module_name in sys.modules:
+            del sys.modules[module_name]
+
+
 @pytest.fixture
-def mock_otlp_grpc():
+def mock_otlp_grpc(setup_opentelemetry_mocks):
     """Mock the gRPC OTLP exporter."""
-    with patch(
-        "opentelemetry.exporter.otlp.proto.grpc.trace_exporter.OTLPSpanExporter"
-    ) as mock_exporter_class:
-        mock_exporter = MagicMock()
-        mock_exporter.export.return_value = None
-        mock_exporter.shutdown.return_value = None
-        mock_exporter_class.return_value = mock_exporter
-        yield mock_exporter
+    grpc_exporter_class, _ = setup_opentelemetry_mocks
+    mock_exporter = MagicMock()
+    mock_exporter.export.return_value = None
+    mock_exporter.shutdown.return_value = None
+    grpc_exporter_class.return_value = mock_exporter
+    yield mock_exporter
 
 
 @pytest.fixture
-def mock_otlp_http():
+def mock_otlp_http(setup_opentelemetry_mocks):
     """Mock the HTTP OTLP exporter."""
-    with patch(
-        "opentelemetry.exporter.otlp.proto.http.trace_exporter.OTLPSpanExporter"
-    ) as mock_exporter_class:
-        mock_exporter = MagicMock()
-        mock_exporter.export.return_value = None
-        mock_exporter.shutdown.return_value = None
-        mock_exporter_class.return_value = mock_exporter
-        yield mock_exporter
+    _, http_exporter_class = setup_opentelemetry_mocks
+    mock_exporter = MagicMock()
+    mock_exporter.export.return_value = None
+    mock_exporter.shutdown.return_value = None
+    http_exporter_class.return_value = mock_exporter
+    yield mock_exporter
 
 
 class TestOTLPSpanExporter:
@@ -65,12 +114,29 @@ class TestOTLPSpanExporter:
         with pytest.raises(ValueError, match="Unsupported protocol"):
             OTLPSpanExporter(protocol="unsupported")
 
-    def test_raises_error_when_dependencies_missing(self):
+    def test_raises_error_when_dependencies_missing(self, setup_opentelemetry_mocks):
         """Test that missing dependencies raise ImportError."""
-        with patch(
-            "opentelemetry.exporter.otlp.proto.grpc.trace_exporter.OTLPSpanExporter",
-            side_effect=ImportError("Module not found"),
-        ):
+        import importlib
+
+        # Remove the mock module to simulate missing dependency
+        if "opentelemetry.exporter.otlp.proto.grpc.trace_exporter" in sys.modules:
+            del sys.modules["opentelemetry.exporter.otlp.proto.grpc.trace_exporter"]
+
+        # Make the import fail by patching __import__
+        original_import = __import__
+
+        def failing_import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == "opentelemetry.exporter.otlp.proto.grpc.trace_exporter":
+                raise ImportError("Module not found")
+            return original_import(name, globals, locals, fromlist, level)
+
+        with patch("builtins.__import__", side_effect=failing_import):
+            # Reload the module to pick up the failing import
+            if "voiceobs.exporters.otlp" in sys.modules:
+                importlib.reload(sys.modules["voiceobs.exporters.otlp"])
+            else:
+                pass
+
             from voiceobs.exporters.otlp import OTLPSpanExporter
 
             with pytest.raises(ImportError, match="OTLP exporter dependencies not installed"):
