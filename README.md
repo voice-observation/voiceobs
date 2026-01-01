@@ -5,6 +5,8 @@
 [![PyPI version](https://badge.fury.io/py/voiceobs.svg)](https://pypi.org/project/voiceobs/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
+📚 **[Documentation](https://voice-observation.github.io/voiceobs/)** | 🐛 [Issues](https://github.com/voice-observation/voiceobs/issues) | 💬 [Discussions](https://github.com/voice-observation/voiceobs/discussions)
+
 ## The Problem
 
 Voice AI applications are hard to debug. When a conversation goes wrong, you're left asking:

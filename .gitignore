@@ -35,6 +35,9 @@ MANIFEST
 
 # Docs
 docs/_build/
+docs-site/.docusaurus/
+docs-site/build/
+docs-site/node_modules/
 
 # OS
 .DS_Store
