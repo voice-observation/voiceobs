@@ -1,6 +1,6 @@
 """Tests for the metrics aggregation endpoints."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -73,8 +73,8 @@ class TestMetricsSummary:
         }
         mock_get_repo.return_value = mock_repo
 
-        start_time = datetime.now(UTC) - timedelta(days=1)
-        end_time = datetime.now(UTC)
+        start_time = datetime.now(timezone.utc) - timedelta(days=1)
+        end_time = datetime.now(timezone.utc)
         start_time_str = start_time.replace(tzinfo=None).isoformat() + "Z"
         end_time_str = end_time.replace(tzinfo=None).isoformat() + "Z"
         response = client.get(
@@ -157,7 +157,7 @@ class TestLatencyBreakdown:
         mock_repo.get_latency_breakdown.return_value = []
         mock_get_repo.return_value = mock_repo
 
-        start_time = datetime.now(UTC) - timedelta(days=1)
+        start_time = datetime.now(timezone.utc) - timedelta(days=1)
         start_time_str = start_time.replace(tzinfo=None).isoformat() + "Z"
         response = client.get(
             f"/metrics/latency?group_by=stage&start_time={start_time_str}&conversation_id=conv-1"
@@ -239,7 +239,7 @@ class TestFailureBreakdown:
         mock_repo.get_failure_breakdown.return_value = ([], 0)
         mock_get_repo.return_value = mock_repo
 
-        end_time = datetime.now(UTC)
+        end_time = datetime.now(timezone.utc)
         end_time_str = end_time.replace(tzinfo=None).isoformat() + "Z"
         response = client.get(
             f"/metrics/failures?group_by=type&end_time={end_time_str}&conversation_id=conv-1"
@@ -315,8 +315,8 @@ class TestConversationVolume:
         mock_repo.get_conversation_volume.return_value = []
         mock_get_repo.return_value = mock_repo
 
-        start_time = datetime.now(UTC) - timedelta(days=7)
-        end_time = datetime.now(UTC)
+        start_time = datetime.now(timezone.utc) - timedelta(days=7)
+        end_time = datetime.now(timezone.utc)
         start_time_str = start_time.replace(tzinfo=None).isoformat() + "Z"
         end_time_str = end_time.replace(tzinfo=None).isoformat() + "Z"
         response = client.get(
@@ -419,7 +419,7 @@ class TestTrends:
         mock_repo.get_trends.return_value = []
         mock_get_repo.return_value = mock_repo
 
-        start_time = datetime.now(UTC) - timedelta(days=1)
+        start_time = datetime.now(timezone.utc) - timedelta(days=1)
         start_time_str = start_time.replace(tzinfo=None).isoformat() + "Z"
         response = client.get(
             f"/metrics/trends?metric=latency&window=1h&start_time={start_time_str}&conversation_id=conv-1"

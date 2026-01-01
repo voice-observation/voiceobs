@@ -88,8 +88,7 @@ class OTLPSpanExporter(SpanExporter):
                 raise ValueError(f"Unsupported protocol: {protocol}")
         except ImportError as e:
             raise ImportError(
-                "OTLP exporter dependencies not installed. "
-                "Install with: pip install voiceobs[otlp]"
+                "OTLP exporter dependencies not installed. Install with: pip install voiceobs[otlp]"
             ) from e
 
         # Batch state

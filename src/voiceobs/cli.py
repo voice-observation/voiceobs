@@ -1033,7 +1033,7 @@ def _load_spans_from_database(conversation_id: str | None) -> list[dict[str, Any
     if not database_url:
         typer.echo("Error: No database URL configured.", err=True)
         typer.echo(
-            "Hint: Set VOICEOBS_DATABASE_URL or configure " "server.database_url in voiceobs.yaml",
+            "Hint: Set VOICEOBS_DATABASE_URL or configure server.database_url in voiceobs.yaml",
             err=True,
         )
         raise typer.Exit(1)
