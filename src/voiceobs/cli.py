@@ -27,6 +27,14 @@ db_app = typer.Typer(
 )
 app.add_typer(db_app, name="db")
 
+# Export subcommand group (for otlp export)
+export_app = typer.Typer(
+    name="export",
+    help="Export spans to various formats",
+    no_args_is_help=False,  # Allow no subcommand for backward compatibility
+)
+app.add_typer(export_app, name="export")
+
 
 @app.command()
 def version() -> None:
@@ -808,9 +816,10 @@ def import_command(
         raise typer.Exit(1)
 
 
-# Export command
-@app.command("export")
-def export_command(
+# Default export command (backward compatibility - exports JSONL)
+@export_app.callback(invoke_without_command=True)
+def export_callback(
+    ctx: typer.Context,
     output_file: Path = typer.Option(
         None,
         "--output",
@@ -826,14 +835,23 @@ def export_command(
 ) -> None:
     """Export spans from the database to a JSONL file.
 
-    Reads span data from the database and writes it to a JSONL file
-    or stdout if no output file is specified.
-
-    Example:
-        voiceobs export --output run.jsonl
-        voiceobs export --conversation conv-123 --output run.jsonl
-        voiceobs export
+    This is the default export command for backward compatibility.
+    Use 'voiceobs export jsonl' for explicit JSONL export, or
+    'voiceobs export otlp' for OTLP export.
     """
+    # If a subcommand was invoked, don't run this
+    if ctx.invoked_subcommand is not None:
+        return
+
+    # Otherwise, run the JSONL export
+    export_jsonl_impl(output_file, conversation)
+
+
+def export_jsonl_impl(
+    output_file: Path | None = None,
+    conversation: str | None = None,
+) -> None:
+    """Implementation of JSONL export (shared by callback and jsonl command)."""
     database_url = _get_database_url()
     if not database_url:
         typer.echo("Error: No database URL configured.", err=True)
@@ -859,6 +877,392 @@ def export_command(
 
     except Exception as e:
         typer.echo(f"Error exporting spans: {e}", err=True)
+        raise typer.Exit(1)
+
+
+# Export JSONL command (explicit subcommand)
+@export_app.command("jsonl")
+def export_jsonl_command(
+    output_file: Path = typer.Option(
+        None,
+        "--output",
+        "-o",
+        help="Path to write the JSONL file (prints to stdout if not specified)",
+    ),
+    conversation: str = typer.Option(
+        None,
+        "--conversation",
+        "-c",
+        help="Filter by conversation ID",
+    ),
+) -> None:
+    """Export spans from the database to a JSONL file.
+
+    Reads span data from the database and writes it to a JSONL file
+    or stdout if no output file is specified.
+
+    Example:
+        voiceobs export jsonl --output run.jsonl
+        voiceobs export jsonl --conversation conv-123 --output run.jsonl
+        voiceobs export jsonl
+    """
+    export_jsonl_impl(output_file, conversation)
+
+
+def _validate_otlp_export_args(
+    input_file: Path | None, server: bool, conversation: str | None
+) -> None:
+    """Validate arguments for OTLP export command.
+
+    Args:
+        input_file: Path to JSONL file (optional).
+        server: Whether to export from server database.
+        conversation: Conversation ID filter (optional).
+
+    Raises:
+        typer.Exit: If validation fails.
+    """
+    if not server and not input_file:
+        typer.echo(
+            "Error: Either --input or --server must be specified.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    if server and input_file:
+        typer.echo(
+            "Error: Cannot use both --input and --server.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    if conversation and not server:
+        typer.echo(
+            "Error: --conversation can only be used with --server.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+
+def _get_otlp_exporter_config(
+    endpoint: str | None, protocol: str | None
+) -> tuple[str, str, dict[str, str], int, int, int]:
+    """Get OTLP exporter configuration, merging CLI overrides with config.
+
+    Args:
+        endpoint: CLI endpoint override (optional).
+        protocol: CLI protocol override (optional).
+
+    Returns:
+        Tuple of (endpoint, protocol, headers, batch_size, batch_timeout_ms, max_retries).
+    """
+    from voiceobs.config import get_config
+
+    config = get_config()
+    otlp_config = config.exporters.otlp
+
+    endpoint_url = endpoint or otlp_config.endpoint
+    protocol_type = protocol or otlp_config.protocol
+    headers = otlp_config.headers.copy()
+
+    return (
+        endpoint_url,
+        protocol_type,
+        headers,
+        otlp_config.batch_size,
+        otlp_config.batch_timeout_ms,
+        otlp_config.max_retries,
+    )
+
+
+def _load_spans_from_jsonl(input_file: Path) -> list[dict[str, Any]]:
+    """Load spans from a JSONL file.
+
+    Args:
+        input_file: Path to JSONL file.
+
+    Returns:
+        List of span dictionaries.
+
+    Raises:
+        FileNotFoundError: If file doesn't exist.
+    """
+    spans: list[dict[str, Any]] = []
+
+    with open(input_file) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                span_data = json.loads(line)
+                spans.append(span_data)
+            except json.JSONDecodeError as e:
+                typer.echo(
+                    f"Warning: Skipping invalid JSON line: {e}",
+                    err=True,
+                )
+
+    typer.echo(f"Loaded {len(spans)} spans from {input_file}")
+    return spans
+
+
+def _load_spans_from_database(conversation_id: str | None) -> list[dict[str, Any]]:
+    """Load spans from the server database.
+
+    Args:
+        conversation_id: Optional conversation ID to filter by.
+
+    Returns:
+        List of span dictionaries.
+
+    Raises:
+        typer.Exit: If database URL is not configured.
+    """
+    database_url = _get_database_url()
+    if not database_url:
+        typer.echo("Error: No database URL configured.", err=True)
+        typer.echo(
+            "Hint: Set VOICEOBS_DATABASE_URL or configure " "server.database_url in voiceobs.yaml",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    result = export_spans_from_db(
+        database_url=database_url,
+        output_file=None,  # Get spans as dicts
+        conversation_id=conversation_id,
+    )
+    spans = result.get("spans", [])
+    typer.echo(f"Loaded {len(spans)} spans from database")
+    return spans
+
+
+def _convert_span_dicts_to_otel_spans(
+    span_dicts: list[dict[str, Any]],
+) -> list[Any]:
+    """Convert span dictionaries to OpenTelemetry ReadableSpan objects.
+
+    Args:
+        span_dicts: List of span dictionaries from JSONL or database.
+
+    Returns:
+        List of OpenTelemetry ReadableSpan objects.
+    """
+    from collections.abc import Sequence
+
+    from opentelemetry import trace
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExportResult
+    from opentelemetry.trace import SpanContext, Status, StatusCode, TraceFlags
+
+    # Create a provider and collect spans
+    provider = TracerProvider()
+    collected: list[Any] = []
+
+    class Collector:
+        def export(self, spans: Sequence[Any]) -> Any:
+            collected.extend(spans)
+            return SpanExportResult.SUCCESS
+
+        def shutdown(self) -> None:
+            pass
+
+        def force_flush(self, timeout_millis: int = 30000) -> bool:
+            return True
+
+    provider.add_span_processor(SimpleSpanProcessor(Collector()))
+    tracer = provider.get_tracer("voiceobs.export")
+
+    # Create spans by replaying them
+    for span_dict in span_dicts:
+        try:
+            trace_id_hex = span_dict.get("trace_id", "0" * 32)
+            span_id_hex = span_dict.get("span_id", "0" * 16)
+
+            trace_id = int(trace_id_hex, 16)
+            span_id = int(span_id_hex, 16)
+
+            ctx = trace.set_span_in_context(
+                trace.NonRecordingSpan(
+                    SpanContext(
+                        trace_id=trace_id,
+                        span_id=span_id,
+                        is_remote=False,
+                        trace_flags=TraceFlags(0x01),
+                    )
+                )
+            )
+
+            with tracer.start_as_current_span(
+                name=span_dict.get("name", "unknown"), context=ctx
+            ) as span:
+                # Set attributes
+                for key, value in span_dict.get("attributes", {}).items():
+                    span.set_attribute(key, value)
+
+                # Set status
+                status_data = span_dict.get("status", {})
+                status_code = status_data.get("status_code", "UNSET")
+                if status_code == "ERROR":
+                    span.set_status(Status(StatusCode.ERROR, status_data.get("description")))
+                elif status_code == "OK":
+                    span.set_status(Status(StatusCode.OK, status_data.get("description")))
+
+                # Override timestamps
+                if start_time := span_dict.get("start_time_ns"):
+                    span.start_time = start_time
+                if end_time := span_dict.get("end_time_ns"):
+                    span.end_time = end_time
+
+        except (ValueError, KeyError) as e:
+            typer.echo(
+                f"Warning: Skipping invalid span: {e}",
+                err=True,
+            )
+            continue
+
+    return collected
+
+
+def _export_spans_to_otlp(exporter: Any, spans: list[Any], endpoint_url: str) -> None:
+    """Export spans to OTLP endpoint.
+
+    Args:
+        exporter: OTLPSpanExporter instance.
+        spans: List of OpenTelemetry spans to export.
+        endpoint_url: OTLP endpoint URL (for logging).
+
+    Raises:
+        typer.Exit: If export fails.
+    """
+    from opentelemetry.sdk.trace.export import SpanExportResult
+
+    typer.echo(f"Exporting {len(spans)} spans to {endpoint_url}...")
+    result = exporter.export(spans)
+    exporter.force_flush()
+    exporter.shutdown()
+
+    if result == SpanExportResult.SUCCESS:
+        typer.echo(f"Successfully exported {len(spans)} spans to OTLP endpoint")
+    else:
+        typer.echo("Error: Failed to export spans to OTLP endpoint", err=True)
+        raise typer.Exit(1)
+
+
+@export_app.command("otlp")
+def export_otlp_command(
+    input_file: Path = typer.Option(
+        None,
+        "--input",
+        "-i",
+        help="Path to JSONL file to export (required if --server not used)",
+        exists=True,
+        readable=True,
+    ),
+    server: bool = typer.Option(
+        False,
+        "--server",
+        help="Export from server database instead of JSONL file",
+    ),
+    endpoint: str = typer.Option(
+        None,
+        "--endpoint",
+        "-e",
+        help="OTLP endpoint URL (overrides config)",
+    ),
+    protocol: str = typer.Option(
+        None,
+        "--protocol",
+        "-p",
+        help="Protocol: 'grpc' or 'http/protobuf' (overrides config)",
+    ),
+    conversation: str = typer.Option(
+        None,
+        "--conversation",
+        "-c",
+        help="Filter by conversation ID (only with --server)",
+    ),
+) -> None:
+    """Export spans to an OpenTelemetry-compatible backend via OTLP.
+
+    Exports spans from a JSONL file or from the server database to any
+    OTLP-compatible backend (Grafana, Datadog, etc.).
+
+    Configuration is read from voiceobs.yaml, but can be overridden
+    with command-line options.
+
+    Example:
+        # Export from JSONL file
+        voiceobs export otlp --input run.jsonl
+
+        # Export from server database
+        voiceobs export otlp --server
+
+        # Override endpoint and protocol
+        voiceobs export otlp --input run.jsonl --endpoint http://localhost:4317 --protocol grpc
+
+        # Export specific conversation from server
+        voiceobs export otlp --server --conversation conv-123
+    """
+    try:
+        from voiceobs.exporters.otlp import OTLPSpanExporter
+    except ImportError:
+        typer.echo(
+            "Error: OTLP exporter dependencies not installed.",
+            err=True,
+        )
+        typer.echo(
+            "Hint: Install with: pip install voiceobs[otlp]",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    # Validate arguments
+    _validate_otlp_export_args(input_file, server, conversation)
+
+    # Get configuration
+    (
+        endpoint_url,
+        protocol_type,
+        headers,
+        batch_size,
+        batch_timeout_ms,
+        max_retries,
+    ) = _get_otlp_exporter_config(endpoint, protocol)
+
+    try:
+        # Create OTLP exporter
+        exporter = OTLPSpanExporter(
+            endpoint=endpoint_url,
+            protocol=protocol_type,
+            headers=headers,
+            batch_size=batch_size,
+            batch_timeout_ms=batch_timeout_ms,
+            max_retries=max_retries,
+        )
+
+        # Load spans
+        if server:
+            span_dicts = _load_spans_from_database(conversation)
+        else:
+            span_dicts = _load_spans_from_jsonl(input_file)
+
+        if not span_dicts:
+            typer.echo("No spans to export.")
+            return
+
+        # Convert to OpenTelemetry spans
+        otlp_spans = _convert_span_dicts_to_otel_spans(span_dicts)
+
+        # Export to OTLP
+        _export_spans_to_otlp(exporter, otlp_spans, endpoint_url)
+
+    except FileNotFoundError:
+        typer.echo(f"Error: File not found: {input_file}", err=True)
+        raise typer.Exit(1)
+    except Exception as e:
+        typer.echo(f"Error exporting to OTLP: {e}", err=True)
         raise typer.Exit(1)
 
 

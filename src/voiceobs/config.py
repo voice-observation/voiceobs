@@ -36,11 +36,25 @@ class ExporterConsoleConfig:
 
 
 @dataclass
+class ExporterOtlpConfig:
+    """OTLP exporter configuration."""
+
+    enabled: bool = False
+    endpoint: str = "http://localhost:4317"
+    protocol: Literal["grpc", "http/protobuf"] = "grpc"
+    headers: dict[str, str] = field(default_factory=dict)
+    batch_size: int = 512
+    batch_timeout_ms: int = 5000
+    max_retries: int = 3
+
+
+@dataclass
 class ExportersConfig:
     """All exporter configurations."""
 
     jsonl: ExporterJsonlConfig = field(default_factory=ExporterJsonlConfig)
     console: ExporterConsoleConfig = field(default_factory=ExporterConsoleConfig)
+    otlp: ExporterOtlpConfig = field(default_factory=ExporterOtlpConfig)
 
 
 @dataclass
@@ -269,6 +283,19 @@ def _validate_config(config: VoiceobsConfig) -> list[str]:
     if config.exporters.jsonl.enabled and not config.exporters.jsonl.path:
         errors.append("exporters.jsonl.path is required when jsonl exporter is enabled")
 
+    # Validate OTLP exporter
+    if config.exporters.otlp.enabled:
+        if not config.exporters.otlp.endpoint:
+            errors.append("exporters.otlp.endpoint is required when otlp exporter is enabled")
+        if config.exporters.otlp.protocol not in ("grpc", "http/protobuf"):
+            errors.append("exporters.otlp.protocol must be 'grpc' or 'http/protobuf'")
+        if config.exporters.otlp.batch_size <= 0:
+            errors.append("exporters.otlp.batch_size must be > 0")
+        if config.exporters.otlp.batch_timeout_ms <= 0:
+            errors.append("exporters.otlp.batch_timeout_ms must be > 0")
+        if config.exporters.otlp.max_retries < 0:
+            errors.append("exporters.otlp.max_retries must be >= 0")
+
     # Validate failures thresholds (must be non-negative)
     failures = config.failures
     if failures.interruption_overlap_ms < 0:
@@ -387,6 +414,16 @@ exporters:
   # Console exporter (prints spans to stdout)
   console:
     enabled: true
+
+  # OTLP exporter (for OpenTelemetry-compatible backends)
+  otlp:
+    enabled: false
+    endpoint: "http://localhost:4317"
+    protocol: "grpc"  # or "http/protobuf"
+    headers: {}  # e.g., {"Authorization": "Bearer token"}
+    batch_size: 512
+    batch_timeout_ms: 5000
+    max_retries: 3
 
 # Failure detection thresholds
 failures:

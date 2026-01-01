@@ -15,6 +15,14 @@ from opentelemetry.trace import NoOpTracerProvider
 
 from voiceobs.exporters import get_jsonl_exporter_from_config
 
+try:
+    from voiceobs.exporters import get_otlp_exporter_from_config
+except ImportError:
+    # OTLP dependencies not installed
+    def get_otlp_exporter_from_config():  # type: ignore[misc]
+        return None
+
+
 # Thread-safe initialization flag
 _init_lock = threading.Lock()
 _initialized = False
@@ -60,6 +68,7 @@ def ensure_tracing_initialized(force: bool = False) -> bool:
         - If a real TracerProvider is already configured: does nothing, returns False
         - If no provider configured: sets up TracerProvider with ConsoleSpanExporter
         - If JSONL export is enabled in config: also adds JSONLSpanExporter
+        - If OTLP export is enabled in config: also adds OTLPSpanExporter
         - Thread-safe: safe to call from multiple threads
 
     Configuration:
@@ -71,6 +80,10 @@ def ensure_tracing_initialized(force: bool = False) -> bool:
             path: "./traces.jsonl"
           console:
             enabled: true
+          otlp:
+            enabled: true
+            endpoint: "http://localhost:4317"
+            protocol: "grpc"
 
     Example:
         # At application startup
@@ -113,6 +126,13 @@ def ensure_tracing_initialized(force: bool = False) -> bool:
         if jsonl_exporter:
             jsonl_processor = BatchSpanProcessor(jsonl_exporter)
             provider.add_span_processor(jsonl_processor)
+
+        # Add OTLP exporter if enabled in config
+        otlp_exporter = get_otlp_exporter_from_config()
+        if otlp_exporter:
+            # Use the exporter's built-in batching
+            otlp_processor = BatchSpanProcessor(otlp_exporter)
+            provider.add_span_processor(otlp_processor)
 
         trace.set_tracer_provider(provider)
         _initialized = True
