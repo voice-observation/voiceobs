@@ -25,6 +25,9 @@ def _parse_datetime(value: str | datetime | None) -> datetime | None:
     if isinstance(value, datetime):
         return value
     # Parse ISO 8601 string
+    # Python 3.10's fromisoformat doesn't handle 'Z' suffix, so replace it
+    if isinstance(value, str) and value.endswith("Z"):
+        value = value[:-1] + "+00:00"
     return datetime.fromisoformat(value)
 
 
