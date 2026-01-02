@@ -36,6 +36,8 @@ class ConversationRow:
     conversation_id: str  # External conversation ID
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    audio_path: str | None = None
+    audio_metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -69,3 +71,40 @@ class FailureRow:
     signal_value: float | None
     threshold: float | None
     created_at: datetime | None = None
+
+
+@dataclass
+class TestSuiteRow:
+    """Represents a test suite row in the database."""
+
+    id: UUID
+    name: str
+    description: str | None = None
+    status: str = "pending"  # pending, running, completed
+    created_at: datetime | None = None
+
+
+@dataclass
+class TestScenarioRow:
+    """Represents a test scenario row in the database."""
+
+    id: UUID
+    suite_id: UUID
+    name: str
+    goal: str
+    persona_json: dict[str, Any] = field(default_factory=dict)
+    max_turns: int | None = None
+    timeout: int | None = None
+
+
+@dataclass
+class TestExecutionRow:
+    """Represents a test execution row in the database."""
+
+    id: UUID
+    scenario_id: UUID
+    conversation_id: UUID | None = None
+    status: str = "pending"  # pending, running, completed, failed
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    result_json: dict[str, Any] = field(default_factory=dict)
