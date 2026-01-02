@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api, type ConversationDetail, type TurnResponse, type FailureResponse } from "@/lib/api";
 import { AlertCircle, ArrowLeft, User, Bot, Clock } from "lucide-react";
+import { AudioPlayer } from "@/components/audio/AudioPlayer";
+import { getAudioUrl } from "@/lib/audio";
 
 export default function ConversationDetailPage({ params }: { params: { id: string } }) {
   const [conversation, setConversation] = useState<ConversationDetail | null>(null);
@@ -179,6 +181,16 @@ export default function ConversationDetailPage({ params }: { params: { id: strin
           </CardHeader>
         </Card>
       </div>
+
+      {/* Audio Player */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Audio</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AudioPlayer audioUrl={getAudioUrl(conversation.id)} conversationId={conversation.id} />
+        </CardContent>
+      </Card>
 
       {/* Tabs for different views */}
       <Tabs defaultValue="turns" className="w-full">
