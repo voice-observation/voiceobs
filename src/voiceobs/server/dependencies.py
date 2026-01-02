@@ -238,6 +238,7 @@ _turn_repo: TurnRepository | None = None
 _failure_repo: FailureRepository | None = None
 _metrics_repo: MetricsRepository | None = None
 _use_postgres: bool = False
+_audio_storage: Any | None = None
 
 
 def _get_database_url() -> str | None:
@@ -383,10 +384,43 @@ def is_using_postgres() -> bool:
     return _use_postgres
 
 
+def get_audio_storage() -> Any:
+    """Get the audio storage instance.
+
+    Returns:
+        AudioStorage instance configured from environment or defaults.
+    """
+    global _audio_storage
+
+    if _audio_storage is None:
+        from voiceobs.server.storage import AudioStorage
+
+        # Get configuration from environment
+        provider = os.environ.get("VOICEOBS_AUDIO_STORAGE_PROVIDER", "local")
+        base_path = os.environ.get("VOICEOBS_AUDIO_STORAGE_PATH", "/tmp/voiceobs-audio")
+
+        if provider == "s3":
+            bucket_name = os.environ.get("VOICEOBS_AUDIO_S3_BUCKET", base_path)
+            aws_region = os.environ.get("VOICEOBS_AUDIO_S3_REGION", "us-east-1")
+            _audio_storage = AudioStorage(
+                provider="s3",
+                base_path=bucket_name,
+                aws_region=aws_region,
+            )
+        else:
+            _audio_storage = AudioStorage(
+                provider="local",
+                base_path=base_path,
+            )
+
+    return _audio_storage
+
+
 def reset_dependencies() -> None:
     """Reset all dependencies (for testing)."""
     global _database, _span_storage
     global _conversation_repo, _turn_repo, _failure_repo, _metrics_repo, _use_postgres
+    global _audio_storage
     _database = None
     _span_storage = None
     _conversation_repo = None
@@ -394,3 +428,4 @@ def reset_dependencies() -> None:
     _failure_repo = None
     _metrics_repo = None
     _use_postgres = False
+    _audio_storage = None

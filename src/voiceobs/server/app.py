@@ -12,6 +12,7 @@ from voiceobs._version import __version__
 from voiceobs.server.dependencies import init_database, shutdown_database
 from voiceobs.server.routes import (
     analysis_router,
+    audio_router,
     conversations_router,
     failures_router,
     health_router,
@@ -65,5 +66,6 @@ def create_app() -> FastAPI:
     app.include_router(conversations_router)
     app.include_router(failures_router)
     app.include_router(metrics_router)
+    app.include_router(audio_router)
 
     return app

@@ -129,6 +129,7 @@ voiceobs db history
 | `/conversations` | GET | List conversations |
 | `/conversations/{id}` | GET | Get conversation details |
 | `/failures` | GET | List detected failures |
+| `/api/v1/audio/{id}` | GET | Stream audio file (with Range support) |
 
 ## Ingesting Spans
 
@@ -289,6 +290,86 @@ The server exposes metrics that can be scraped by Prometheus (if configured):
 - Request latency
 - Database connection pool status
 - Span ingestion rate
+
+## Audio Storage
+
+The voiceobs server supports storing and streaming audio files associated with conversations. Audio storage supports both local filesystem and S3 backends.
+
+### Configuration
+
+#### Local Storage (Default)
+
+Store audio files on the local filesystem:
+
+```bash
+export VOICEOBS_AUDIO_STORAGE_PROVIDER=local
+export VOICEOBS_AUDIO_STORAGE_PATH=/path/to/audio/files
+```
+
+#### S3 Storage
+
+Store audio files in AWS S3:
+
+```bash
+export VOICEOBS_AUDIO_STORAGE_PROVIDER=s3
+export VOICEOBS_AUDIO_S3_BUCKET=voiceobs-audio
+export VOICEOBS_AUDIO_S3_REGION=us-east-1
+export AWS_ACCESS_KEY_ID=your-access-key
+export AWS_SECRET_ACCESS_KEY=your-secret-key
+```
+
+**Note**: For S3 storage, install the optional dependency:
+```bash
+pip install voiceobs[s3]
+```
+
+### Streaming Audio Files
+
+The audio endpoint supports HTTP Range requests for efficient streaming and seeking:
+
+```bash
+# Stream full audio file
+curl http://localhost:8765/api/v1/audio/conv-123
+
+# Stream audio with type
+curl "http://localhost:8765/api/v1/audio/conv-123?audio_type=asr"
+
+# Stream partial content (Range request)
+curl -H "Range: bytes=0-1023" http://localhost:8765/api/v1/audio/conv-123
+```
+
+The endpoint returns:
+- `200 OK` for full content
+- `206 Partial Content` for range requests
+- `404 Not Found` if audio file doesn't exist
+- `416 Range Not Satisfiable` for invalid ranges
+
+Response headers include:
+- `Content-Type: audio/wav`
+- `Accept-Ranges: bytes`
+- `Content-Range: bytes start-end/total` (for partial content)
+
+### Multiple Audio Files per Conversation
+
+The API supports multiple audio files per conversation by using the `audio_type` query parameter. This allows you to store and retrieve separate audio files for different purposes:
+
+- ASR input audio
+- TTS output audio
+- User microphone input
+- Agent synthesized output
+- Any other audio type you need
+
+Access different audio types via the API:
+```bash
+# Get default conversation audio
+curl http://localhost:8765/api/v1/audio/conv-123
+
+# Get ASR audio
+curl "http://localhost:8765/api/v1/audio/conv-123?audio_type=asr"
+
+# Get TTS audio
+curl "http://localhost:8765/api/v1/audio/conv-123?audio_type=tts"
+```
 
 ## Next Steps
 
