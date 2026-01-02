@@ -8,6 +8,9 @@ from voiceobs.server.db.repositories.conversation import ConversationRepository
 from voiceobs.server.db.repositories.failure import FailureRepository
 from voiceobs.server.db.repositories.metrics import MetricsRepository
 from voiceobs.server.db.repositories.span import SpanRepository
+from voiceobs.server.db.repositories.test_execution import TestExecutionRepository
+from voiceobs.server.db.repositories.test_scenario import TestScenarioRepository
+from voiceobs.server.db.repositories.test_suite import TestSuiteRepository
 from voiceobs.server.db.repositories.turn import TurnRepository
 
 __all__ = [
@@ -16,4 +19,7 @@ __all__ = [
     "TurnRepository",
     "FailureRepository",
     "MetricsRepository",
+    "TestSuiteRepository",
+    "TestScenarioRepository",
+    "TestExecutionRepository",
 ]

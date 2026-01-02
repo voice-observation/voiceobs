@@ -1,6 +1,9 @@
 """Utility functions for the voiceobs server."""
 
 from datetime import datetime
+from uuid import UUID
+
+from fastapi import HTTPException, status
 
 from voiceobs.analyzer import AnalysisResult
 from voiceobs.server.models import (
@@ -93,3 +96,25 @@ def parse_iso_datetime(dt_str: str) -> datetime | None:
     except (ValueError, AttributeError, TypeError):
         return None
     return None
+
+
+def parse_uuid(uuid_str: str, resource_name: str = "resource") -> UUID:
+    """Parse and validate UUID string.
+
+    Args:
+        uuid_str: UUID string to parse.
+        resource_name: Name of the resource for error messages.
+
+    Returns:
+        Parsed UUID.
+
+    Raises:
+        HTTPException: If UUID format is invalid.
+    """
+    try:
+        return UUID(uuid_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid {resource_name} ID format: {uuid_str}",
+        )

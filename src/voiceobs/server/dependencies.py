@@ -40,6 +40,9 @@ from voiceobs.server.db.repositories import (
     FailureRepository,
     MetricsRepository,
     SpanRepository,
+    TestExecutionRepository,
+    TestScenarioRepository,
+    TestSuiteRepository,
     TurnRepository,
 )
 from voiceobs.server.store import SpanStore, get_span_store
@@ -237,6 +240,9 @@ _conversation_repo: ConversationRepository | None = None
 _turn_repo: TurnRepository | None = None
 _failure_repo: FailureRepository | None = None
 _metrics_repo: MetricsRepository | None = None
+_test_suite_repo: TestSuiteRepository | None = None
+_test_scenario_repo: TestScenarioRepository | None = None
+_test_execution_repo: TestExecutionRepository | None = None
 _use_postgres: bool = False
 _audio_storage: Any | None = None
 
@@ -274,7 +280,8 @@ async def init_database() -> None:
     uses in-memory storage.
     """
     global _database, _span_storage
-    global _conversation_repo, _turn_repo, _failure_repo, _metrics_repo, _use_postgres
+    global _conversation_repo, _turn_repo, _failure_repo, _metrics_repo
+    global _test_suite_repo, _test_scenario_repo, _test_execution_repo, _use_postgres
 
     database_url = _get_database_url()
 
@@ -290,6 +297,9 @@ async def init_database() -> None:
         _turn_repo = TurnRepository(_database)
         _failure_repo = FailureRepository(_database)
         _metrics_repo = MetricsRepository(_database)
+        _test_suite_repo = TestSuiteRepository(_database)
+        _test_scenario_repo = TestScenarioRepository(_database)
+        _test_execution_repo = TestExecutionRepository(_database)
 
         # Create span storage adapter
         _span_storage = PostgresSpanStoreAdapter(
@@ -304,6 +314,9 @@ async def init_database() -> None:
         _turn_repo = None
         _failure_repo = None
         _metrics_repo = None
+        _test_suite_repo = None
+        _test_scenario_repo = None
+        _test_execution_repo = None
 
 
 async def shutdown_database() -> None:
@@ -312,7 +325,8 @@ async def shutdown_database() -> None:
     Call this on application shutdown.
     """
     global _database, _span_storage
-    global _conversation_repo, _turn_repo, _failure_repo, _metrics_repo, _use_postgres
+    global _conversation_repo, _turn_repo, _failure_repo, _metrics_repo
+    global _test_suite_repo, _test_scenario_repo, _test_execution_repo, _use_postgres
 
     if _database is not None:
         await _database.disconnect()
@@ -323,6 +337,9 @@ async def shutdown_database() -> None:
     _turn_repo = None
     _failure_repo = None
     _metrics_repo = None
+    _test_suite_repo = None
+    _test_scenario_repo = None
+    _test_execution_repo = None
     _use_postgres = False
 
 
@@ -375,6 +392,33 @@ def get_metrics_repository() -> MetricsRepository | None:
     return _metrics_repo
 
 
+def get_test_suite_repository() -> TestSuiteRepository | None:
+    """Get the test suite repository.
+
+    Returns:
+        Test suite repository or None if using in-memory storage.
+    """
+    return _test_suite_repo
+
+
+def get_test_scenario_repository() -> TestScenarioRepository | None:
+    """Get the test scenario repository.
+
+    Returns:
+        Test scenario repository or None if using in-memory storage.
+    """
+    return _test_scenario_repo
+
+
+def get_test_execution_repository() -> TestExecutionRepository | None:
+    """Get the test execution repository.
+
+    Returns:
+        Test execution repository or None if using in-memory storage.
+    """
+    return _test_execution_repo
+
+
 def is_using_postgres() -> bool:
     """Check if using PostgreSQL storage.
 
@@ -419,7 +463,8 @@ def get_audio_storage() -> Any:
 def reset_dependencies() -> None:
     """Reset all dependencies (for testing)."""
     global _database, _span_storage
-    global _conversation_repo, _turn_repo, _failure_repo, _metrics_repo, _use_postgres
+    global _conversation_repo, _turn_repo, _failure_repo, _metrics_repo
+    global _test_suite_repo, _test_scenario_repo, _test_execution_repo, _use_postgres
     global _audio_storage
     _database = None
     _span_storage = None
@@ -427,5 +472,8 @@ def reset_dependencies() -> None:
     _turn_repo = None
     _failure_repo = None
     _metrics_repo = None
+    _test_suite_repo = None
+    _test_scenario_repo = None
+    _test_execution_repo = None
     _use_postgres = False
     _audio_storage = None

@@ -37,6 +37,7 @@ const sidebars: SidebarsConfig = {
       label: 'API Reference',
       items: [
         'api/json-schema',
+        'api/test-management',
       ],
     },
     {

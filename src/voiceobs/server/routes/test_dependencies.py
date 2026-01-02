@@ -1,0 +1,249 @@
+"""Common dependencies for test management routes."""
+
+from __future__ import annotations
+
+from uuid import UUID
+
+from fastapi import HTTPException, status
+
+from voiceobs.server.db.repositories.test_execution import TestExecutionRepository
+from voiceobs.server.db.repositories.test_scenario import TestScenarioRepository
+from voiceobs.server.db.repositories.test_suite import TestSuiteRepository
+from voiceobs.server.dependencies import (
+    get_test_execution_repository,
+    get_test_scenario_repository,
+    get_test_suite_repository,
+    is_using_postgres,
+)
+from voiceobs.server.utils import parse_uuid
+
+
+def require_postgres() -> None:
+    """Dependency to ensure PostgreSQL is being used.
+
+    Raises:
+        HTTPException: If PostgreSQL is not configured.
+    """
+    if not is_using_postgres():
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail="Test API requires PostgreSQL database",
+        )
+
+
+def get_test_suite_repo() -> TestSuiteRepository:
+    """Dependency to get test suite repository.
+
+    Returns:
+        Test suite repository.
+
+    Raises:
+        HTTPException: If repository is not available.
+    """
+    require_postgres()
+    repo = get_test_suite_repository()
+    if repo is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Test suite repository not available",
+        )
+    return repo
+
+
+# Make these functions easily mockable by exposing them at module level
+__all__ = [
+    "require_postgres",
+    "get_test_suite_repo",
+    "get_test_scenario_repo",
+    "get_test_execution_repo",
+    "get_test_repos",
+    "parse_suite_id",
+    "parse_scenario_id",
+    "parse_execution_id",
+    "validate_suite_exists",
+    "validate_scenario_exists",
+    "parse_scenario_ids",
+]
+
+
+def get_test_scenario_repo() -> TestScenarioRepository:
+    """Dependency to get test scenario repository.
+
+    Returns:
+        Test scenario repository.
+
+    Raises:
+        HTTPException: If repository is not available.
+    """
+    require_postgres()
+    repo = get_test_scenario_repository()
+    if repo is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Test scenario repository not available",
+        )
+    return repo
+
+
+def get_test_execution_repo() -> TestExecutionRepository:
+    """Dependency to get test execution repository.
+
+    Returns:
+        Test execution repository.
+
+    Raises:
+        HTTPException: If repository is not available.
+    """
+    require_postgres()
+    repo = get_test_execution_repository()
+    if repo is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Test execution repository not available",
+        )
+    return repo
+
+
+def get_test_repos() -> tuple[TestSuiteRepository, TestScenarioRepository, TestExecutionRepository]:
+    """Dependency to get all test repositories.
+
+    Returns:
+        Tuple of (suite repository, scenario repository, execution repository).
+
+    Raises:
+        HTTPException: If any repository is not available.
+    """
+    require_postgres()
+    suite_repo = get_test_suite_repository()
+    scenario_repo = get_test_scenario_repository()
+    execution_repo = get_test_execution_repository()
+
+    if suite_repo is None or scenario_repo is None or execution_repo is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Test repository not available",
+        )
+
+    return suite_repo, scenario_repo, execution_repo
+
+
+def parse_suite_id(suite_id: str) -> UUID:
+    """Parse and validate suite ID.
+
+    Args:
+        suite_id: Suite ID string to parse.
+
+    Returns:
+        Parsed UUID.
+
+    Raises:
+        HTTPException: If UUID format is invalid.
+    """
+    return parse_uuid(suite_id, "suite")
+
+
+def parse_scenario_id(scenario_id: str) -> UUID:
+    """Parse and validate scenario ID.
+
+    Args:
+        scenario_id: Scenario ID string to parse.
+
+    Returns:
+        Parsed UUID.
+
+    Raises:
+        HTTPException: If UUID format is invalid.
+    """
+    return parse_uuid(scenario_id, "scenario")
+
+
+def parse_execution_id(execution_id: str) -> UUID:
+    """Parse and validate execution ID.
+
+    Args:
+        execution_id: Execution ID string to parse.
+
+    Returns:
+        Parsed UUID.
+
+    Raises:
+        HTTPException: If UUID format is invalid.
+    """
+    return parse_uuid(execution_id, "execution")
+
+
+async def validate_suite_exists(
+    suite_id: str, suite_repo: TestSuiteRepository | None = None
+) -> UUID:
+    """Validate that a suite exists and return its UUID.
+
+    Args:
+        suite_id: Suite ID string to validate.
+        suite_repo: Optional suite repository (if None, will be fetched).
+
+    Returns:
+        Parsed UUID of the suite.
+
+    Raises:
+        HTTPException: If UUID format is invalid or suite not found.
+    """
+    if suite_repo is None:
+        suite_repo = get_test_suite_repo()
+
+    suite_uuid = parse_suite_id(suite_id)
+    suite = await suite_repo.get(suite_uuid)
+    if suite is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Test suite '{suite_id}' not found",
+        )
+    return suite_uuid
+
+
+async def validate_scenario_exists(
+    scenario_id: str, scenario_repo: TestScenarioRepository | None = None
+) -> UUID:
+    """Validate that a scenario exists and return its UUID.
+
+    Args:
+        scenario_id: Scenario ID string to validate.
+        scenario_repo: Optional scenario repository (if None, will be fetched).
+
+    Returns:
+        Parsed UUID of the scenario.
+
+    Raises:
+        HTTPException: If UUID format is invalid or scenario not found.
+    """
+    if scenario_repo is None:
+        scenario_repo = get_test_scenario_repo()
+
+    scenario_uuid = parse_scenario_id(scenario_id)
+    scenario = await scenario_repo.get(scenario_uuid)
+    if scenario is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Test scenario '{scenario_id}' not found",
+        )
+    return scenario_uuid
+
+
+def parse_scenario_ids(scenario_ids: list[str]) -> list[UUID]:
+    """Parse and validate a list of scenario IDs.
+
+    Args:
+        scenario_ids: List of scenario ID strings to parse.
+
+    Returns:
+        List of parsed UUIDs.
+
+    Raises:
+        HTTPException: If any UUID format is invalid.
+    """
+    try:
+        return [UUID(sid) for sid in scenario_ids]
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid scenario ID format: {e}",
+        )
