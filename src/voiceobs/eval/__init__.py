@@ -30,6 +30,7 @@ Example:
 """
 
 from voiceobs.eval.evaluator import SemanticEvaluator
+from voiceobs.eval.generator import ScenarioGenerator
 from voiceobs.eval.types import (
     EvalConfig,
     EvalInput,
@@ -40,5 +41,6 @@ __all__ = [
     "EvalConfig",
     "EvalInput",
     "EvalResult",
+    "ScenarioGenerator",
     "SemanticEvaluator",
 ]
