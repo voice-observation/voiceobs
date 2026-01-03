@@ -16,7 +16,7 @@ from alembic import command
 from alembic.config import Config
 from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import Connection, Engine
 
 
@@ -165,6 +165,98 @@ def get_pending_migrations(database_url: str) -> list[str]:
         return pending
 
 
+def _check_alembic_version_table_exists(connection: Connection) -> bool:
+    """Check if the alembic_version table exists.
+
+    Args:
+        connection: SQLAlchemy connection.
+
+    Returns:
+        True if the table exists, False otherwise.
+    """
+    inspector = inspect(connection)
+    tables = inspector.get_table_names()
+    return "alembic_version" in tables
+
+
+def _detect_database_revision(connection: Connection) -> str | None:
+    """Detect which migration revision the database is at based on existing tables.
+
+    Args:
+        connection: SQLAlchemy connection.
+
+    Returns:
+        Revision string or None if database is empty.
+    """
+    inspector = inspect(connection)
+    existing_tables = inspector.get_table_names()
+
+    if not existing_tables:
+        return None  # Empty database
+
+    # Check for test tables (from migration 003)
+    has_test_tables = any(
+        table in existing_tables
+        for table in ["test_suites", "test_scenarios", "test_executions"]
+    )
+    if has_test_tables:
+        return "003"
+
+    # Check for search indexes (from migration 002)
+    # Check if turns table has GIN index for full-text search
+    has_search_indexes = False
+    if "turns" in existing_tables:
+        try:
+            indexes = inspector.get_indexes("turns")
+            index_names = [idx["name"] for idx in indexes]
+            # Check for GIN index on transcript
+            has_search_indexes = any(
+                "transcript_gin" in name.lower() or "gin" in name.lower()
+                for name in index_names
+            )
+        except Exception:
+            pass
+
+    if has_search_indexes:
+        return "002"
+
+    # Check for initial schema tables (from migration 001)
+    has_initial_schema = any(
+        table in existing_tables
+        for table in ["conversations", "spans", "turns", "failures"]
+    )
+    if has_initial_schema:
+        return "001"
+
+    return None
+
+
+def _ensure_alembic_version_table(database_url: str) -> None:
+    """Ensure the alembic_version table exists and is properly initialized.
+
+    If the table doesn't exist but other tables do, this will stamp the database
+    with the appropriate revision. Alembic's command.stamp() will automatically
+    create the alembic_version table if it doesn't exist. If no tables exist,
+    Alembic will create the version table automatically when running migrations.
+
+    Args:
+        database_url: Database URL to check.
+    """
+    with _get_connection(database_url) as connection:
+        if _check_alembic_version_table_exists(connection):
+            return  # Table already exists, nothing to do
+
+        # Check if any tables exist (indicating database was set up manually)
+        detected_revision = _detect_database_revision(connection)
+
+        # If tables exist but alembic_version doesn't, stamp the database
+        # command.stamp() will automatically create the alembic_version table
+        if detected_revision:
+            config = get_alembic_config(database_url)
+            # This will create alembic_version table if it doesn't exist
+            command.stamp(config, detected_revision)
+
+
 def run_migrations(
     database_url: str,
     revision: str = "head",
@@ -181,6 +273,9 @@ def run_migrations(
         Dictionary with success status and details.
     """
     try:
+        # Ensure alembic_version table exists before running migrations
+        _ensure_alembic_version_table(database_url)
+
         config = get_alembic_config(database_url)
 
         if direction == "upgrade":
