@@ -196,8 +196,7 @@ def _detect_database_revision(connection: Connection) -> str | None:
 
     # Check for test tables (from migration 003)
     has_test_tables = any(
-        table in existing_tables
-        for table in ["test_suites", "test_scenarios", "test_executions"]
+        table in existing_tables for table in ["test_suites", "test_scenarios", "test_executions"]
     )
     if has_test_tables:
         return "003"
@@ -211,8 +210,7 @@ def _detect_database_revision(connection: Connection) -> str | None:
             index_names = [idx["name"] for idx in indexes]
             # Check for GIN index on transcript
             has_search_indexes = any(
-                "transcript_gin" in name.lower() or "gin" in name.lower()
-                for name in index_names
+                "transcript_gin" in name.lower() or "gin" in name.lower() for name in index_names
             )
         except Exception:
             pass
@@ -222,8 +220,7 @@ def _detect_database_revision(connection: Connection) -> str | None:
 
     # Check for initial schema tables (from migration 001)
     has_initial_schema = any(
-        table in existing_tables
-        for table in ["conversations", "spans", "turns", "failures"]
+        table in existing_tables for table in ["conversations", "spans", "turns", "failures"]
     )
     if has_initial_schema:
         return "001"

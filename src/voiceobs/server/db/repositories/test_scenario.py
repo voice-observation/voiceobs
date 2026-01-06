@@ -211,7 +211,7 @@ class TestScenarioRepository:
         await self._db.execute(
             f"""
             UPDATE test_scenarios
-            SET {', '.join(updates)}
+            SET {", ".join(updates)}
             WHERE id = ${param_idx}
             """,
             *params,

@@ -89,47 +89,51 @@ class TestMigrationRunner:
         from voiceobs.server.db.migrations import run_migrations
 
         with patch("voiceobs.server.db.migrations.command") as mock_command:
-            run_migrations(
-                database_url="postgresql://test:test@localhost/test",
-                revision="head",
-            )
-            mock_command.upgrade.assert_called_once()
+            with patch("voiceobs.server.db.migrations._ensure_alembic_version_table"):
+                run_migrations(
+                    database_url="postgresql://test:test@localhost/test",
+                    revision="head",
+                )
+                mock_command.upgrade.assert_called_once()
 
     def test_run_migrations_downgrade(self):
         """Test that run_migrations can downgrade."""
         from voiceobs.server.db.migrations import run_migrations
 
         with patch("voiceobs.server.db.migrations.command") as mock_command:
-            run_migrations(
-                database_url="postgresql://test:test@localhost/test",
-                revision="-1",
-                direction="downgrade",
-            )
-            mock_command.downgrade.assert_called_once()
+            with patch("voiceobs.server.db.migrations._ensure_alembic_version_table"):
+                run_migrations(
+                    database_url="postgresql://test:test@localhost/test",
+                    revision="-1",
+                    direction="downgrade",
+                )
+                mock_command.downgrade.assert_called_once()
 
     def test_run_migrations_returns_success(self):
         """Test that run_migrations returns success status."""
         from voiceobs.server.db.migrations import run_migrations
 
         with patch("voiceobs.server.db.migrations.command"):
-            result = run_migrations(
-                database_url="postgresql://test:test@localhost/test",
-                revision="head",
-            )
-            assert result["success"] is True
+            with patch("voiceobs.server.db.migrations._ensure_alembic_version_table"):
+                result = run_migrations(
+                    database_url="postgresql://test:test@localhost/test",
+                    revision="head",
+                )
+                assert result["success"] is True
 
     def test_run_migrations_returns_error_on_failure(self):
         """Test that run_migrations returns error on failure."""
         from voiceobs.server.db.migrations import run_migrations
 
         with patch("voiceobs.server.db.migrations.command") as mock_command:
-            mock_command.upgrade.side_effect = Exception("Migration failed")
-            result = run_migrations(
-                database_url="postgresql://test:test@localhost/test",
-                revision="head",
-            )
-            assert result["success"] is False
-            assert "error" in result
+            with patch("voiceobs.server.db.migrations._ensure_alembic_version_table"):
+                mock_command.upgrade.side_effect = Exception("Migration failed")
+                result = run_migrations(
+                    database_url="postgresql://test:test@localhost/test",
+                    revision="head",
+                )
+                assert result["success"] is False
+                assert "error" in result
 
 
 class TestMigrationHistory:
