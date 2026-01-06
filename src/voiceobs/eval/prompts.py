@@ -66,8 +66,7 @@ def build_discovery_prompt(agent_description: str, count: int) -> str:
         edge_case_requirements.append("- Include at least 1 scenario that tests silence handling")
     elif count >= 2:
         edge_case_requirements.append(
-            "- Include at least 1 scenario that tests an edge case "
-            "(barge-in, silence, or stress)"
+            "- Include at least 1 scenario that tests an edge case (barge-in, silence, or stress)"
         )
     else:
         edge_case_requirements.append("- Include edge cases when appropriate for the scenario")

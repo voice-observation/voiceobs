@@ -162,7 +162,7 @@ class TestSuiteRepository:
         await self._db.execute(
             f"""
             UPDATE test_suites
-            SET {', '.join(updates)}
+            SET {", ".join(updates)}
             WHERE id = ${param_idx}
             """,
             *params,
