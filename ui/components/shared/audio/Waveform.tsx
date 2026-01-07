@@ -54,7 +54,6 @@ export function Waveform({
       barWidth: 2,
       barRadius: 2,
       barGap: 1,
-      responsive: true,
       interact: true,
     });
 
