@@ -36,12 +36,13 @@ class TestTestExecution:
             status="pending",
             created_at=datetime.utcnow(),
         )
+        persona_id = uuid4()
         mock_scenario = TestScenarioRow(
             id=scenario_id,
             suite_id=suite_id,
             name="Test Scenario",
             goal="Test goal",
-            persona_json={},
+            persona_id=persona_id,
             max_turns=10,
             timeout=300,
         )
@@ -100,12 +101,13 @@ class TestTestExecution:
         scenario_id2 = uuid4()
         execution_id = uuid4()
 
+        persona_id = uuid4()
         mock_scenario1 = TestScenarioRow(
             id=scenario_id1,
             suite_id=uuid4(),
             name="Scenario 1",
             goal="Goal 1",
-            persona_json={},
+            persona_id=persona_id,
             max_turns=10,
             timeout=300,
         )
@@ -114,7 +116,7 @@ class TestTestExecution:
             suite_id=uuid4(),
             name="Scenario 2",
             goal="Goal 2",
-            persona_json={},
+            persona_id=persona_id,
             max_turns=15,
             timeout=600,
         )

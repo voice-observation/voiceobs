@@ -25,7 +25,7 @@ class TestScenarioRepository:
         suite_id: UUID,
         name: str,
         goal: str,
-        persona_json: dict[str, Any] | None = None,
+        persona_id: UUID,
         max_turns: int | None = None,
         timeout: int | None = None,
     ) -> TestScenarioRow:
@@ -35,7 +35,7 @@ class TestScenarioRepository:
             suite_id: Parent test suite UUID.
             name: Test scenario name.
             goal: Test scenario goal.
-            persona_json: Persona configuration.
+            persona_id: Persona UUID reference.
             max_turns: Maximum number of turns.
             timeout: Timeout in seconds.
 
@@ -45,21 +45,21 @@ class TestScenarioRepository:
         scenario_id = uuid4()
         await self._db.execute(
             """
-            INSERT INTO test_scenarios (id, suite_id, name, goal, persona_json, max_turns, timeout)
+            INSERT INTO test_scenarios (id, suite_id, name, goal, persona_id, max_turns, timeout)
             VALUES ($1, $2, $3, $4, $5, $6, $7)
             """,
             scenario_id,
             suite_id,
             name,
             goal,
-            persona_json or {},
+            persona_id,
             max_turns,
             timeout,
         )
 
         row = await self._db.fetchrow(
             """
-            SELECT id, suite_id, name, goal, persona_json, max_turns, timeout
+            SELECT id, suite_id, name, goal, persona_id, max_turns, timeout
             FROM test_scenarios WHERE id = $1
             """,
             scenario_id,
@@ -73,7 +73,7 @@ class TestScenarioRepository:
             suite_id=row["suite_id"],
             name=row["name"],
             goal=row["goal"],
-            persona_json=row["persona_json"] or {},
+            persona_id=row["persona_id"],
             max_turns=row["max_turns"],
             timeout=row["timeout"],
         )
@@ -89,7 +89,7 @@ class TestScenarioRepository:
         """
         row = await self._db.fetchrow(
             """
-            SELECT id, suite_id, name, goal, persona_json, max_turns, timeout
+            SELECT id, suite_id, name, goal, persona_id, max_turns, timeout
             FROM test_scenarios WHERE id = $1
             """,
             scenario_id,
@@ -103,7 +103,7 @@ class TestScenarioRepository:
             suite_id=row["suite_id"],
             name=row["name"],
             goal=row["goal"],
-            persona_json=row["persona_json"] or {},
+            persona_id=row["persona_id"],
             max_turns=row["max_turns"],
             timeout=row["timeout"],
         )
@@ -123,7 +123,7 @@ class TestScenarioRepository:
         if suite_id is not None:
             rows = await self._db.fetch(
                 """
-                SELECT id, suite_id, name, goal, persona_json, max_turns, timeout
+                SELECT id, suite_id, name, goal, persona_id, max_turns, timeout
                 FROM test_scenarios
                 WHERE suite_id = $1
                 ORDER BY name
@@ -133,7 +133,7 @@ class TestScenarioRepository:
         else:
             rows = await self._db.fetch(
                 """
-                SELECT id, suite_id, name, goal, persona_json, max_turns, timeout
+                SELECT id, suite_id, name, goal, persona_id, max_turns, timeout
                 FROM test_scenarios
                 ORDER BY name
                 """
@@ -145,7 +145,7 @@ class TestScenarioRepository:
                 suite_id=row["suite_id"],
                 name=row["name"],
                 goal=row["goal"],
-                persona_json=row["persona_json"] or {},
+                persona_id=row["persona_id"],
                 max_turns=row["max_turns"],
                 timeout=row["timeout"],
             )
@@ -157,7 +157,7 @@ class TestScenarioRepository:
         scenario_id: UUID,
         name: str | None = None,
         goal: str | None = None,
-        persona_json: dict[str, Any] | None = None,
+        persona_id: UUID | None = None,
         max_turns: int | None = None,
         timeout: int | None = None,
     ) -> TestScenarioRow | None:
@@ -167,7 +167,7 @@ class TestScenarioRepository:
             scenario_id: The test scenario UUID.
             name: New name (optional).
             goal: New goal (optional).
-            persona_json: New persona configuration (optional).
+            persona_id: New persona UUID reference (optional).
             max_turns: New max turns (optional).
             timeout: New timeout (optional).
 
@@ -188,9 +188,9 @@ class TestScenarioRepository:
             params.append(goal)
             param_idx += 1
 
-        if persona_json is not None:
-            updates.append(f"persona_json = ${param_idx}")
-            params.append(persona_json)
+        if persona_id is not None:
+            updates.append(f"persona_id = ${param_idx}")
+            params.append(persona_id)
             param_idx += 1
 
         if max_turns is not None:
