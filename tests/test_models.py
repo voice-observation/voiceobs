@@ -6,6 +6,7 @@ from uuid import uuid4
 from voiceobs.server.db.models import (
     ConversationRow,
     FailureRow,
+    PersonaRow,
     SpanRow,
     TestExecutionRow,
     TestScenarioRow,
@@ -257,3 +258,207 @@ class TestModelCompatibility:
         )
 
         assert failure.conversation_id == conv_id
+
+
+class TestPersonaRow:
+    """Tests for PersonaRow model."""
+
+    def test_persona_row_creation_with_all_fields(self):
+        """Test creating a PersonaRow with all fields."""
+        persona_id = uuid4()
+        created_at = datetime.now()
+        updated_at = datetime.now()
+
+        row = PersonaRow(
+            id=persona_id,
+            name="Friendly Assistant",
+            description="A helpful and friendly persona",
+            aggression=0.2,
+            patience=0.8,
+            verbosity=0.6,
+            traits=["friendly", "helpful", "patient"],
+            tts_provider="openai",
+            tts_config={"model": "tts-1", "voice": "alloy", "speed": 1.0},
+            preview_audio_url="https://example.com/audio/preview.mp3",
+            preview_audio_text="Hello, this is how I sound.",
+            metadata={"version": "1.0", "category": "support"},
+            created_at=created_at,
+            updated_at=updated_at,
+            created_by="user-123",
+            is_active=True,
+        )
+
+        assert row.id == persona_id
+        assert row.name == "Friendly Assistant"
+        assert row.description == "A helpful and friendly persona"
+        assert row.aggression == 0.2
+        assert row.patience == 0.8
+        assert row.verbosity == 0.6
+        assert row.traits == ["friendly", "helpful", "patient"]
+        assert row.tts_provider == "openai"
+        assert row.tts_config == {"model": "tts-1", "voice": "alloy", "speed": 1.0}
+        assert row.preview_audio_url == "https://example.com/audio/preview.mp3"
+        assert row.preview_audio_text == "Hello, this is how I sound."
+        assert row.metadata == {"version": "1.0", "category": "support"}
+        assert row.created_at == created_at
+        assert row.updated_at == updated_at
+        assert row.created_by == "user-123"
+        assert row.is_active is True
+
+    def test_persona_row_required_fields_only(self):
+        """Test creating a PersonaRow with only required fields."""
+        persona_id = uuid4()
+
+        row = PersonaRow(
+            id=persona_id,
+            name="Basic Persona",
+            aggression=0.5,
+            patience=0.5,
+            verbosity=0.5,
+            tts_provider="elevenlabs",
+        )
+
+        assert row.id == persona_id
+        assert row.name == "Basic Persona"
+        assert row.description is None
+        assert row.aggression == 0.5
+        assert row.patience == 0.5
+        assert row.verbosity == 0.5
+        assert row.traits == []
+        assert row.tts_provider == "elevenlabs"
+        assert row.tts_config == {}
+        assert row.preview_audio_url is None
+        assert row.preview_audio_text is None
+        assert row.metadata == {}
+        assert row.created_at is None
+        assert row.updated_at is None
+        assert row.created_by is None
+        assert row.is_active is True
+
+    def test_persona_row_default_factories(self):
+        """Test that list and dict fields use default factories correctly."""
+        persona_id_1 = uuid4()
+        persona_id_2 = uuid4()
+
+        # Create two rows without specifying list/dict fields
+        row1 = PersonaRow(
+            id=persona_id_1,
+            name="Persona 1",
+            aggression=0.3,
+            patience=0.7,
+            verbosity=0.5,
+            tts_provider="openai",
+        )
+
+        row2 = PersonaRow(
+            id=persona_id_2,
+            name="Persona 2",
+            aggression=0.4,
+            patience=0.6,
+            verbosity=0.5,
+            tts_provider="deepgram",
+        )
+
+        # Modify row1's list/dict fields
+        row1.traits.append("custom_trait")
+        row1.tts_config["voice"] = "shimmer"
+        row1.metadata["key"] = "value"
+
+        # Ensure row2's fields are not affected (not sharing same objects)
+        assert row2.traits == []
+        assert row2.tts_config == {}
+        assert row2.metadata == {}
+
+    def test_persona_row_with_empty_traits_and_config(self):
+        """Test creating a PersonaRow with explicitly empty traits and config."""
+        persona_id = uuid4()
+
+        row = PersonaRow(
+            id=persona_id,
+            name="Simple Persona",
+            aggression=0.0,
+            patience=1.0,
+            verbosity=0.5,
+            tts_provider="openai",
+            traits=[],
+            tts_config={},
+            metadata={},
+        )
+
+        assert row.traits == []
+        assert row.tts_config == {}
+        assert row.metadata == {}
+
+    def test_persona_row_with_different_tts_providers(self):
+        """Test creating PersonaRow with different TTS providers."""
+        # OpenAI
+        openai_row = PersonaRow(
+            id=uuid4(),
+            name="OpenAI Persona",
+            aggression=0.5,
+            patience=0.5,
+            verbosity=0.5,
+            tts_provider="openai",
+            tts_config={"model": "tts-1-hd", "voice": "nova", "speed": 1.2},
+        )
+        assert openai_row.tts_provider == "openai"
+        assert openai_row.tts_config["model"] == "tts-1-hd"
+
+        # ElevenLabs
+        elevenlabs_row = PersonaRow(
+            id=uuid4(),
+            name="ElevenLabs Persona",
+            aggression=0.3,
+            patience=0.7,
+            verbosity=0.6,
+            tts_provider="elevenlabs",
+            tts_config={
+                "voice_id": "pNInz6obpgDQGcFmaJgB",
+                "model_id": "eleven_monolingual_v1",
+                "stability": 0.5,
+                "similarity_boost": 0.75,
+            },
+        )
+        assert elevenlabs_row.tts_provider == "elevenlabs"
+        assert elevenlabs_row.tts_config["voice_id"] == "pNInz6obpgDQGcFmaJgB"
+
+        # Deepgram
+        deepgram_row = PersonaRow(
+            id=uuid4(),
+            name="Deepgram Persona",
+            aggression=0.7,
+            patience=0.3,
+            verbosity=0.8,
+            tts_provider="deepgram",
+            tts_config={
+                "model": "aura-asteria-en",
+                "encoding": "linear16",
+                "container": "wav",
+            },
+        )
+        assert deepgram_row.tts_provider == "deepgram"
+        assert deepgram_row.tts_config["model"] == "aura-asteria-en"
+
+    def test_persona_row_soft_delete(self):
+        """Test persona row with is_active flag for soft delete."""
+        active_persona = PersonaRow(
+            id=uuid4(),
+            name="Active Persona",
+            aggression=0.5,
+            patience=0.5,
+            verbosity=0.5,
+            tts_provider="openai",
+            is_active=True,
+        )
+        assert active_persona.is_active is True
+
+        inactive_persona = PersonaRow(
+            id=uuid4(),
+            name="Inactive Persona",
+            aggression=0.5,
+            patience=0.5,
+            verbosity=0.5,
+            tts_provider="openai",
+            is_active=False,
+        )
+        assert inactive_persona.is_active is False
