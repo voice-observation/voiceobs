@@ -46,7 +46,7 @@ async def create_test_scenario(
         suite_id=suite_uuid,
         name=request.name,
         goal=request.goal,
-        persona_json=request.persona_json,
+        persona_id=parse_scenario_id(request.persona_id),
         max_turns=request.max_turns,
         timeout=request.timeout,
     )
@@ -56,7 +56,7 @@ async def create_test_scenario(
         suite_id=str(scenario.suite_id),
         name=scenario.name,
         goal=scenario.goal,
-        persona_json=scenario.persona_json,
+        persona_id=str(scenario.persona_id),
         max_turns=scenario.max_turns,
         timeout=scenario.timeout,
     )
@@ -90,7 +90,7 @@ async def list_test_scenarios(
                 suite_id=str(scenario.suite_id),
                 name=scenario.name,
                 goal=scenario.goal,
-                persona_json=scenario.persona_json,
+                persona_id=str(scenario.persona_id),
                 max_turns=scenario.max_turns,
                 timeout=scenario.timeout,
             )
@@ -127,7 +127,7 @@ async def get_test_scenario(
         suite_id=str(scenario.suite_id),
         name=scenario.name,
         goal=scenario.goal,
-        persona_json=scenario.persona_json,
+        persona_id=str(scenario.persona_id),
         max_turns=scenario.max_turns,
         timeout=scenario.timeout,
     )
@@ -150,11 +150,12 @@ async def update_test_scenario(
 ) -> TestScenarioResponse:
     """Update a test scenario."""
     scenario_uuid = parse_scenario_id(scenario_id)
+    persona_uuid = parse_scenario_id(request.persona_id) if request.persona_id else None
     scenario = await repo.update(
         scenario_id=scenario_uuid,
         name=request.name,
         goal=request.goal,
-        persona_json=request.persona_json,
+        persona_id=persona_uuid,
         max_turns=request.max_turns,
         timeout=request.timeout,
     )
@@ -170,7 +171,7 @@ async def update_test_scenario(
         suite_id=str(scenario.suite_id),
         name=scenario.name,
         goal=scenario.goal,
-        persona_json=scenario.persona_json,
+        persona_id=str(scenario.persona_id),
         max_turns=scenario.max_turns,
         timeout=scenario.timeout,
     )

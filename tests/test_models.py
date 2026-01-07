@@ -116,14 +116,14 @@ class TestTestScenarioRow:
         """Test creating a TestScenarioRow with all fields."""
         scenario_id = uuid4()
         suite_id = uuid4()
-        persona = {"name": "Alice", "age": 30}
+        persona_id = uuid4()
 
         row = TestScenarioRow(
             id=scenario_id,
             suite_id=suite_id,
             name="Scenario 1",
             goal="Test goal",
-            persona_json=persona,
+            persona_id=persona_id,
             max_turns=10,
             timeout=300,
         )
@@ -132,27 +132,29 @@ class TestTestScenarioRow:
         assert row.suite_id == suite_id
         assert row.name == "Scenario 1"
         assert row.goal == "Test goal"
-        assert row.persona_json == persona
+        assert row.persona_id == persona_id
         assert row.max_turns == 10
         assert row.timeout == 300
 
-    def test_test_scenario_row_defaults(self):
-        """Test TestScenarioRow with default values."""
+    def test_test_scenario_row_requires_persona_id(self):
+        """Test TestScenarioRow requires persona_id (no default)."""
         scenario_id = uuid4()
         suite_id = uuid4()
+        persona_id = uuid4()
 
         row = TestScenarioRow(
             id=scenario_id,
             suite_id=suite_id,
             name="Scenario 1",
             goal="Test goal",
+            persona_id=persona_id,
         )
 
         assert row.id == scenario_id
         assert row.suite_id == suite_id
         assert row.name == "Scenario 1"
         assert row.goal == "Test goal"
-        assert row.persona_json == {}
+        assert row.persona_id == persona_id
         assert row.max_turns is None
         assert row.timeout is None
 

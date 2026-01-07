@@ -92,7 +92,7 @@ class TestScenarioRow:
     suite_id: UUID
     name: str
     goal: str
-    persona_json: dict[str, Any] = field(default_factory=dict)
+    persona_id: UUID
     max_turns: int | None = None
     timeout: int | None = None
 

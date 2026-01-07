@@ -41,7 +41,7 @@ class TestTestScenarios:
             suite_id=suite_id,
             name="Test Scenario",
             goal="Test goal",
-            persona_json={"role": "customer"},
+            persona_id=persona_id,
             max_turns=10,
             timeout=300,
         )
@@ -121,12 +121,13 @@ class TestTestScenarios:
         """Test successful scenario listing."""
         mock_repo = AsyncMock()
         suite_id = uuid4()
+        persona_id = uuid4()
         scenario1 = TestScenarioRow(
             id=uuid4(),
             suite_id=suite_id,
             name="Scenario 1",
             goal="Goal 1",
-            persona_json={},
+            persona_id=persona_id,
             max_turns=10,
             timeout=300,
         )
@@ -135,7 +136,7 @@ class TestTestScenarios:
             suite_id=suite_id,
             name="Scenario 2",
             goal="Goal 2",
-            persona_json={},
+            persona_id=persona_id,
             max_turns=15,
             timeout=600,
         )
@@ -159,12 +160,13 @@ class TestTestScenarios:
         """Test scenario listing with suite filter."""
         mock_repo = AsyncMock()
         suite_id = uuid4()
+        persona_id = uuid4()
         scenario = TestScenarioRow(
             id=uuid4(),
             suite_id=suite_id,
             name="Scenario 1",
             goal="Goal 1",
-            persona_json={},
+            persona_id=persona_id,
             max_turns=10,
             timeout=300,
         )
@@ -188,12 +190,13 @@ class TestTestScenarios:
         """Test successful scenario retrieval."""
         mock_repo = AsyncMock()
         scenario_id = uuid4()
+        persona_id = uuid4()
         mock_scenario = TestScenarioRow(
             id=scenario_id,
             suite_id=uuid4(),
             name="Test Scenario",
             goal="Test goal",
-            persona_json={},
+            persona_id=persona_id,
             max_turns=10,
             timeout=300,
         )
@@ -216,12 +219,13 @@ class TestTestScenarios:
         """Test successful scenario update."""
         mock_repo = AsyncMock()
         scenario_id = uuid4()
+        persona_id = uuid4()
         updated_scenario = TestScenarioRow(
             id=scenario_id,
             suite_id=uuid4(),
             name="Updated Scenario",
             goal="Updated goal",
-            persona_json={},
+            persona_id=persona_id,
             max_turns=15,
             timeout=600,
         )
