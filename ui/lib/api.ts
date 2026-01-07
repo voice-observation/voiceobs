@@ -573,6 +573,9 @@ class ApiClient {
     if (data.verbosity < 0 || data.verbosity > 1) {
       throw new Error("verbosity must be between 0 and 1");
     }
+    if (data.temperature !== undefined && (data.temperature < 0 || data.temperature > 1)) {
+      throw new Error("temperature must be between 0 and 1");
+    }
     const newPersona: Persona = {
       id: `persona-${Date.now()}`,
       name: data.name,
@@ -581,6 +584,11 @@ class ApiClient {
       patience: data.patience,
       verbosity: data.verbosity,
       traits: data.traits || [],
+      accent: data.accent || null,
+      gender: data.gender || null,
+      background_noise: data.background_noise ?? false,
+      temperature: data.temperature ?? 0.7,
+      enabled: true,
       is_predefined: false,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -596,8 +604,15 @@ class ApiClient {
       throw new Error(`Persona '${id}' not found`);
     }
     const persona = inMemoryStore.personas[index];
+    // Allow updating enabled status for predefined personas, but not other fields
     if (persona.is_predefined) {
-      throw new Error("Cannot update predefined persona");
+      const allowedFields = ["enabled"];
+      const hasOtherFields = Object.keys(data).some(
+        (key) => key !== "enabled" && data[key as keyof PersonaUpdateRequest] !== undefined && data[key as keyof PersonaUpdateRequest] !== null
+      );
+      if (hasOtherFields) {
+        throw new Error("Cannot update predefined persona fields other than enabled status");
+      }
     }
     // Validate trait values if provided
     if (data.aggression !== undefined && data.aggression !== null && (data.aggression < 0 || data.aggression > 1)) {
@@ -609,6 +624,9 @@ class ApiClient {
     if (data.verbosity !== undefined && data.verbosity !== null && (data.verbosity < 0 || data.verbosity > 1)) {
       throw new Error("verbosity must be between 0 and 1");
     }
+    if (data.temperature !== undefined && data.temperature !== null && (data.temperature < 0 || data.temperature > 1)) {
+      throw new Error("temperature must be between 0 and 1");
+    }
     inMemoryStore.personas[index] = {
       ...persona,
       ...(data.name !== undefined && data.name !== null && { name: data.name }),
@@ -617,6 +635,11 @@ class ApiClient {
       ...(data.patience !== undefined && data.patience !== null && { patience: data.patience }),
       ...(data.verbosity !== undefined && data.verbosity !== null && { verbosity: data.verbosity }),
       ...(data.traits !== undefined && { traits: data.traits || [] }),
+      ...(data.accent !== undefined && { accent: data.accent }),
+      ...(data.gender !== undefined && { gender: data.gender }),
+      ...(data.background_noise !== undefined && data.background_noise !== null && { background_noise: data.background_noise }),
+      ...(data.temperature !== undefined && data.temperature !== null && { temperature: data.temperature }),
+      ...(data.enabled !== undefined && data.enabled !== null && { enabled: data.enabled }),
       updated_at: new Date().toISOString(),
     };
     return inMemoryStore.personas[index];

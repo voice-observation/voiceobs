@@ -148,6 +148,11 @@ export interface Persona {
   patience: number; // 0-1
   verbosity: number; // 0-1
   traits: string[];
+  accent?: string | null;
+  gender?: string | null;
+  background_noise?: boolean;
+  temperature?: number; // 0-1
+  enabled?: boolean;
   is_predefined: boolean;
   created_at: string | null;
   updated_at: string | null;
@@ -160,6 +165,10 @@ export interface PersonaCreateRequest {
   patience: number;
   verbosity: number;
   traits?: string[];
+  accent?: string | null;
+  gender?: string | null;
+  background_noise?: boolean;
+  temperature?: number;
 }
 
 export interface PersonaUpdateRequest {
@@ -169,6 +178,11 @@ export interface PersonaUpdateRequest {
   patience?: number | null;
   verbosity?: number | null;
   traits?: string[] | null;
+  accent?: string | null;
+  gender?: string | null;
+  background_noise?: boolean | null;
+  temperature?: number | null;
+  enabled?: boolean | null;
 }
 
 export interface PersonasListResponse {

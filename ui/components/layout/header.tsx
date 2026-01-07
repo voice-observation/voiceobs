@@ -34,11 +34,16 @@ export function Header() {
     return "Voice AI Observability";
   };
 
+  // Don't show header title for personas page (it has its own title)
+  const shouldShowTitle = pathname !== "/personas";
+
   return (
     <header className="flex h-16 items-center border-b border-border bg-background px-4 md:px-6">
-      <div className="flex items-center gap-2 md:ml-0 ml-12">
-        <h2 className="text-lg font-semibold">{getPageTitle()}</h2>
-      </div>
+      {shouldShowTitle && (
+        <div className="flex items-center gap-2 md:ml-0 ml-12">
+          <h2 className="text-lg font-semibold">{getPageTitle()}</h2>
+        </div>
+      )}
     </header>
   );
 }
