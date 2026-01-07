@@ -35,6 +35,7 @@ class TestTestScenarios:
             status="pending",
             created_at=datetime.utcnow(),
         )
+        persona_id = uuid4()
         mock_scenario = TestScenarioRow(
             id=scenario_id,
             suite_id=suite_id,
@@ -61,7 +62,7 @@ class TestTestScenarios:
                 "suite_id": str(suite_id),
                 "name": "Test Scenario",
                 "goal": "Test goal",
-                "persona_json": {"role": "customer"},
+                "persona_id": str(persona_id),
                 "max_turns": 10,
                 "timeout": 300,
             },
@@ -98,12 +99,14 @@ class TestTestScenarios:
         mock_get_scenario_repository.return_value = mock_scenario_repo
 
         suite_id = uuid4()
+        persona_id = uuid4()
         response = client.post(
             "/api/v1/tests/scenarios",
             json={
                 "suite_id": str(suite_id),
                 "name": "Test Scenario",
                 "goal": "Test goal",
+                "persona_id": str(persona_id),
             },
         )
 

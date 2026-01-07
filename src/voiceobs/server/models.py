@@ -882,7 +882,7 @@ class TestScenarioResponse(BaseModel):
     suite_id: str = Field(..., description="Parent test suite UUID")
     name: str = Field(..., description="Test scenario name")
     goal: str = Field(..., description="Test scenario goal")
-    persona_json: dict[str, Any] = Field(default_factory=dict, description="Persona configuration")
+    persona_id: str = Field(..., description="Persona UUID reference")
     max_turns: int | None = Field(None, description="Maximum number of turns")
     timeout: int | None = Field(None, description="Timeout in seconds")
 
@@ -893,7 +893,7 @@ class TestScenarioResponse(BaseModel):
                 "suite_id": "550e8400-e29b-41d4-a716-446655440001",
                 "name": "Order Status Check",
                 "goal": "User checks order status",
-                "persona_json": {"role": "customer", "tone": "polite"},
+                "persona_id": "550e8400-e29b-41d4-a716-446655440002",
                 "max_turns": 10,
                 "timeout": 300,
             }
@@ -907,7 +907,7 @@ class TestScenarioCreateRequest(BaseModel):
     suite_id: str = Field(..., description="Parent test suite UUID")
     name: str = Field(..., min_length=1, description="Test scenario name")
     goal: str = Field(..., min_length=1, description="Test scenario goal")
-    persona_json: dict[str, Any] = Field(default_factory=dict, description="Persona configuration")
+    persona_id: str = Field(..., description="Required reference to persona UUID")
     max_turns: int | None = Field(None, ge=1, description="Maximum number of turns")
     timeout: int | None = Field(None, ge=1, description="Timeout in seconds")
 
@@ -917,7 +917,7 @@ class TestScenarioCreateRequest(BaseModel):
                 "suite_id": "550e8400-e29b-41d4-a716-446655440001",
                 "name": "Order Status Check",
                 "goal": "User checks order status",
-                "persona_json": {"role": "customer", "tone": "polite"},
+                "persona_id": "550e8400-e29b-41d4-a716-446655440002",
                 "max_turns": 10,
                 "timeout": 300,
             }
@@ -930,7 +930,7 @@ class TestScenarioUpdateRequest(BaseModel):
 
     name: str | None = Field(None, min_length=1, description="Test scenario name")
     goal: str | None = Field(None, min_length=1, description="Test scenario goal")
-    persona_json: dict[str, Any] | None = Field(None, description="Persona configuration")
+    persona_id: str | None = Field(None, description="Persona UUID reference")
     max_turns: int | None = Field(None, ge=1, description="Maximum number of turns")
     timeout: int | None = Field(None, ge=1, description="Timeout in seconds")
 
@@ -939,7 +939,7 @@ class TestScenarioUpdateRequest(BaseModel):
             "example": {
                 "name": "Updated Scenario Name",
                 "goal": "Updated goal",
-                "persona_json": {"role": "admin"},
+                "persona_id": "550e8400-e29b-41d4-a716-446655440003",
                 "max_turns": 15,
                 "timeout": 600,
             }
@@ -1065,6 +1065,225 @@ class TestSummaryResponse(BaseModel):
                 "pass_rate": 0.8,
                 "avg_duration_ms": 45000,
                 "avg_latency_ms": 850,
+            }
+        }
+    )
+
+
+# Persona management models
+
+
+class PersonaResponse(BaseModel):
+    """Response model for a persona."""
+
+    id: str = Field(..., description="Persona UUID")
+    name: str = Field(..., description="Persona name")
+    description: str | None = Field(None, description="Persona description")
+    aggression: float = Field(..., description="Aggression level (0.0-1.0)")
+    patience: float = Field(..., description="Patience level (0.0-1.0)")
+    verbosity: float = Field(..., description="Verbosity level (0.0-1.0)")
+    traits: list[str] = Field(default_factory=list, description="List of personality traits")
+    tts_provider: str = Field(..., description="TTS provider (openai, elevenlabs, deepgram)")
+    tts_config: dict[str, Any] = Field(
+        default_factory=dict, description="Provider-specific TTS configuration"
+    )
+    preview_audio_url: str | None = Field(None, description="URL to pregenerated preview audio")
+    preview_audio_text: str | None = Field(
+        None, description="Text used for preview audio generation"
+    )
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
+    created_at: datetime | None = Field(None, description="Creation timestamp")
+    updated_at: datetime | None = Field(None, description="Last update timestamp")
+    created_by: str | None = Field(None, description="User who created the persona")
+    is_active: bool = Field(True, description="Whether the persona is active")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "id": "550e8400-e29b-41d4-a716-446655440000",
+                "name": "Angry Customer",
+                "description": "An aggressive customer persona for testing conflict resolution",
+                "aggression": 0.8,
+                "patience": 0.2,
+                "verbosity": 0.6,
+                "traits": ["impatient", "demanding", "direct"],
+                "tts_provider": "openai",
+                "tts_config": {"model": "tts-1", "voice": "alloy", "speed": 1.0},
+                "preview_audio_url": "https://storage.example.com/audio/personas/preview/abc123.mp3",
+                "preview_audio_text": "Hello, this is how I sound.",
+                "metadata": {"category": "customer", "difficulty": "hard"},
+                "created_at": "2024-01-15T10:00:00Z",
+                "updated_at": "2024-01-15T11:00:00Z",
+                "created_by": "user@example.com",
+                "is_active": True,
+            }
+        }
+    )
+
+
+class PersonaCreateRequest(BaseModel):
+    """Request model for creating a persona."""
+
+    name: str = Field(..., min_length=1, max_length=255, description="Persona name")
+    description: str | None = Field(None, description="Persona description")
+    aggression: float = Field(
+        ..., ge=0.0, le=1.0, description="Aggression level (0.0-1.0, required)"
+    )
+    patience: float = Field(..., ge=0.0, le=1.0, description="Patience level (0.0-1.0, required)")
+    verbosity: float = Field(
+        ..., ge=0.0, le=1.0, description="Verbosity level (0.0-1.0, required)"
+    )
+    traits: list[str] = Field(default_factory=list, description="List of personality traits")
+    tts_provider: str = Field(
+        ..., description="TTS provider: 'openai', 'elevenlabs', 'deepgram', etc."
+    )
+    tts_config: dict[str, Any] = Field(
+        default_factory=dict, description="Provider-specific TTS configuration"
+    )
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
+    created_by: str | None = Field(None, description="User creating the persona")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "name": "Polite Customer",
+                "description": "A patient and polite customer persona",
+                "aggression": 0.2,
+                "patience": 0.9,
+                "verbosity": 0.5,
+                "traits": ["polite", "patient", "helpful"],
+                "tts_provider": "openai",
+                "tts_config": {"model": "tts-1", "voice": "nova", "speed": 1.0},
+                "metadata": {"category": "customer", "difficulty": "easy"},
+                "created_by": "user@example.com",
+            }
+        }
+    )
+
+
+class PersonaUpdateRequest(BaseModel):
+    """Request model for updating a persona."""
+
+    name: str | None = Field(None, min_length=1, max_length=255, description="Persona name")
+    description: str | None = Field(None, description="Persona description")
+    aggression: float | None = Field(None, ge=0.0, le=1.0, description="Aggression level (0.0-1.0)")
+    patience: float | None = Field(None, ge=0.0, le=1.0, description="Patience level (0.0-1.0)")
+    verbosity: float | None = Field(None, ge=0.0, le=1.0, description="Verbosity level (0.0-1.0)")
+    traits: list[str] | None = Field(None, description="List of personality traits")
+    tts_provider: str | None = Field(None, description="TTS provider identifier")
+    tts_config: dict[str, Any] | None = Field(
+        None, description="Provider-specific TTS configuration"
+    )
+    metadata: dict[str, Any] | None = Field(None, description="Additional metadata")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "name": "Updated Persona Name",
+                "description": "Updated description",
+                "aggression": 0.5,
+                "patience": 0.7,
+                "verbosity": 0.6,
+                "traits": ["updated_trait"],
+                "tts_provider": "elevenlabs",
+                "tts_config": {
+                    "voice_id": "pNInz6obpgDQGcFmaJgB",
+                    "model_id": "eleven_monolingual_v1",
+                },
+                "metadata": {"updated": True},
+            }
+        }
+    )
+
+
+class PersonaListItem(BaseModel):
+    """Simplified persona model for list responses (excludes sensitive fields)."""
+
+    id: str = Field(..., description="Persona UUID")
+    name: str = Field(..., description="Persona name")
+    description: str | None = Field(None, description="Persona description")
+    aggression: float = Field(..., description="Aggression level (0.0-1.0)")
+    patience: float = Field(..., description="Patience level (0.0-1.0)")
+    verbosity: float = Field(..., description="Verbosity level (0.0-1.0)")
+    traits: list[str] = Field(default_factory=list, description="List of personality traits")
+    preview_audio_url: str | None = Field(None, description="URL to pregenerated preview audio")
+    preview_audio_text: str | None = Field(
+        None, description="Text used for preview audio generation"
+    )
+    is_active: bool = Field(True, description="Whether the persona is active")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "id": "550e8400-e29b-41d4-a716-446655440000",
+                "name": "Angry Customer",
+                "description": "An aggressive customer persona",
+                "aggression": 0.8,
+                "patience": 0.2,
+                "verbosity": 0.6,
+                "traits": ["impatient", "demanding"],
+                "preview_audio_url": "https://storage.example.com/preview1.mp3",
+                "preview_audio_text": "Hello, this is how I sound.",
+                "is_active": True,
+            }
+        }
+    )
+
+
+class PersonasListResponse(BaseModel):
+    """Response model for listing personas."""
+
+    count: int = Field(..., description="Number of personas in response")
+    personas: list[PersonaListItem] = Field(..., description="List of personas")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "count": 2,
+                "personas": [
+                    {
+                        "id": "550e8400-e29b-41d4-a716-446655440000",
+                        "name": "Angry Customer",
+                        "description": "An aggressive customer persona",
+                        "aggression": 0.8,
+                        "patience": 0.2,
+                        "verbosity": 0.6,
+                        "traits": ["impatient", "demanding"],
+                        "preview_audio_url": "https://storage.example.com/preview1.mp3",
+                        "preview_audio_text": "Hello, this is how I sound.",
+                        "is_active": True,
+                    },
+                    {
+                        "id": "550e8400-e29b-41d4-a716-446655440001",
+                        "name": "Polite Customer",
+                        "description": "A patient customer persona",
+                        "aggression": 0.2,
+                        "patience": 0.9,
+                        "verbosity": 0.5,
+                        "traits": ["polite", "patient"],
+                        "preview_audio_url": "https://storage.example.com/preview2.mp3",
+                        "preview_audio_text": "Hello, this is how I sound.",
+                        "is_active": True,
+                    },
+                ],
+            }
+        }
+    )
+
+
+class PersonaAudioPreviewResponse(BaseModel):
+    """Response model for persona audio preview."""
+
+    audio_url: str = Field(..., description="URL to pregenerated preview audio")
+    text: str = Field(..., description="Text that was used for audio generation")
+    format: str = Field(..., description="Audio format (e.g., 'audio/mpeg', 'audio/wav')")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "audio_url": "https://storage.example.com/audio/personas/preview/abc123.mp3",
+                "text": "Hello, this is how I sound.",
+                "format": "audio/mpeg",
             }
         }
     )
