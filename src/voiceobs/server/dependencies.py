@@ -241,10 +241,10 @@ _conversation_repo: ConversationRepository | None = None
 _turn_repo: TurnRepository | None = None
 _failure_repo: FailureRepository | None = None
 _metrics_repo: MetricsRepository | None = None
-_persona_repo: PersonaRepository | None = None
 _test_suite_repo: TestSuiteRepository | None = None
 _test_scenario_repo: TestScenarioRepository | None = None
 _test_execution_repo: TestExecutionRepository | None = None
+_persona_repo: PersonaRepository | None = None
 _use_postgres: bool = False
 _audio_storage: Any | None = None
 
@@ -282,8 +282,8 @@ async def init_database() -> None:
     uses in-memory storage.
     """
     global _database, _span_storage
-    global _conversation_repo, _turn_repo, _failure_repo, _metrics_repo, _persona_repo
-    global _test_suite_repo, _test_scenario_repo, _test_execution_repo, _use_postgres
+    global _conversation_repo, _turn_repo, _failure_repo, _metrics_repo
+    global _test_suite_repo, _test_scenario_repo, _test_execution_repo, _persona_repo, _use_postgres
 
     database_url = _get_database_url()
 
@@ -317,10 +317,10 @@ async def init_database() -> None:
         _turn_repo = None
         _failure_repo = None
         _metrics_repo = None
-        _persona_repo = None
         _test_suite_repo = None
         _test_scenario_repo = None
         _test_execution_repo = None
+        _persona_repo = None
 
 
 async def shutdown_database() -> None:
@@ -329,8 +329,8 @@ async def shutdown_database() -> None:
     Call this on application shutdown.
     """
     global _database, _span_storage
-    global _conversation_repo, _turn_repo, _failure_repo, _metrics_repo, _persona_repo
-    global _test_suite_repo, _test_scenario_repo, _test_execution_repo, _use_postgres
+    global _conversation_repo, _turn_repo, _failure_repo, _metrics_repo
+    global _test_suite_repo, _test_scenario_repo, _test_execution_repo, _persona_repo, _use_postgres
 
     if _database is not None:
         await _database.disconnect()
@@ -341,10 +341,10 @@ async def shutdown_database() -> None:
     _turn_repo = None
     _failure_repo = None
     _metrics_repo = None
-    _persona_repo = None
     _test_suite_repo = None
     _test_scenario_repo = None
     _test_execution_repo = None
+    _persona_repo = None
     _use_postgres = False
 
 
@@ -397,15 +397,6 @@ def get_metrics_repository() -> MetricsRepository | None:
     return _metrics_repo
 
 
-def get_persona_repository() -> PersonaRepository | None:
-    """Get the persona repository.
-
-    Returns:
-        Persona repository or None if using in-memory storage.
-    """
-    return _persona_repo
-
-
 def get_test_suite_repository() -> TestSuiteRepository | None:
     """Get the test suite repository.
 
@@ -431,6 +422,15 @@ def get_test_execution_repository() -> TestExecutionRepository | None:
         Test execution repository or None if using in-memory storage.
     """
     return _test_execution_repo
+
+
+def get_persona_repository() -> PersonaRepository | None:
+    """Get the persona repository.
+
+    Returns:
+        Persona repository or None if using in-memory storage.
+    """
+    return _persona_repo
 
 
 def is_using_postgres() -> bool:
@@ -477,8 +477,8 @@ def get_audio_storage() -> Any:
 def reset_dependencies() -> None:
     """Reset all dependencies (for testing)."""
     global _database, _span_storage
-    global _conversation_repo, _turn_repo, _failure_repo, _metrics_repo, _persona_repo
-    global _test_suite_repo, _test_scenario_repo, _test_execution_repo, _use_postgres
+    global _conversation_repo, _turn_repo, _failure_repo, _metrics_repo
+    global _test_suite_repo, _test_scenario_repo, _test_execution_repo, _persona_repo, _use_postgres
     global _audio_storage
     _database = None
     _span_storage = None
@@ -486,9 +486,9 @@ def reset_dependencies() -> None:
     _turn_repo = None
     _failure_repo = None
     _metrics_repo = None
-    _persona_repo = None
     _test_suite_repo = None
     _test_scenario_repo = None
     _test_execution_repo = None
+    _persona_repo = None
     _use_postgres = False
     _audio_storage = None
