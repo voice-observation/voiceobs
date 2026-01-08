@@ -6,10 +6,12 @@ from uuid import UUID
 
 from fastapi import HTTPException, status
 
+from voiceobs.server.db.repositories.persona import PersonaRepository
 from voiceobs.server.db.repositories.test_execution import TestExecutionRepository
 from voiceobs.server.db.repositories.test_scenario import TestScenarioRepository
 from voiceobs.server.db.repositories.test_suite import TestSuiteRepository
 from voiceobs.server.dependencies import (
+    get_persona_repository,
     get_test_execution_repository,
     get_test_scenario_repository,
     get_test_suite_repository,
@@ -56,12 +58,15 @@ __all__ = [
     "get_test_suite_repo",
     "get_test_scenario_repo",
     "get_test_execution_repo",
+    "get_persona_repo",
     "get_test_repos",
     "parse_suite_id",
     "parse_scenario_id",
     "parse_execution_id",
+    "parse_persona_id",
     "validate_suite_exists",
     "validate_scenario_exists",
+    "validate_persona_exists",
     "parse_scenario_ids",
 ]
 
@@ -100,6 +105,25 @@ def get_test_execution_repo() -> TestExecutionRepository:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Test execution repository not available",
+        )
+    return repo
+
+
+def get_persona_repo() -> PersonaRepository:
+    """Dependency to get persona repository.
+
+    Returns:
+        Persona repository.
+
+    Raises:
+        HTTPException: If repository is not available.
+    """
+    require_postgres()
+    repo = get_persona_repository()
+    if repo is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Persona repository not available",
         )
     return repo
 
@@ -172,6 +196,21 @@ def parse_execution_id(execution_id: str) -> UUID:
     return parse_uuid(execution_id, "execution")
 
 
+def parse_persona_id(persona_id: str) -> UUID:
+    """Parse and validate persona ID.
+
+    Args:
+        persona_id: Persona ID string to parse.
+
+    Returns:
+        Parsed UUID.
+
+    Raises:
+        HTTPException: If UUID format is invalid.
+    """
+    return parse_uuid(persona_id, "persona")
+
+
 async def validate_suite_exists(
     suite_id: str, suite_repo: TestSuiteRepository | None = None
 ) -> UUID:
@@ -226,6 +265,39 @@ async def validate_scenario_exists(
             detail=f"Test scenario '{scenario_id}' not found",
         )
     return scenario_uuid
+
+
+async def validate_persona_exists(
+    persona_id: str, persona_repo: PersonaRepository | None = None
+) -> UUID:
+    """Validate that a persona exists, is active, and return its UUID.
+
+    Args:
+        persona_id: Persona ID string to validate.
+        persona_repo: Optional persona repository (if None, will be fetched).
+
+    Returns:
+        Parsed UUID of the persona.
+
+    Raises:
+        HTTPException: If UUID format is invalid, persona not found, or persona is inactive.
+    """
+    if persona_repo is None:
+        persona_repo = get_persona_repo()
+
+    persona_uuid = parse_persona_id(persona_id)
+    persona = await persona_repo.get(persona_uuid)
+    if persona is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Persona '{persona_id}' not found",
+        )
+    if not persona.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Persona '{persona_id}' is inactive",
+        )
+    return persona_uuid
 
 
 def parse_scenario_ids(scenario_ids: list[str]) -> list[UUID]:

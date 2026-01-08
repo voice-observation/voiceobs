@@ -46,7 +46,6 @@ from voiceobs.server.db.repositories import (
     TestSuiteRepository,
     TurnRepository,
 )
-from voiceobs.server.db.repositories.persona import PersonaRepository
 from voiceobs.server.store import SpanStore, get_span_store
 
 

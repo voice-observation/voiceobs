@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from voiceobs.server.db.repositories.persona import PersonaRepository
 from voiceobs.server.db.repositories.test_scenario import TestScenarioRepository
 from voiceobs.server.db.repositories.test_suite import TestSuiteRepository
 from voiceobs.server.models import (
@@ -12,10 +13,12 @@ from voiceobs.server.models import (
     TestScenarioUpdateRequest,
 )
 from voiceobs.server.routes.test_dependencies import (
+    get_persona_repo,
     get_test_scenario_repo,
     get_test_suite_repo,
     parse_scenario_id,
     parse_suite_id,
+    validate_persona_exists,
     validate_suite_exists,
 )
 
@@ -38,15 +41,17 @@ async def create_test_scenario(
     request: TestScenarioCreateRequest,
     scenario_repo: TestScenarioRepository = Depends(get_test_scenario_repo),
     suite_repo: TestSuiteRepository = Depends(get_test_suite_repo),
+    persona_repo: PersonaRepository = Depends(get_persona_repo),
 ) -> TestScenarioResponse:
     """Create a new test scenario."""
     suite_uuid = await validate_suite_exists(request.suite_id, suite_repo)
+    persona_uuid = await validate_persona_exists(request.persona_id, persona_repo)
 
     scenario = await scenario_repo.create(
         suite_id=suite_uuid,
         name=request.name,
         goal=request.goal,
-        persona_id=parse_scenario_id(request.persona_id),
+        persona_id=persona_uuid,
         max_turns=request.max_turns,
         timeout=request.timeout,
     )
@@ -147,10 +152,16 @@ async def update_test_scenario(
     scenario_id: str,
     request: TestScenarioUpdateRequest,
     repo: TestScenarioRepository = Depends(get_test_scenario_repo),
+    persona_repo: PersonaRepository = Depends(get_persona_repo),
 ) -> TestScenarioResponse:
     """Update a test scenario."""
     scenario_uuid = parse_scenario_id(scenario_id)
-    persona_uuid = parse_scenario_id(request.persona_id) if request.persona_id else None
+
+    # Validate persona if provided
+    persona_uuid = None
+    if request.persona_id is not None:
+        persona_uuid = await validate_persona_exists(request.persona_id, persona_repo)
+
     scenario = await repo.update(
         scenario_id=scenario_uuid,
         name=request.name,
