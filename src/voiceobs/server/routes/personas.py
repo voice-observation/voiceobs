@@ -269,9 +269,7 @@ async def update_persona(
 
     tts_changed = (
         request.tts_provider is not None and request.tts_provider != existing.tts_provider
-    ) or (
-        request.tts_config is not None and request.tts_config != existing.tts_config
-    )
+    ) or (request.tts_config is not None and request.tts_config != existing.tts_config)
 
     if tts_changed:
         # Regenerate preview audio

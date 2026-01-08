@@ -13,9 +13,7 @@ class TTSService(ABC):
     """
 
     @abstractmethod
-    async def synthesize(
-        self, text: str, config: dict[str, Any]
-    ) -> tuple[bytes, str, float]:
+    async def synthesize(self, text: str, config: dict[str, Any]) -> tuple[bytes, str, float]:
         """Synthesize text to audio.
 
         Args:
@@ -34,9 +32,7 @@ class TTSService(ABC):
         pass
 
     @abstractmethod
-    async def synthesize_streaming(
-        self, text: str, config: dict[str, Any]
-    ) -> AsyncIterator[bytes]:
+    async def synthesize_streaming(self, text: str, config: dict[str, Any]) -> AsyncIterator[bytes]:
         """Synthesize text to audio with streaming response.
 
         Args:

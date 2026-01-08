@@ -1,7 +1,5 @@
 """Tests for audio storage utility functions."""
 
-import pytest
-
 from voiceobs.server.storage import get_extension_from_content_type
 
 

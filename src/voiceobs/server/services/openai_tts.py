@@ -31,9 +31,7 @@ class OpenAITTSService(TTSService):
     # Audio estimation constants (for duration calculation fallback)
     DEFAULT_BITRATE_KBPS = 128  # OpenAI tts-1 typically uses 128kbps
 
-    def _get_client_and_config(
-        self, config: dict[str, Any]
-    ) -> tuple[AsyncOpenAI, str, str, float]:
+    def _get_client_and_config(self, config: dict[str, Any]) -> tuple[AsyncOpenAI, str, str, float]:
         """Get OpenAI client and extract configuration.
 
         Args:
@@ -48,9 +46,7 @@ class OpenAITTSService(TTSService):
         # Get API key from environment
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
-            raise ValueError(
-                "OPENAI_API_KEY environment variable is required for OpenAI TTS"
-            )
+            raise ValueError("OPENAI_API_KEY environment variable is required for OpenAI TTS")
 
         # Extract config with defaults
         model = config.get("model", self.DEFAULT_MODEL)
@@ -62,9 +58,7 @@ class OpenAITTSService(TTSService):
 
         return client, model, voice, speed
 
-    async def synthesize(
-        self, text: str, config: dict[str, Any]
-    ) -> tuple[bytes, str, float]:
+    async def synthesize(self, text: str, config: dict[str, Any]) -> tuple[bytes, str, float]:
         """Synthesize text to audio using OpenAI TTS API.
 
         Args:
@@ -103,9 +97,7 @@ class OpenAITTSService(TTSService):
 
         return audio_bytes, self.DEFAULT_MIME_TYPE, duration_ms
 
-    async def synthesize_streaming(
-        self, text: str, config: dict[str, Any]
-    ) -> AsyncIterator[bytes]:
+    async def synthesize_streaming(self, text: str, config: dict[str, Any]) -> AsyncIterator[bytes]:
         """Synthesize text to audio with streaming response using OpenAI TTS API.
 
         Args:

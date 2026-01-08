@@ -64,8 +64,7 @@ class PersonaRepository:
         if tts_provider.lower() not in SUPPORTED_TTS_PROVIDERS:
             supported = ", ".join(sorted(SUPPORTED_TTS_PROVIDERS))
             raise ValueError(
-                f"Unsupported TTS provider: {tts_provider}. "
-                f"Supported providers: {supported}"
+                f"Unsupported TTS provider: {tts_provider}. Supported providers: {supported}"
             )
 
         persona_id = uuid4()
@@ -258,8 +257,7 @@ class PersonaRepository:
         if tts_provider is not None and tts_provider.lower() not in SUPPORTED_TTS_PROVIDERS:
             supported = ", ".join(sorted(SUPPORTED_TTS_PROVIDERS))
             raise ValueError(
-                f"Unsupported TTS provider: {tts_provider}. "
-                f"Supported providers: {supported}"
+                f"Unsupported TTS provider: {tts_provider}. Supported providers: {supported}"
             )
 
         # Build update fields dynamically using a dictionary

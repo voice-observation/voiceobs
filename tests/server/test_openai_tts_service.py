@@ -53,9 +53,7 @@ class TestOpenAITTSService:
             mock_openai.return_value = mock_openai_client
 
             service = OpenAITTSService()
-            audio_bytes, mime_type, duration_ms = await service.synthesize(
-                "Hello world", {}
-            )
+            audio_bytes, mime_type, duration_ms = await service.synthesize("Hello world", {})
 
             # Verify OpenAI client was created with API key
             mock_openai.assert_called_once_with(api_key="test_api_key_123")
@@ -117,9 +115,9 @@ class TestOpenAITTSService:
             # Verify partial config merged with defaults
             mock_openai_client.audio.speech.create.assert_called_once_with(
                 model="tts-1",  # default
-                voice="echo",   # custom
+                voice="echo",  # custom
                 input="Test",
-                speed=1.0,      # default
+                speed=1.0,  # default
             )
 
     async def test_synthesize_raises_error_when_api_key_missing(self) -> None:
@@ -135,17 +133,13 @@ class TestOpenAITTSService:
 
             assert "OPENAI_API_KEY" in str(exc_info.value)
 
-    async def test_synthesize_handles_openai_api_error(
-        self, mock_env_with_api_key: None
-    ) -> None:
+    async def test_synthesize_handles_openai_api_error(self, mock_env_with_api_key: None) -> None:
         """Test that synthesize handles OpenAI API errors."""
         from voiceobs.server.services.openai_tts import OpenAITTSService
 
         with patch("voiceobs.server.services.openai_tts.AsyncOpenAI") as mock_openai:
             mock_client = MagicMock()
-            mock_client.audio.speech.create = AsyncMock(
-                side_effect=Exception("API Error")
-            )
+            mock_client.audio.speech.create = AsyncMock(side_effect=Exception("API Error"))
             mock_openai.return_value = mock_client
 
             service = OpenAITTSService()
@@ -195,9 +189,7 @@ class TestOpenAITTSService:
             # OpenAI TTS returns MP3 format
             assert mime_type == "audio/mpeg"
 
-    def test_openai_tts_service_registered_with_factory(
-        self, mock_env_with_api_key: None
-    ) -> None:
+    def test_openai_tts_service_registered_with_factory(self, mock_env_with_api_key: None) -> None:
         """Test that OpenAITTSService is registered with the factory."""
         from voiceobs.server.services.openai_tts import OpenAITTSService
         from voiceobs.server.services.tts_factory import TTSServiceFactory

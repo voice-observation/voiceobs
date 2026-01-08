@@ -53,15 +53,11 @@ class TestDeepgramTTSService:
         """Test synthesize with default configuration."""
         from voiceobs.server.services.deepgram_tts import DeepgramTTSService
 
-        with patch(
-            "voiceobs.server.services.deepgram_tts.DeepgramClient"
-        ) as mock_deepgram:
+        with patch("voiceobs.server.services.deepgram_tts.DeepgramClient") as mock_deepgram:
             mock_deepgram.return_value = mock_deepgram_client
 
             service = DeepgramTTSService()
-            audio_bytes, mime_type, duration_ms = await service.synthesize(
-                "Hello world", {}
-            )
+            audio_bytes, mime_type, duration_ms = await service.synthesize("Hello world", {})
 
             # Verify Deepgram client was created (it reads from env)
             mock_deepgram.assert_called_once()
@@ -89,9 +85,7 @@ class TestDeepgramTTSService:
         """Test synthesize with custom configuration."""
         from voiceobs.server.services.deepgram_tts import DeepgramTTSService
 
-        with patch(
-            "voiceobs.server.services.deepgram_tts.DeepgramClient"
-        ) as mock_deepgram:
+        with patch("voiceobs.server.services.deepgram_tts.DeepgramClient") as mock_deepgram:
             mock_deepgram.return_value = mock_deepgram_client
 
             service = DeepgramTTSService()
@@ -120,9 +114,7 @@ class TestDeepgramTTSService:
         """Test synthesize with partial configuration (some defaults)."""
         from voiceobs.server.services.deepgram_tts import DeepgramTTSService
 
-        with patch(
-            "voiceobs.server.services.deepgram_tts.DeepgramClient"
-        ) as mock_deepgram:
+        with patch("voiceobs.server.services.deepgram_tts.DeepgramClient") as mock_deepgram:
             mock_deepgram.return_value = mock_deepgram_client
 
             service = DeepgramTTSService()
@@ -152,19 +144,13 @@ class TestDeepgramTTSService:
 
             assert "DEEPGRAM_API_KEY" in str(exc_info.value)
 
-    async def test_synthesize_handles_deepgram_api_error(
-        self, mock_env_with_api_key: None
-    ) -> None:
+    async def test_synthesize_handles_deepgram_api_error(self, mock_env_with_api_key: None) -> None:
         """Test that synthesize handles Deepgram API errors."""
         from voiceobs.server.services.deepgram_tts import DeepgramTTSService
 
-        with patch(
-            "voiceobs.server.services.deepgram_tts.DeepgramClient"
-        ) as mock_deepgram:
+        with patch("voiceobs.server.services.deepgram_tts.DeepgramClient") as mock_deepgram:
             mock_client = MagicMock()
-            mock_client.speak.v1.audio.generate = MagicMock(
-                side_effect=Exception("API Error")
-            )
+            mock_client.speak.v1.audio.generate = MagicMock(side_effect=Exception("API Error"))
             mock_deepgram.return_value = mock_client
 
             service = DeepgramTTSService()
@@ -184,13 +170,9 @@ class TestDeepgramTTSService:
         # A simple WAV header pattern for testing
         fake_wav_data = b"RIFF" + b"\x00" * 36 + b"data" + b"\x00" * 1000
 
-        with patch(
-            "voiceobs.server.services.deepgram_tts.DeepgramClient"
-        ) as mock_deepgram:
+        with patch("voiceobs.server.services.deepgram_tts.DeepgramClient") as mock_deepgram:
             mock_client = MagicMock()
-            mock_client.speak.v1.audio.generate = MagicMock(
-                return_value=iter([fake_wav_data])
-            )
+            mock_client.speak.v1.audio.generate = MagicMock(return_value=iter([fake_wav_data]))
             mock_deepgram.return_value = mock_client
 
             service = DeepgramTTSService()
@@ -207,9 +189,7 @@ class TestDeepgramTTSService:
         """Test that synthesize returns correct MIME type for WAV."""
         from voiceobs.server.services.deepgram_tts import DeepgramTTSService
 
-        with patch(
-            "voiceobs.server.services.deepgram_tts.DeepgramClient"
-        ) as mock_deepgram:
+        with patch("voiceobs.server.services.deepgram_tts.DeepgramClient") as mock_deepgram:
             mock_deepgram.return_value = mock_deepgram_client
 
             service = DeepgramTTSService()
@@ -224,9 +204,7 @@ class TestDeepgramTTSService:
         """Test that synthesize returns correct MIME type for MP3."""
         from voiceobs.server.services.deepgram_tts import DeepgramTTSService
 
-        with patch(
-            "voiceobs.server.services.deepgram_tts.DeepgramClient"
-        ) as mock_deepgram:
+        with patch("voiceobs.server.services.deepgram_tts.DeepgramClient") as mock_deepgram:
             mock_deepgram.return_value = mock_deepgram_client
 
             service = DeepgramTTSService()
@@ -261,14 +239,10 @@ class TestDeepgramTTSService:
         # Mock streaming response
         mock_chunks = [b"chunk1", b"chunk2", b"chunk3"]
 
-        with patch(
-            "voiceobs.server.services.deepgram_tts.DeepgramClient"
-        ) as mock_deepgram:
+        with patch("voiceobs.server.services.deepgram_tts.DeepgramClient") as mock_deepgram:
             mock_client = MagicMock()
             # The generate method returns a regular iterator (not async)
-            mock_client.speak.v1.audio.generate = MagicMock(
-                return_value=iter(mock_chunks)
-            )
+            mock_client.speak.v1.audio.generate = MagicMock(return_value=iter(mock_chunks))
             mock_deepgram.return_value = mock_client
 
             service = DeepgramTTSService()
@@ -295,13 +269,9 @@ class TestDeepgramTTSService:
 
         mock_chunks = [b"audio_data"]
 
-        with patch(
-            "voiceobs.server.services.deepgram_tts.DeepgramClient"
-        ) as mock_deepgram:
+        with patch("voiceobs.server.services.deepgram_tts.DeepgramClient") as mock_deepgram:
             mock_client = MagicMock()
-            mock_client.speak.v1.audio.generate = MagicMock(
-                return_value=iter(mock_chunks)
-            )
+            mock_client.speak.v1.audio.generate = MagicMock(return_value=iter(mock_chunks))
             mock_deepgram.return_value = mock_client
 
             service = DeepgramTTSService()
@@ -351,9 +321,7 @@ class TestDeepgramTTSService:
         """Test synthesize with voice parameter (for future compatibility)."""
         from voiceobs.server.services.deepgram_tts import DeepgramTTSService
 
-        with patch(
-            "voiceobs.server.services.deepgram_tts.DeepgramClient"
-        ) as mock_deepgram:
+        with patch("voiceobs.server.services.deepgram_tts.DeepgramClient") as mock_deepgram:
             mock_deepgram.return_value = mock_deepgram_client
 
             service = DeepgramTTSService()
@@ -365,22 +333,16 @@ class TestDeepgramTTSService:
             # Should complete without raising an exception
             assert mock_deepgram_client.speak.v1.audio.generate.called
 
-    async def test_calculate_duration_wav_fallback(
-        self, mock_env_with_api_key: None
-    ) -> None:
+    async def test_calculate_duration_wav_fallback(self, mock_env_with_api_key: None) -> None:
         """Test duration calculation fallback for invalid WAV."""
         from voiceobs.server.services.deepgram_tts import DeepgramTTSService
 
         # Invalid WAV data that will cause wave.open to fail
         invalid_wav_data = b"INVALID" + b"\x00" * 100
 
-        with patch(
-            "voiceobs.server.services.deepgram_tts.DeepgramClient"
-        ) as mock_deepgram:
+        with patch("voiceobs.server.services.deepgram_tts.DeepgramClient") as mock_deepgram:
             mock_client = MagicMock()
-            mock_client.speak.v1.audio.generate = MagicMock(
-                return_value=iter([invalid_wav_data])
-            )
+            mock_client.speak.v1.audio.generate = MagicMock(return_value=iter([invalid_wav_data]))
             mock_deepgram.return_value = mock_client
 
             service = DeepgramTTSService()
@@ -390,22 +352,16 @@ class TestDeepgramTTSService:
             assert duration_ms > 0
             assert isinstance(duration_ms, float)
 
-    async def test_calculate_duration_mp3_fallback(
-        self, mock_env_with_api_key: None
-    ) -> None:
+    async def test_calculate_duration_mp3_fallback(self, mock_env_with_api_key: None) -> None:
         """Test duration calculation fallback for invalid MP3."""
         from voiceobs.server.services.deepgram_tts import DeepgramTTSService
 
         # Invalid MP3 data that will cause mutagen to fail
         invalid_mp3_data = b"INVALID" + b"\x00" * 100
 
-        with patch(
-            "voiceobs.server.services.deepgram_tts.DeepgramClient"
-        ) as mock_deepgram:
+        with patch("voiceobs.server.services.deepgram_tts.DeepgramClient") as mock_deepgram:
             mock_client = MagicMock()
-            mock_client.speak.v1.audio.generate = MagicMock(
-                return_value=iter([invalid_mp3_data])
-            )
+            mock_client.speak.v1.audio.generate = MagicMock(return_value=iter([invalid_mp3_data]))
             mock_deepgram.return_value = mock_client
 
             service = DeepgramTTSService()
@@ -416,22 +372,16 @@ class TestDeepgramTTSService:
             assert duration_ms > 0
             assert isinstance(duration_ms, float)
 
-    async def test_estimate_duration_for_opus_encoding(
-        self, mock_env_with_api_key: None
-    ) -> None:
+    async def test_estimate_duration_for_opus_encoding(self, mock_env_with_api_key: None) -> None:
         """Test duration estimation for Opus encoding."""
         from voiceobs.server.services.deepgram_tts import DeepgramTTSService
 
         # Create data for Opus encoding
         opus_data = b"\x00" * 1000
 
-        with patch(
-            "voiceobs.server.services.deepgram_tts.DeepgramClient"
-        ) as mock_deepgram:
+        with patch("voiceobs.server.services.deepgram_tts.DeepgramClient") as mock_deepgram:
             mock_client = MagicMock()
-            mock_client.speak.v1.audio.generate = MagicMock(
-                return_value=iter([opus_data])
-            )
+            mock_client.speak.v1.audio.generate = MagicMock(return_value=iter([opus_data]))
             mock_deepgram.return_value = mock_client
 
             service = DeepgramTTSService()
@@ -442,22 +392,16 @@ class TestDeepgramTTSService:
             assert duration_ms > 0
             assert isinstance(duration_ms, float)
 
-    async def test_estimate_duration_for_aac_encoding(
-        self, mock_env_with_api_key: None
-    ) -> None:
+    async def test_estimate_duration_for_aac_encoding(self, mock_env_with_api_key: None) -> None:
         """Test duration estimation for AAC encoding."""
         from voiceobs.server.services.deepgram_tts import DeepgramTTSService
 
         # Create data for AAC encoding
         aac_data = b"\x00" * 1000
 
-        with patch(
-            "voiceobs.server.services.deepgram_tts.DeepgramClient"
-        ) as mock_deepgram:
+        with patch("voiceobs.server.services.deepgram_tts.DeepgramClient") as mock_deepgram:
             mock_client = MagicMock()
-            mock_client.speak.v1.audio.generate = MagicMock(
-                return_value=iter([aac_data])
-            )
+            mock_client.speak.v1.audio.generate = MagicMock(return_value=iter([aac_data]))
             mock_deepgram.return_value = mock_client
 
             service = DeepgramTTSService()
@@ -477,13 +421,9 @@ class TestDeepgramTTSService:
         # Create data for unknown encoding
         unknown_data = b"\x00" * 1000
 
-        with patch(
-            "voiceobs.server.services.deepgram_tts.DeepgramClient"
-        ) as mock_deepgram:
+        with patch("voiceobs.server.services.deepgram_tts.DeepgramClient") as mock_deepgram:
             mock_client = MagicMock()
-            mock_client.speak.v1.audio.generate = MagicMock(
-                return_value=iter([unknown_data])
-            )
+            mock_client.speak.v1.audio.generate = MagicMock(return_value=iter([unknown_data]))
             mock_deepgram.return_value = mock_client
 
             service = DeepgramTTSService()
@@ -500,41 +440,31 @@ class TestDeepgramTTSService:
         """Test exception handling in outer _calculate_duration method."""
         from voiceobs.server.services.deepgram_tts import DeepgramTTSService
 
-        with patch(
-            "voiceobs.server.services.deepgram_tts.DeepgramClient"
-        ) as mock_deepgram:
+        with patch("voiceobs.server.services.deepgram_tts.DeepgramClient") as mock_deepgram:
             mock_client = MagicMock()
             # Create a minimal WAV that will trigger inner exception
             # when trying to parse it
             bad_data = b"RIFF" + b"\x00" * 100
 
-            mock_client.speak.v1.audio.generate = MagicMock(
-                return_value=iter([bad_data])
-            )
+            mock_client.speak.v1.audio.generate = MagicMock(return_value=iter([bad_data]))
             mock_deepgram.return_value = mock_client
 
             service = DeepgramTTSService()
 
             # Patch the internal methods to raise an exception
             # This will trigger the outer exception handler
-            with patch.object(
-                service, "_calculate_wav_duration", side_effect=RuntimeError("Test")
-            ):
+            with patch.object(service, "_calculate_wav_duration", side_effect=RuntimeError("Test")):
                 _, _, duration_ms = await service.synthesize("Test", {})
 
                 # Should fall back to estimation via outer exception handler
                 assert duration_ms > 0
                 assert isinstance(duration_ms, float)
 
-    async def test_calculate_mp3_duration_success_path(
-        self, mock_env_with_api_key: None
-    ) -> None:
+    async def test_calculate_mp3_duration_success_path(self, mock_env_with_api_key: None) -> None:
         """Test successful MP3 duration calculation with valid MP3 data."""
         from voiceobs.server.services.deepgram_tts import DeepgramTTSService
 
-        with patch(
-            "voiceobs.server.services.deepgram_tts.DeepgramClient"
-        ) as mock_deepgram:
+        with patch("voiceobs.server.services.deepgram_tts.DeepgramClient") as mock_deepgram:
             mock_client = MagicMock()
 
             # Create a simple MP3 frame to ensure mutagen can parse it
@@ -544,9 +474,7 @@ class TestDeepgramTTSService:
                 + b"\x00" * 1000  # Some data
             )
 
-            mock_client.speak.v1.audio.generate = MagicMock(
-                return_value=iter([mp3_header])
-            )
+            mock_client.speak.v1.audio.generate = MagicMock(return_value=iter([mp3_header]))
             mock_deepgram.return_value = mock_client
 
             service = DeepgramTTSService()

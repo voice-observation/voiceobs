@@ -36,16 +36,13 @@ class TTSServiceFactory:
         if service_class is None:
             supported = ", ".join(cls._providers.keys())
             raise ValueError(
-                f"Unsupported TTS provider: {provider}. "
-                f"Supported providers: {supported}"
+                f"Unsupported TTS provider: {provider}. Supported providers: {supported}"
             )
 
         return service_class()
 
     @classmethod
-    def register_provider(
-        cls, provider_id: str, service_class: type[TTSService]
-    ) -> None:
+    def register_provider(cls, provider_id: str, service_class: type[TTSService]) -> None:
         """Register a new TTS provider.
 
         Args:
