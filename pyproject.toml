@@ -49,6 +49,7 @@ server = [
     "openai>=1.0.0",
     "mutagen>=1.47.0",
     "deepgram-sdk>=3.0.0",
+    "elevenlabs>=1.0.0",
 ]
 s3 = [
     "boto3>=1.28.0",
@@ -72,6 +73,7 @@ dev = [
     "openai>=1.0.0",
     "mutagen>=1.47.0",
     "deepgram-sdk>=3.0.0",
+    "elevenlabs>=1.0.0",
 ]
 
 [project.scripts]
