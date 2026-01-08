@@ -46,6 +46,7 @@ from voiceobs.server.db.repositories import (
     TestSuiteRepository,
     TurnRepository,
 )
+from voiceobs.server.db.repositories.persona import PersonaRepository
 from voiceobs.server.store import SpanStore, get_span_store
 
 
@@ -303,6 +304,7 @@ async def init_database() -> None:
         _test_suite_repo = TestSuiteRepository(_database)
         _test_scenario_repo = TestScenarioRepository(_database, _persona_repo)
         _test_execution_repo = TestExecutionRepository(_database)
+        _persona_repo = PersonaRepository(_database)
 
         # Create span storage adapter
         _span_storage = PostgresSpanStoreAdapter(
