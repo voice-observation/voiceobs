@@ -10,6 +10,7 @@ from voiceobs.server.dependencies import (
     PostgresSpanStoreAdapter,
     get_conversation_repository,
     get_failure_repository,
+    get_persona_repository,
     get_storage,
     get_turn_repository,
     init_database,
@@ -321,11 +322,18 @@ class TestDependencyFunctions:
         repo = get_failure_repository()
         assert repo is None
 
+    def test_get_persona_repository_none_for_in_memory(self):
+        """Test get_persona_repository returns None for in-memory."""
+        reset_dependencies()
+        repo = get_persona_repository()
+        assert repo is None
+
     def test_reset_dependencies(self):
         """Test reset_dependencies clears all state."""
         reset_dependencies()
         assert not is_using_postgres()
         assert get_conversation_repository() is None
+        assert get_persona_repository() is None
 
 
 class TestGetDatabaseUrl:
