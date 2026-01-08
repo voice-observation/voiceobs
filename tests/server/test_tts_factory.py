@@ -1,5 +1,6 @@
 """Tests for TTS service factory."""
 
+from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
@@ -16,6 +17,13 @@ class MockTTSService(TTSService):
     ) -> tuple[bytes, str, float]:
         """Mock synthesize implementation."""
         return b"mock_audio_data", "audio/mpeg", 1500.0
+
+    async def synthesize_streaming(
+        self, text: str, config: dict[str, Any]
+    ) -> AsyncIterator[bytes]:
+        """Mock synthesize_streaming implementation."""
+        yield b"mock_chunk_1"
+        yield b"mock_chunk_2"
 
 
 class TestTTSServiceFactory:
