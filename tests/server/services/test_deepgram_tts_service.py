@@ -196,20 +196,6 @@ class TestDeepgramTTSService:
             # Default container is WAV
             assert mime_type == "audio/wav"
 
-    async def test_synthesize_returns_correct_mime_type_for_wav(
-        self, mock_env_with_api_key: None, mock_deepgram_client: MagicMock
-    ) -> None:
-        """Test that synthesize returns correct MIME type for WAV."""
-        from voiceobs.server.services.deepgram_tts import DeepgramTTSService
-
-        with patch("voiceobs.server.services.deepgram_tts.DeepgramClient") as mock_deepgram:
-            mock_deepgram.return_value = mock_deepgram_client
-
-            service = DeepgramTTSService()
-            _, mime_type, _ = await service.synthesize("Test", {})
-
-            assert mime_type == "audio/wav"
-
     def test_deepgram_tts_service_registered_with_factory(
         self, mock_env_with_api_key: None
     ) -> None:
@@ -421,9 +407,10 @@ class TestDeepgramTTSService:
 
     async def test_calculate_wav_duration_success_path(self, mock_env_with_api_key: None) -> None:
         """Test successful WAV duration calculation with valid WAV data."""
-        from voiceobs.server.services.deepgram_tts import DeepgramTTSService
-        import wave
         import io
+        import wave
+
+        from voiceobs.server.services.deepgram_tts import DeepgramTTSService
 
         # Create a valid WAV file in memory
         wav_buffer = io.BytesIO()
