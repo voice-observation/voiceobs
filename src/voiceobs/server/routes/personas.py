@@ -89,16 +89,7 @@ async def create_persona(
             detail=str(e),
         )
 
-    # Store audio
-    audio_storage = get_audio_storage()
-    # Generate a unique filename prefix using persona name
-    preview_audio_url = await audio_storage.save(
-        audio_bytes,
-        conversation_id=f"persona-{request.name}",
-        audio_type="preview",
-    )
-
-    # Create persona with preview audio URL
+    # Create persona first to get the persona ID
     try:
         persona = await repo.create(
             name=request.name,
@@ -111,13 +102,39 @@ async def create_persona(
             traits=request.traits,
             metadata=request.metadata,
             created_by=request.created_by,
-            preview_audio_url=preview_audio_url,
+            preview_audio_url=None,  # Will be updated after storing audio
             preview_audio_text=DEFAULT_PREVIEW_TEXT,
         )
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
+        )
+
+    # Store audio using persona ID in the prefix
+    audio_storage = get_audio_storage()
+    preview_audio_url = await audio_storage.store_audio(
+        audio_bytes,
+        prefix=f"personas/preview/{persona.id}",
+        content_type=mime_type,
+    )
+
+    # Update persona with preview audio URL
+    try:
+        persona = await repo.update(
+            persona_id=persona.id,
+            preview_audio_url=preview_audio_url,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+    if persona is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update persona with preview audio URL",
         )
 
     return PersonaResponse(
@@ -272,12 +289,12 @@ async def update_persona(
                 detail=str(e),
             )
 
-        # Store new audio
+        # Store new audio using persona ID in the prefix
         audio_storage = get_audio_storage()
-        preview_audio_url = await audio_storage.save(
+        preview_audio_url = await audio_storage.store_audio(
             audio_bytes,
-            conversation_id=f"persona-{persona_id}",
-            audio_type="preview",
+            prefix=f"personas/preview/{persona_id}",
+            content_type=mime_type,
         )
         preview_audio_text = DEFAULT_PREVIEW_TEXT
 

@@ -77,11 +77,31 @@ class TestPersonas:
 
         # Mock audio storage
         mock_audio_storage = AsyncMock()
-        mock_audio_storage.save.return_value = preview_audio_url
+        mock_audio_storage.store_audio.return_value = preview_audio_url
         mock_get_audio_storage.return_value = mock_audio_storage
 
-        # Mock persona repository
-        mock_persona = PersonaRow(
+        # Mock persona repository - first created without preview_audio_url
+        mock_persona_initial = PersonaRow(
+            id=persona_id,
+            name="Angry Customer",
+            description="An aggressive customer persona",
+            aggression=0.8,
+            patience=0.2,
+            verbosity=0.6,
+            traits=["impatient", "demanding"],
+            tts_provider="openai",
+            tts_config={"model": "tts-1", "voice": "alloy", "speed": 1.0},
+            preview_audio_url=None,
+            preview_audio_text=DEFAULT_PREVIEW_TEXT,
+            metadata={"category": "customer"},
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+            created_by="user@example.com",
+            is_active=True,
+        )
+
+        # Mock persona after update with preview_audio_url
+        mock_persona_updated = PersonaRow(
             id=persona_id,
             name="Angry Customer",
             description="An aggressive customer persona",
@@ -101,7 +121,8 @@ class TestPersonas:
         )
 
         mock_repo = AsyncMock()
-        mock_repo.create.return_value = mock_persona
+        mock_repo.create.return_value = mock_persona_initial
+        mock_repo.update.return_value = mock_persona_updated
         mock_get_persona_repo.return_value = mock_repo
 
         response = client.post(
@@ -133,8 +154,11 @@ class TestPersonas:
             {"model": "tts-1", "voice": "alloy", "speed": 1.0},
         )
 
-        # Verify audio storage was called
-        mock_audio_storage.save.assert_called_once()
+        # Verify audio storage was called with store_audio
+        mock_audio_storage.store_audio.assert_called_once()
+
+        # Verify persona was updated with preview audio URL
+        mock_repo.update.assert_called_once()
 
     @patch("voiceobs.server.routes.personas.get_persona_repo")
     def test_list_personas_success(self, mock_get_persona_repo, client):
@@ -324,7 +348,7 @@ class TestPersonas:
 
         # Mock audio storage
         mock_audio_storage = AsyncMock()
-        mock_audio_storage.save.return_value = new_preview_url
+        mock_audio_storage.store_audio.return_value = new_preview_url
         mock_get_audio_storage.return_value = mock_audio_storage
 
         # Mock repo
@@ -634,7 +658,7 @@ class TestPersonas:
 
         # Mock audio storage
         mock_audio_storage = AsyncMock()
-        mock_audio_storage.save.return_value = "https://example.com/audio.mp3"
+        mock_audio_storage.store_audio.return_value = "https://example.com/audio.mp3"
         mock_get_audio_storage.return_value = mock_audio_storage
 
         # Mock repository to raise ValueError
