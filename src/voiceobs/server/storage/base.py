@@ -5,6 +5,28 @@ from __future__ import annotations
 from typing import Protocol
 
 
+def get_extension_from_content_type(content_type: str | None) -> str:
+    """Get file extension from content type.
+
+    Args:
+        content_type: MIME type of the audio.
+
+    Returns:
+        File extension (e.g., ".mp3", ".wav").
+    """
+    if content_type == "audio/mpeg" or content_type == "audio/mp3":
+        return ".mp3"
+    elif content_type == "audio/wav":
+        return ".wav"
+    elif content_type == "audio/ogg":
+        return ".ogg"
+    elif content_type == "audio/flac":
+        return ".flac"
+    else:
+        # Default to wav
+        return ".wav"
+
+
 class AudioStorageProvider(Protocol):
     """Protocol for audio storage providers.
 
@@ -58,6 +80,22 @@ class AudioStorageProvider(Protocol):
 
         Returns:
             True if deleted, False if not found.
+        """
+        ...
+
+    async def store_audio(
+        self, audio_data: bytes, prefix: str, content_type: str | None = None
+    ) -> str:
+        """Store audio data with a custom prefix pattern.
+
+        Args:
+            audio_data: Raw audio data bytes.
+            prefix: Prefix pattern for file storage (e.g., "personas/preview/persona-id").
+            content_type: MIME type of the audio (e.g., "audio/mpeg", "audio/wav").
+                Defaults to "audio/wav" if not provided.
+
+        Returns:
+            URL or path to the stored audio file.
         """
         ...
 
@@ -150,3 +188,19 @@ class AudioStorage:
             True if deleted, False if not found.
         """
         return await self._provider.delete(audio_id)
+
+    async def store_audio(
+        self, audio_data: bytes, prefix: str, content_type: str | None = None
+    ) -> str:
+        """Store audio data with a custom prefix pattern.
+
+        Args:
+            audio_data: Raw audio data bytes.
+            prefix: Prefix pattern for file storage (e.g., "personas/preview/persona-id").
+            content_type: MIME type of the audio (e.g., "audio/mpeg", "audio/wav").
+                Defaults to "audio/wav" if not provided.
+
+        Returns:
+            URL or path to the stored audio file.
+        """
+        return await self._provider.store_audio(audio_data, prefix, content_type)

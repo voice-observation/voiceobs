@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import uuid
 from pathlib import Path
+
+from voiceobs.server.storage.base import get_extension_from_content_type
 
 
 class LocalFileStorage:
@@ -124,3 +127,40 @@ class LocalFileStorage:
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, file_path.unlink)
         return True
+
+    async def store_audio(
+        self, audio_data: bytes, prefix: str, content_type: str | None = None
+    ) -> str:
+        """Store audio data with a custom prefix pattern.
+
+        Args:
+            audio_data: Raw audio data bytes.
+            prefix: Prefix pattern for file storage (e.g., "personas/preview/persona-id").
+            content_type: MIME type of the audio (e.g., "audio/mpeg", "audio/wav").
+                Defaults to "audio/wav" if not provided.
+
+        Returns:
+            URL path to the stored file.
+        """
+        import asyncio
+
+        # Determine file extension from content type
+        extension = get_extension_from_content_type(content_type)
+
+        # Generate unique filename with prefix
+        unique_id = str(uuid.uuid4())
+        filename = f"{unique_id}{extension}"
+
+        # Create full path with prefix (prefix can contain subdirectories)
+        file_path = self.base_path / prefix / filename
+
+        # Create parent directories if they don't exist
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Write file asynchronously
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, file_path.write_bytes, audio_data)
+
+        # Return URL path
+        # Format: /audio/prefix/filename
+        return f"/audio/{prefix}/{filename}"

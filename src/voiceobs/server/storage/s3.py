@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import os
+import uuid
 from typing import TYPE_CHECKING
+
+from voiceobs.server.storage.base import get_extension_from_content_type
 
 if TYPE_CHECKING:
     from mypy_boto3_s3 import S3Client
@@ -218,3 +221,48 @@ class S3Storage:
             ),
         )
         return url
+
+    async def store_audio(
+        self, audio_data: bytes, prefix: str, content_type: str | None = None
+    ) -> str:
+        """Store audio data with a custom prefix pattern.
+
+        Args:
+            audio_data: Raw audio data bytes.
+            prefix: Prefix pattern for file storage (e.g., "personas/preview/persona-id").
+            content_type: MIME type of the audio (e.g., "audio/mpeg", "audio/wav").
+                Defaults to "audio/wav" if not provided.
+
+        Returns:
+            S3 URL to the stored file.
+        """
+        import asyncio
+
+        # Determine file extension from content type
+        extension = get_extension_from_content_type(content_type)
+
+        # Default content type if not provided
+        if content_type is None:
+            content_type = "audio/wav"
+
+        # Generate unique filename with prefix
+        unique_id = str(uuid.uuid4())
+        filename = f"{unique_id}{extension}"
+
+        # Create S3 key with prefix
+        s3_key = f"{prefix}/{filename}"
+
+        # Upload to S3
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(
+            None,
+            lambda: self.s3_client.put_object(
+                Bucket=self.bucket_name,
+                Key=s3_key,
+                Body=audio_data,
+                ContentType=content_type,
+            ),
+        )
+
+        # Return S3 URL
+        return f"s3://{self.bucket_name}/{s3_key}"
