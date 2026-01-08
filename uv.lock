@@ -419,6 +419,22 @@ toml = [
 ]
 
 [[package]]
+name = "deepgram-sdk"
+version = "5.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "pydantic-core" },
+    { name = "typing-extensions" },
+    { name = "websockets" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2d/9c/4529cc5818e9305ac9be3c24545249ad57418cbc3736c3f1c0a8397b59f5/deepgram_sdk-5.3.0.tar.gz", hash = "sha256:4e682a53f64c26dc49d8fd70865eae1e98236d313870d1bcf5f107f125e53793", size = 148179, upload-time = "2025-11-03T15:24:02.436Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/58/e2/cda09edad156199cc9e330533f6b72cb5276c0d476cab7f1744be7ffa16e/deepgram_sdk-5.3.0-py3-none-any.whl", hash = "sha256:431418fdffbd93cdf6a78a168984e3df3cb696818ced1cfc52ce336e0bc6a7fe", size = 390669, upload-time = "2025-11-03T15:24:01.078Z" },
+]
+
+[[package]]
 name = "distlib"
 version = "0.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2594,6 +2610,7 @@ dependencies = [
 dev = [
     { name = "alembic" },
     { name = "asyncpg" },
+    { name = "deepgram-sdk" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "mutagen" },
@@ -2625,6 +2642,7 @@ s3 = [
 server = [
     { name = "alembic" },
     { name = "asyncpg" },
+    { name = "deepgram-sdk" },
     { name = "fastapi" },
     { name = "mutagen" },
     { name = "openai" },
@@ -2648,6 +2666,8 @@ requires-dist = [
     { name = "asyncpg", marker = "extra == 'dev'", specifier = ">=0.29.0" },
     { name = "asyncpg", marker = "extra == 'server'", specifier = ">=0.29.0" },
     { name = "boto3", marker = "extra == 's3'", specifier = ">=1.28.0" },
+    { name = "deepgram-sdk", marker = "extra == 'dev'", specifier = ">=3.0.0" },
+    { name = "deepgram-sdk", marker = "extra == 'server'", specifier = ">=3.0.0" },
     { name = "fastapi", marker = "extra == 'dev'", specifier = ">=0.109.0" },
     { name = "fastapi", marker = "extra == 'server'", specifier = ">=0.109.0" },
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27.0" },
