@@ -4,24 +4,28 @@ from datetime import datetime
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
-from voiceobs.server.db.models import TestScenarioRow, TestSuiteRow
+from voiceobs.server.db.models import PersonaRow, TestScenarioRow, TestSuiteRow
 
 
 class TestTestScenarios:
     """Tests for test scenario CRUD endpoints."""
 
+    @patch("voiceobs.server.routes.test_dependencies.get_persona_repository")
     @patch("voiceobs.server.routes.test_dependencies.get_test_suite_repository")
     @patch("voiceobs.server.routes.test_dependencies.get_test_scenario_repository")
     @patch("voiceobs.server.routes.test_dependencies.is_using_postgres", return_value=True)
     @patch("voiceobs.server.routes.test_scenarios.get_test_scenario_repo")
     @patch("voiceobs.server.routes.test_scenarios.get_test_suite_repo")
+    @patch("voiceobs.server.routes.test_scenarios.get_persona_repo")
     def test_create_scenario_success(
         self,
+        mock_get_persona_repo,
         mock_get_suite_repo,
         mock_get_scenario_repo,
         mock_is_postgres,
         mock_get_scenario_repository,
         mock_get_suite_repository,
+        mock_get_persona_repository,
         client,
     ):
         """Test successful scenario creation."""
@@ -36,6 +40,15 @@ class TestTestScenarios:
             created_at=datetime.utcnow(),
         )
         persona_id = uuid4()
+        mock_persona = PersonaRow(
+            id=persona_id,
+            name="Test Persona",
+            aggression=0.5,
+            patience=0.5,
+            verbosity=0.5,
+            tts_provider="openai",
+            is_active=True,
+        )
         mock_scenario = TestScenarioRow(
             id=scenario_id,
             suite_id=suite_id,
@@ -50,6 +63,11 @@ class TestTestScenarios:
         mock_suite_repo.get.return_value = mock_suite
         mock_get_suite_repo.return_value = mock_suite_repo
         mock_get_suite_repository.return_value = mock_suite_repo
+
+        mock_persona_repo = AsyncMock()
+        mock_persona_repo.get.return_value = mock_persona
+        mock_get_persona_repo.return_value = mock_persona_repo
+        mock_get_persona_repository.return_value = mock_persona_repo
 
         mock_scenario_repo = AsyncMock()
         mock_scenario_repo.create.return_value = mock_scenario
@@ -74,18 +92,22 @@ class TestTestScenarios:
         assert data["goal"] == "Test goal"
         assert data["suite_id"] == str(suite_id)
 
+    @patch("voiceobs.server.routes.test_dependencies.get_persona_repository")
     @patch("voiceobs.server.routes.test_dependencies.get_test_suite_repository")
     @patch("voiceobs.server.routes.test_dependencies.get_test_scenario_repository")
     @patch("voiceobs.server.routes.test_dependencies.is_using_postgres", return_value=True)
     @patch("voiceobs.server.routes.test_scenarios.get_test_scenario_repo")
     @patch("voiceobs.server.routes.test_scenarios.get_test_suite_repo")
+    @patch("voiceobs.server.routes.test_scenarios.get_persona_repo")
     def test_create_scenario_suite_not_found(
         self,
+        mock_get_persona_repo,
         mock_get_suite_repo,
         mock_get_scenario_repo,
         mock_is_postgres,
         mock_get_scenario_repository,
         mock_get_suite_repository,
+        mock_get_persona_repository,
         client,
     ):
         """Test scenario creation when suite not found."""
@@ -97,6 +119,10 @@ class TestTestScenarios:
         mock_scenario_repo = AsyncMock()
         mock_get_scenario_repo.return_value = mock_scenario_repo
         mock_get_scenario_repository.return_value = mock_scenario_repo
+
+        mock_persona_repo = AsyncMock()
+        mock_get_persona_repo.return_value = mock_persona_repo
+        mock_get_persona_repository.return_value = mock_persona_repo
 
         suite_id = uuid4()
         persona_id = uuid4()
@@ -210,11 +236,19 @@ class TestTestScenarios:
         data = response.json()
         assert data["name"] == "Test Scenario"
 
+    @patch("voiceobs.server.routes.test_dependencies.get_persona_repository")
     @patch("voiceobs.server.routes.test_dependencies.get_test_scenario_repository")
     @patch("voiceobs.server.routes.test_dependencies.is_using_postgres", return_value=True)
     @patch("voiceobs.server.routes.test_scenarios.get_test_scenario_repo")
+    @patch("voiceobs.server.routes.test_scenarios.get_persona_repo")
     def test_update_scenario_success(
-        self, mock_get_repo, mock_is_postgres, mock_get_scenario_repository, client
+        self,
+        mock_get_persona_repo,
+        mock_get_repo,
+        mock_is_postgres,
+        mock_get_scenario_repository,
+        mock_get_persona_repository,
+        client,
     ):
         """Test successful scenario update."""
         mock_repo = AsyncMock()
@@ -232,6 +266,10 @@ class TestTestScenarios:
         mock_repo.update.return_value = updated_scenario
         mock_get_repo.return_value = mock_repo
         mock_get_scenario_repository.return_value = mock_repo
+
+        mock_persona_repo = AsyncMock()
+        mock_get_persona_repo.return_value = mock_persona_repo
+        mock_get_persona_repository.return_value = mock_persona_repo
 
         response = client.put(
             f"/api/v1/tests/scenarios/{scenario_id}",
@@ -259,3 +297,211 @@ class TestTestScenarios:
         response = client.delete(f"/api/v1/tests/scenarios/{scenario_id}")
 
         assert response.status_code == 204
+
+    @patch("voiceobs.server.routes.test_dependencies.get_persona_repository")
+    @patch("voiceobs.server.routes.test_dependencies.get_test_suite_repository")
+    @patch("voiceobs.server.routes.test_dependencies.get_test_scenario_repository")
+    @patch("voiceobs.server.routes.test_dependencies.is_using_postgres", return_value=True)
+    @patch("voiceobs.server.routes.test_scenarios.get_test_scenario_repo")
+    @patch("voiceobs.server.routes.test_scenarios.get_test_suite_repo")
+    @patch("voiceobs.server.routes.test_scenarios.get_persona_repo")
+    def test_create_scenario_persona_not_found(
+        self,
+        mock_get_persona_repo,
+        mock_get_suite_repo,
+        mock_get_scenario_repo,
+        mock_is_postgres,
+        mock_get_scenario_repository,
+        mock_get_suite_repository,
+        mock_get_persona_repository,
+        client,
+    ):
+        """Test scenario creation when persona not found."""
+        suite_id = uuid4()
+        persona_id = uuid4()
+
+        mock_suite = TestSuiteRow(
+            id=suite_id,
+            name="Test Suite",
+            description="Test description",
+            status="pending",
+            created_at=datetime.utcnow(),
+        )
+
+        mock_suite_repo = AsyncMock()
+        mock_suite_repo.get.return_value = mock_suite
+        mock_get_suite_repo.return_value = mock_suite_repo
+        mock_get_suite_repository.return_value = mock_suite_repo
+
+        mock_scenario_repo = AsyncMock()
+        mock_get_scenario_repo.return_value = mock_scenario_repo
+        mock_get_scenario_repository.return_value = mock_scenario_repo
+
+        # Persona not found
+        mock_persona_repo = AsyncMock()
+        mock_persona_repo.get.return_value = None
+        mock_get_persona_repo.return_value = mock_persona_repo
+        mock_get_persona_repository.return_value = mock_persona_repo
+
+        response = client.post(
+            "/api/v1/tests/scenarios",
+            json={
+                "suite_id": str(suite_id),
+                "name": "Test Scenario",
+                "goal": "Test goal",
+                "persona_id": str(persona_id),
+            },
+        )
+
+        assert response.status_code == 404
+        assert "Persona" in response.json()["detail"]
+
+    @patch("voiceobs.server.routes.test_dependencies.get_persona_repository")
+    @patch("voiceobs.server.routes.test_dependencies.get_test_suite_repository")
+    @patch("voiceobs.server.routes.test_dependencies.get_test_scenario_repository")
+    @patch("voiceobs.server.routes.test_dependencies.is_using_postgres", return_value=True)
+    @patch("voiceobs.server.routes.test_scenarios.get_test_scenario_repo")
+    @patch("voiceobs.server.routes.test_scenarios.get_test_suite_repo")
+    @patch("voiceobs.server.routes.test_scenarios.get_persona_repo")
+    def test_create_scenario_persona_inactive(
+        self,
+        mock_get_persona_repo,
+        mock_get_suite_repo,
+        mock_get_scenario_repo,
+        mock_is_postgres,
+        mock_get_scenario_repository,
+        mock_get_suite_repository,
+        mock_get_persona_repository,
+        client,
+    ):
+        """Test scenario creation when persona is inactive."""
+        suite_id = uuid4()
+        persona_id = uuid4()
+
+        mock_suite = TestSuiteRow(
+            id=suite_id,
+            name="Test Suite",
+            description="Test description",
+            status="pending",
+            created_at=datetime.utcnow(),
+        )
+
+        # Inactive persona
+        mock_persona = PersonaRow(
+            id=persona_id,
+            name="Test Persona",
+            aggression=0.5,
+            patience=0.5,
+            verbosity=0.5,
+            tts_provider="openai",
+            is_active=False,
+        )
+
+        mock_suite_repo = AsyncMock()
+        mock_suite_repo.get.return_value = mock_suite
+        mock_get_suite_repo.return_value = mock_suite_repo
+        mock_get_suite_repository.return_value = mock_suite_repo
+
+        mock_scenario_repo = AsyncMock()
+        mock_get_scenario_repo.return_value = mock_scenario_repo
+        mock_get_scenario_repository.return_value = mock_scenario_repo
+
+        mock_persona_repo = AsyncMock()
+        mock_persona_repo.get.return_value = mock_persona
+        mock_get_persona_repo.return_value = mock_persona_repo
+        mock_get_persona_repository.return_value = mock_persona_repo
+
+        response = client.post(
+            "/api/v1/tests/scenarios",
+            json={
+                "suite_id": str(suite_id),
+                "name": "Test Scenario",
+                "goal": "Test goal",
+                "persona_id": str(persona_id),
+            },
+        )
+
+        assert response.status_code == 400
+        assert "inactive" in response.json()["detail"].lower()
+
+    @patch("voiceobs.server.routes.test_dependencies.get_persona_repository")
+    @patch("voiceobs.server.routes.test_dependencies.get_test_scenario_repository")
+    @patch("voiceobs.server.routes.test_dependencies.is_using_postgres", return_value=True)
+    @patch("voiceobs.server.routes.test_scenarios.get_test_scenario_repo")
+    @patch("voiceobs.server.routes.test_scenarios.get_persona_repo")
+    def test_update_scenario_persona_not_found(
+        self,
+        mock_get_persona_repo,
+        mock_get_scenario_repo,
+        mock_is_postgres,
+        mock_get_scenario_repository,
+        mock_get_persona_repository,
+        client,
+    ):
+        """Test scenario update when persona not found."""
+        scenario_id = uuid4()
+        persona_id = uuid4()
+
+        mock_scenario_repo = AsyncMock()
+        mock_get_scenario_repo.return_value = mock_scenario_repo
+        mock_get_scenario_repository.return_value = mock_scenario_repo
+
+        # Persona not found
+        mock_persona_repo = AsyncMock()
+        mock_persona_repo.get.return_value = None
+        mock_get_persona_repo.return_value = mock_persona_repo
+        mock_get_persona_repository.return_value = mock_persona_repo
+
+        response = client.put(
+            f"/api/v1/tests/scenarios/{scenario_id}",
+            json={"persona_id": str(persona_id)},
+        )
+
+        assert response.status_code == 404
+        assert "Persona" in response.json()["detail"]
+
+    @patch("voiceobs.server.routes.test_dependencies.get_persona_repository")
+    @patch("voiceobs.server.routes.test_dependencies.get_test_scenario_repository")
+    @patch("voiceobs.server.routes.test_dependencies.is_using_postgres", return_value=True)
+    @patch("voiceobs.server.routes.test_scenarios.get_test_scenario_repo")
+    @patch("voiceobs.server.routes.test_scenarios.get_persona_repo")
+    def test_update_scenario_persona_inactive(
+        self,
+        mock_get_persona_repo,
+        mock_get_scenario_repo,
+        mock_is_postgres,
+        mock_get_scenario_repository,
+        mock_get_persona_repository,
+        client,
+    ):
+        """Test scenario update when persona is inactive."""
+        scenario_id = uuid4()
+        persona_id = uuid4()
+
+        # Inactive persona
+        mock_persona = PersonaRow(
+            id=persona_id,
+            name="Test Persona",
+            aggression=0.5,
+            patience=0.5,
+            verbosity=0.5,
+            tts_provider="openai",
+            is_active=False,
+        )
+
+        mock_scenario_repo = AsyncMock()
+        mock_get_scenario_repo.return_value = mock_scenario_repo
+        mock_get_scenario_repository.return_value = mock_scenario_repo
+
+        mock_persona_repo = AsyncMock()
+        mock_persona_repo.get.return_value = mock_persona
+        mock_get_persona_repo.return_value = mock_persona_repo
+        mock_get_persona_repository.return_value = mock_persona_repo
+
+        response = client.put(
+            f"/api/v1/tests/scenarios/{scenario_id}",
+            json={"persona_id": str(persona_id)},
+        )
+
+        assert response.status_code == 400
+        assert "inactive" in response.json()["detail"].lower()
