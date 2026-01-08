@@ -2,23 +2,28 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 from voiceobs.server.db.connection import Database
 from voiceobs.server.db.models import TestScenarioRow
 
+if TYPE_CHECKING:
+    from voiceobs.server.db.repositories.persona import PersonaRepository
+
 
 class TestScenarioRepository:
     """Repository for test scenario operations."""
 
-    def __init__(self, db: Database) -> None:
+    def __init__(self, db: Database, persona_repo: PersonaRepository) -> None:
         """Initialize the test scenario repository.
 
         Args:
             db: Database connection manager.
+            persona_repo: Persona repository for validation.
         """
         self._db = db
+        self._persona_repo = persona_repo
 
     async def create(
         self,
@@ -41,7 +46,17 @@ class TestScenarioRepository:
 
         Returns:
             The created test scenario row.
+
+        Raises:
+            ValueError: If persona_id does not reference an existing active persona.
         """
+        # Validate that persona exists and is active
+        persona = await self._persona_repo.get(persona_id)
+        if persona is None:
+            raise ValueError(f"Persona {persona_id} not found")
+        if not persona.is_active:
+            raise ValueError(f"Persona {persona_id} is not active")
+
         scenario_id = uuid4()
         await self._db.execute(
             """
@@ -173,7 +188,18 @@ class TestScenarioRepository:
 
         Returns:
             The updated test scenario row, or None if not found.
+
+        Raises:
+            ValueError: If persona_id does not reference an existing active persona.
         """
+        # Validate persona if provided
+        if persona_id is not None:
+            persona = await self._persona_repo.get(persona_id)
+            if persona is None:
+                raise ValueError(f"Persona {persona_id} not found")
+            if not persona.is_active:
+                raise ValueError(f"Persona {persona_id} is not active")
+
         updates = []
         params: list[Any] = []
         param_idx = 1
