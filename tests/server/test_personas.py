@@ -12,9 +12,7 @@ class TestPersonas:
     """Tests for persona CRUD endpoints."""
 
     @patch("voiceobs.server.routes.personas.is_using_postgres", return_value=False)
-    def test_create_persona_postgres_required(
-        self, mock_is_postgres, client
-    ):
+    def test_create_persona_postgres_required(self, mock_is_postgres, client):
         """Test creating a persona without PostgreSQL configured."""
         response = client.post(
             "/api/v1/personas",
@@ -33,9 +31,7 @@ class TestPersonas:
 
     @patch("voiceobs.server.routes.personas.is_using_postgres", return_value=True)
     @patch("voiceobs.server.routes.personas.get_persona_repository", return_value=None)
-    def test_create_persona_repository_unavailable(
-        self, mock_get_repo, mock_is_postgres, client
-    ):
+    def test_create_persona_repository_unavailable(self, mock_get_repo, mock_is_postgres, client):
         """Test creating a persona when repository is unavailable."""
         response = client.post(
             "/api/v1/personas",
@@ -225,14 +221,10 @@ class TestPersonas:
         mock_repo.list_all.return_value = []
         mock_get_persona_repo.return_value = mock_repo
 
-        response = client.get(
-            "/api/v1/personas?is_active=false&limit=10&offset=5"
-        )
+        response = client.get("/api/v1/personas?is_active=false&limit=10&offset=5")
 
         assert response.status_code == 200
-        mock_repo.list_all.assert_called_once_with(
-            is_active=False, limit=10, offset=5
-        )
+        mock_repo.list_all.assert_called_once_with(is_active=False, limit=10, offset=5)
 
     @patch("voiceobs.server.routes.personas.get_persona_repo")
     def test_get_persona_success(self, mock_get_persona_repo, client):
@@ -374,9 +366,7 @@ class TestPersonas:
         mock_tts_service.synthesize.assert_called_once()
 
     @patch("voiceobs.server.routes.personas.get_persona_repo")
-    def test_update_persona_without_tts_change(
-        self, mock_get_persona_repo, client
-    ):
+    def test_update_persona_without_tts_change(self, mock_get_persona_repo, client):
         """Test updating a persona without TTS settings change (no preview regeneration)."""
         persona_id = uuid4()
         preview_url = "https://example.com/preview.mp3"
@@ -536,9 +526,7 @@ class TestPersonas:
         assert data["format"] == "audio/mpeg"
 
     @patch("voiceobs.server.routes.personas.get_persona_repo")
-    def test_get_preview_audio_persona_not_found(
-        self, mock_get_persona_repo, client
-    ):
+    def test_get_preview_audio_persona_not_found(self, mock_get_persona_repo, client):
         """Test getting preview audio for a persona that doesn't exist."""
         persona_id = uuid4()
 
@@ -551,9 +539,7 @@ class TestPersonas:
         assert response.status_code == 404
 
     @patch("voiceobs.server.routes.personas.get_persona_repo")
-    def test_get_preview_audio_not_available(
-        self, mock_get_persona_repo, client
-    ):
+    def test_get_preview_audio_not_available(self, mock_get_persona_repo, client):
         """Test getting preview audio when not available."""
         persona_id = uuid4()
 
@@ -730,9 +716,7 @@ class TestPersonas:
         assert response.status_code == 400
 
     @patch("voiceobs.server.routes.personas.get_persona_repo")
-    def test_update_persona_repository_error(
-        self, mock_get_persona_repo, client
-    ):
+    def test_update_persona_repository_error(self, mock_get_persona_repo, client):
         """Test updating a persona with repository validation error."""
         persona_id = uuid4()
 

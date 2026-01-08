@@ -49,9 +49,7 @@ class TestElevenLabsTTSService:
             service = ElevenLabsTTSService()
             config = {"voice_id": "21m00Tcm4TlvDq8ikWAM"}
 
-            audio_bytes, mime_type, duration_ms = await service.synthesize(
-                "Hello world", config
-            )
+            audio_bytes, mime_type, duration_ms = await service.synthesize("Hello world", config)
 
             # Verify ElevenLabs client was created with API key
             mock_elevenlabs.assert_called_once_with(api_key="test_elevenlabs_key_123")
@@ -64,7 +62,7 @@ class TestElevenLabsTTSService:
                 voice_settings={
                     "stability": 0.5,
                     "similarity_boost": 0.75,
-                }
+                },
             )
 
             # Verify return values
@@ -100,7 +98,7 @@ class TestElevenLabsTTSService:
                 voice_settings={
                     "stability": 0.7,
                     "similarity_boost": 0.8,
-                }
+                },
             )
 
     async def test_synthesize_with_partial_config(
@@ -128,7 +126,7 @@ class TestElevenLabsTTSService:
                 voice_settings={
                     "stability": 0.6,  # custom
                     "similarity_boost": 0.75,  # default
-                }
+                },
             )
 
     async def test_synthesize_raises_error_when_api_key_missing(self) -> None:
@@ -165,9 +163,7 @@ class TestElevenLabsTTSService:
 
         with patch("voiceobs.server.services.elevenlabs_tts.AsyncElevenLabs") as mock_elevenlabs:
             mock_client = MagicMock()
-            mock_client.generate = AsyncMock(
-                side_effect=Exception("ElevenLabs API Error")
-            )
+            mock_client.generate = AsyncMock(side_effect=Exception("ElevenLabs API Error"))
             mock_elevenlabs.return_value = mock_client
 
             service = ElevenLabsTTSService()
@@ -270,7 +266,7 @@ class TestElevenLabsTTSService:
                     "stability": 0.5,
                     "similarity_boost": 0.75,
                 },
-                stream=True
+                stream=True,
             )
 
     async def test_synthesize_streaming_with_custom_config(
@@ -311,7 +307,7 @@ class TestElevenLabsTTSService:
                     "stability": 0.8,
                     "similarity_boost": 0.9,
                 },
-                stream=True
+                stream=True,
             )
 
     async def test_synthesize_streaming_raises_error_when_api_key_missing(

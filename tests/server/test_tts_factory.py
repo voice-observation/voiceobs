@@ -12,15 +12,11 @@ from voiceobs.server.services.tts_factory import TTSServiceFactory
 class MockTTSService(TTSService):
     """Mock TTS service for testing."""
 
-    async def synthesize(
-        self, text: str, config: dict[str, Any]
-    ) -> tuple[bytes, str, float]:
+    async def synthesize(self, text: str, config: dict[str, Any]) -> tuple[bytes, str, float]:
         """Mock synthesize implementation."""
         return b"mock_audio_data", "audio/mpeg", 1500.0
 
-    async def synthesize_streaming(
-        self, text: str, config: dict[str, Any]
-    ) -> AsyncIterator[bytes]:
+    async def synthesize_streaming(self, text: str, config: dict[str, Any]) -> AsyncIterator[bytes]:
         """Mock synthesize_streaming implementation."""
         yield b"mock_chunk_1"
         yield b"mock_chunk_2"

@@ -1130,9 +1130,7 @@ class PersonaCreateRequest(BaseModel):
         ..., ge=0.0, le=1.0, description="Aggression level (0.0-1.0, required)"
     )
     patience: float = Field(..., ge=0.0, le=1.0, description="Patience level (0.0-1.0, required)")
-    verbosity: float = Field(
-        ..., ge=0.0, le=1.0, description="Verbosity level (0.0-1.0, required)"
-    )
+    verbosity: float = Field(..., ge=0.0, le=1.0, description="Verbosity level (0.0-1.0, required)")
     traits: list[str] = Field(default_factory=list, description="List of personality traits")
     tts_provider: str = Field(
         ..., description="TTS provider: 'openai', 'elevenlabs', 'deepgram', etc."

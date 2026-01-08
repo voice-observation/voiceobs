@@ -33,9 +33,7 @@ class DeepgramTTSService(TTSService):
     DEFAULT_BITS_PER_SAMPLE = 16
     DEFAULT_CHANNELS = 1
 
-    def _get_client_and_model(
-        self, config: dict[str, Any]
-    ) -> tuple[DeepgramClient, str]:
+    def _get_client_and_model(self, config: dict[str, Any]) -> tuple[DeepgramClient, str]:
         """Get Deepgram client and extract model from configuration.
 
         Args:
@@ -50,9 +48,7 @@ class DeepgramTTSService(TTSService):
         # Get API key from environment
         api_key = os.getenv("DEEPGRAM_API_KEY")
         if not api_key:
-            raise ValueError(
-                "DEEPGRAM_API_KEY environment variable is required for Deepgram TTS"
-            )
+            raise ValueError("DEEPGRAM_API_KEY environment variable is required for Deepgram TTS")
 
         # Extract model with default
         model = config.get("model", self.DEFAULT_MODEL)
@@ -62,9 +58,7 @@ class DeepgramTTSService(TTSService):
 
         return client, model
 
-    async def synthesize(
-        self, text: str, config: dict[str, Any]
-    ) -> tuple[bytes, str, float]:
+    async def synthesize(self, text: str, config: dict[str, Any]) -> tuple[bytes, str, float]:
         """Synthesize text to audio using Deepgram TTS API.
 
         Args:
@@ -102,18 +96,14 @@ class DeepgramTTSService(TTSService):
 
         # Verify WAV header
         if len(audio_bytes) >= 4 and audio_bytes[:4] != b"RIFF":
-            raise ValueError(
-                f"Invalid WAV file: expected RIFF header, got {audio_bytes[:4]}"
-            )
+            raise ValueError(f"Invalid WAV file: expected RIFF header, got {audio_bytes[:4]}")
 
         # Calculate duration from audio data
         duration_ms = self._calculate_duration(audio_bytes)
 
         return audio_bytes, self.MIME_TYPE, duration_ms
 
-    async def synthesize_streaming(
-        self, text: str, config: dict[str, Any]
-    ) -> AsyncIterator[bytes]:
+    async def synthesize_streaming(self, text: str, config: dict[str, Any]) -> AsyncIterator[bytes]:
         """Synthesize text to audio with streaming response using Deepgram TTS API.
 
         Args:
@@ -198,9 +188,7 @@ class DeepgramTTSService(TTSService):
         # For WAV/linear16, calculate based on uncompressed PCM
         # bytes_per_second = sample_rate * (bits_per_sample / 8) * channels
         bytes_per_second = (
-            self.DEFAULT_SAMPLE_RATE
-            * (self.DEFAULT_BITS_PER_SAMPLE / 8)
-            * self.DEFAULT_CHANNELS
+            self.DEFAULT_SAMPLE_RATE * (self.DEFAULT_BITS_PER_SAMPLE / 8) * self.DEFAULT_CHANNELS
         )
         # WAV header is typically 44 bytes
         data_bytes = max(0, size_bytes - 44)

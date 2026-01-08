@@ -28,34 +28,38 @@ class TestTestScenarioRepository:
         # Mock persona exists and is active
         mock_db.fetchrow.side_effect = [
             # First call: persona validation
-            MockRecord({
-                "id": persona_id,
-                "name": "Test Persona",
-                "description": None,
-                "aggression": 0.5,
-                "patience": 0.7,
-                "verbosity": 0.3,
-                "traits": [],
-                "tts_provider": "openai",
-                "tts_config": {},
-                "preview_audio_url": None,
-                "preview_audio_text": None,
-                "metadata": {},
-                "created_at": None,
-                "updated_at": None,
-                "created_by": None,
-                "is_active": True,
-            }),
+            MockRecord(
+                {
+                    "id": persona_id,
+                    "name": "Test Persona",
+                    "description": None,
+                    "aggression": 0.5,
+                    "patience": 0.7,
+                    "verbosity": 0.3,
+                    "traits": [],
+                    "tts_provider": "openai",
+                    "tts_config": {},
+                    "preview_audio_url": None,
+                    "preview_audio_text": None,
+                    "metadata": {},
+                    "created_at": None,
+                    "updated_at": None,
+                    "created_by": None,
+                    "is_active": True,
+                }
+            ),
             # Second call: fetchrow for created scenario
-            MockRecord({
-                "id": scenario_id,
-                "suite_id": suite_id,
-                "name": "Test Scenario",
-                "goal": "Test goal",
-                "persona_id": persona_id,
-                "max_turns": 10,
-                "timeout": 300,
-            }),
+            MockRecord(
+                {
+                    "id": scenario_id,
+                    "suite_id": suite_id,
+                    "name": "Test Scenario",
+                    "goal": "Test goal",
+                    "persona_id": persona_id,
+                    "max_turns": 10,
+                    "timeout": 300,
+                }
+            ),
         ]
 
         result = await repo.create(
@@ -104,24 +108,26 @@ class TestTestScenarioRepository:
         persona_id = uuid4()
 
         # Mock persona exists but is inactive
-        mock_db.fetchrow.return_value = MockRecord({
-            "id": persona_id,
-            "name": "Inactive Persona",
-            "description": None,
-            "aggression": 0.5,
-            "patience": 0.7,
-            "verbosity": 0.3,
-            "traits": [],
-            "tts_provider": "openai",
-            "tts_config": {},
-            "preview_audio_url": None,
-            "preview_audio_text": None,
-            "metadata": {},
-            "created_at": None,
-            "updated_at": None,
-            "created_by": None,
-            "is_active": False,
-        })
+        mock_db.fetchrow.return_value = MockRecord(
+            {
+                "id": persona_id,
+                "name": "Inactive Persona",
+                "description": None,
+                "aggression": 0.5,
+                "patience": 0.7,
+                "verbosity": 0.3,
+                "traits": [],
+                "tts_provider": "openai",
+                "tts_config": {},
+                "preview_audio_url": None,
+                "preview_audio_text": None,
+                "metadata": {},
+                "created_at": None,
+                "updated_at": None,
+                "created_by": None,
+                "is_active": False,
+            }
+        )
 
         with pytest.raises(ValueError, match="Persona .* is not active"):
             await repo.create(
@@ -145,34 +151,38 @@ class TestTestScenarioRepository:
         # Mock persona validation and final get
         mock_db.fetchrow.side_effect = [
             # First call: persona validation
-            MockRecord({
-                "id": new_persona_id,
-                "name": "New Persona",
-                "description": None,
-                "aggression": 0.5,
-                "patience": 0.7,
-                "verbosity": 0.3,
-                "traits": [],
-                "tts_provider": "openai",
-                "tts_config": {},
-                "preview_audio_url": None,
-                "preview_audio_text": None,
-                "metadata": {},
-                "created_at": None,
-                "updated_at": None,
-                "created_by": None,
-                "is_active": True,
-            }),
+            MockRecord(
+                {
+                    "id": new_persona_id,
+                    "name": "New Persona",
+                    "description": None,
+                    "aggression": 0.5,
+                    "patience": 0.7,
+                    "verbosity": 0.3,
+                    "traits": [],
+                    "tts_provider": "openai",
+                    "tts_config": {},
+                    "preview_audio_url": None,
+                    "preview_audio_text": None,
+                    "metadata": {},
+                    "created_at": None,
+                    "updated_at": None,
+                    "created_by": None,
+                    "is_active": True,
+                }
+            ),
             # Second call: get updated scenario
-            MockRecord({
-                "id": scenario_id,
-                "suite_id": uuid4(),
-                "name": "Updated Scenario",
-                "goal": "Updated goal",
-                "persona_id": new_persona_id,
-                "max_turns": 15,
-                "timeout": 600,
-            }),
+            MockRecord(
+                {
+                    "id": scenario_id,
+                    "suite_id": uuid4(),
+                    "name": "Updated Scenario",
+                    "goal": "Updated goal",
+                    "persona_id": new_persona_id,
+                    "max_turns": 15,
+                    "timeout": 600,
+                }
+            ),
         ]
 
         result = await repo.update(
@@ -215,24 +225,26 @@ class TestTestScenarioRepository:
         persona_id = uuid4()
 
         # Mock persona exists but is inactive
-        mock_db.fetchrow.return_value = MockRecord({
-            "id": persona_id,
-            "name": "Inactive Persona",
-            "description": None,
-            "aggression": 0.5,
-            "patience": 0.7,
-            "verbosity": 0.3,
-            "traits": [],
-            "tts_provider": "openai",
-            "tts_config": {},
-            "preview_audio_url": None,
-            "preview_audio_text": None,
-            "metadata": {},
-            "created_at": None,
-            "updated_at": None,
-            "created_by": None,
-            "is_active": False,
-        })
+        mock_db.fetchrow.return_value = MockRecord(
+            {
+                "id": persona_id,
+                "name": "Inactive Persona",
+                "description": None,
+                "aggression": 0.5,
+                "patience": 0.7,
+                "verbosity": 0.3,
+                "traits": [],
+                "tts_provider": "openai",
+                "tts_config": {},
+                "preview_audio_url": None,
+                "preview_audio_text": None,
+                "metadata": {},
+                "created_at": None,
+                "updated_at": None,
+                "created_by": None,
+                "is_active": False,
+            }
+        )
 
         with pytest.raises(ValueError, match="Persona .* is not active"):
             await repo.update(
@@ -252,15 +264,17 @@ class TestTestScenarioRepository:
         persona_id = uuid4()
 
         # Mock get to return existing scenario
-        mock_db.fetchrow.return_value = MockRecord({
-            "id": scenario_id,
-            "suite_id": uuid4(),
-            "name": "Updated Name",
-            "goal": "Test goal",
-            "persona_id": persona_id,
-            "max_turns": 10,
-            "timeout": 300,
-        })
+        mock_db.fetchrow.return_value = MockRecord(
+            {
+                "id": scenario_id,
+                "suite_id": uuid4(),
+                "name": "Updated Name",
+                "goal": "Test goal",
+                "persona_id": persona_id,
+                "max_turns": 10,
+                "timeout": 300,
+            }
+        )
 
         result = await repo.update(
             scenario_id=scenario_id,
@@ -282,15 +296,17 @@ class TestTestScenarioRepository:
         scenario_id = uuid4()
         persona_id = uuid4()
 
-        mock_db.fetchrow.return_value = MockRecord({
-            "id": scenario_id,
-            "suite_id": uuid4(),
-            "name": "Test Scenario",
-            "goal": "Test goal",
-            "persona_id": persona_id,
-            "max_turns": 10,
-            "timeout": 300,
-        })
+        mock_db.fetchrow.return_value = MockRecord(
+            {
+                "id": scenario_id,
+                "suite_id": uuid4(),
+                "name": "Test Scenario",
+                "goal": "Test goal",
+                "persona_id": persona_id,
+                "max_turns": 10,
+                "timeout": 300,
+            }
+        )
 
         result = await repo.get(scenario_id)
 
@@ -320,24 +336,28 @@ class TestTestScenarioRepository:
         persona_id = uuid4()
 
         mock_db.fetch.return_value = [
-            MockRecord({
-                "id": uuid4(),
-                "suite_id": suite_id,
-                "name": "Scenario 1",
-                "goal": "Goal 1",
-                "persona_id": persona_id,
-                "max_turns": 10,
-                "timeout": 300,
-            }),
-            MockRecord({
-                "id": uuid4(),
-                "suite_id": suite_id,
-                "name": "Scenario 2",
-                "goal": "Goal 2",
-                "persona_id": persona_id,
-                "max_turns": 15,
-                "timeout": 600,
-            }),
+            MockRecord(
+                {
+                    "id": uuid4(),
+                    "suite_id": suite_id,
+                    "name": "Scenario 1",
+                    "goal": "Goal 1",
+                    "persona_id": persona_id,
+                    "max_turns": 10,
+                    "timeout": 300,
+                }
+            ),
+            MockRecord(
+                {
+                    "id": uuid4(),
+                    "suite_id": suite_id,
+                    "name": "Scenario 2",
+                    "goal": "Goal 2",
+                    "persona_id": persona_id,
+                    "max_turns": 15,
+                    "timeout": 600,
+                }
+            ),
         ]
 
         result = await repo.list_all()
@@ -355,15 +375,17 @@ class TestTestScenarioRepository:
         persona_id = uuid4()
 
         mock_db.fetch.return_value = [
-            MockRecord({
-                "id": uuid4(),
-                "suite_id": suite_id,
-                "name": "Scenario 1",
-                "goal": "Goal 1",
-                "persona_id": persona_id,
-                "max_turns": 10,
-                "timeout": 300,
-            }),
+            MockRecord(
+                {
+                    "id": uuid4(),
+                    "suite_id": suite_id,
+                    "name": "Scenario 1",
+                    "goal": "Goal 1",
+                    "persona_id": persona_id,
+                    "max_turns": 10,
+                    "timeout": 300,
+                }
+            ),
         ]
 
         result = await repo.list_all(suite_id=suite_id)
@@ -409,24 +431,26 @@ class TestTestScenarioRepository:
         # Mock persona exists and is active
         mock_db.fetchrow.side_effect = [
             # First call: persona validation
-            MockRecord({
-                "id": persona_id,
-                "name": "Test Persona",
-                "description": None,
-                "aggression": 0.5,
-                "patience": 0.7,
-                "verbosity": 0.3,
-                "traits": [],
-                "tts_provider": "openai",
-                "tts_config": {},
-                "preview_audio_url": None,
-                "preview_audio_text": None,
-                "metadata": {},
-                "created_at": None,
-                "updated_at": None,
-                "created_by": None,
-                "is_active": True,
-            }),
+            MockRecord(
+                {
+                    "id": persona_id,
+                    "name": "Test Persona",
+                    "description": None,
+                    "aggression": 0.5,
+                    "patience": 0.7,
+                    "verbosity": 0.3,
+                    "traits": [],
+                    "tts_provider": "openai",
+                    "tts_config": {},
+                    "preview_audio_url": None,
+                    "preview_audio_text": None,
+                    "metadata": {},
+                    "created_at": None,
+                    "updated_at": None,
+                    "created_by": None,
+                    "is_active": True,
+                }
+            ),
             # Second call: fetchrow returns None (database failure)
             None,
         ]

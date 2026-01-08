@@ -61,9 +61,7 @@ class ElevenLabsTTSService(TTSService):
         # Extract voice_id (required)
         voice_id = config.get("voice_id")
         if not voice_id:
-            raise ValueError(
-                "voice_id is required in config for ElevenLabs TTS"
-            )
+            raise ValueError("voice_id is required in config for ElevenLabs TTS")
 
         # Extract config with defaults
         model_id = config.get("model_id", self.DEFAULT_MODEL_ID)
@@ -81,9 +79,7 @@ class ElevenLabsTTSService(TTSService):
 
         return client, voice_id, model_id, voice_settings
 
-    async def synthesize(
-        self, text: str, config: dict[str, Any]
-    ) -> tuple[bytes, str, float]:
+    async def synthesize(self, text: str, config: dict[str, Any]) -> tuple[bytes, str, float]:
         """Synthesize text to audio using ElevenLabs TTS API.
 
         Args:
@@ -117,7 +113,7 @@ class ElevenLabsTTSService(TTSService):
             voice_settings=voice_settings,
         ):
             audio_chunks.append(chunk)
-        
+
         # Combine all chunks into a single bytes object
         audio_bytes = b"".join(audio_chunks)
 
@@ -126,9 +122,7 @@ class ElevenLabsTTSService(TTSService):
 
         return audio_bytes, self.DEFAULT_MIME_TYPE, duration_ms
 
-    async def synthesize_streaming(
-        self, text: str, config: dict[str, Any]
-    ) -> AsyncIterator[bytes]:
+    async def synthesize_streaming(self, text: str, config: dict[str, Any]) -> AsyncIterator[bytes]:
         """Synthesize text to audio with streaming response using ElevenLabs TTS API.
 
         Args:
