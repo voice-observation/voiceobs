@@ -20,7 +20,7 @@ class ElevenLabsTTSService(TTSService):
         >>> service = ElevenLabsTTSService()
         >>> config = {
         ...     "voice_id": "21m00Tcm4TlvDq8ikWAM",
-        ...     "model_id": "eleven_turbo_v2",
+        ...     "model_id": "eleven_turbo_v2_5",
         ...     "stability": 0.5,
         ...     "similarity_boost": 0.75
         ... }
@@ -28,7 +28,7 @@ class ElevenLabsTTSService(TTSService):
     """
 
     # Default configuration constants
-    DEFAULT_MODEL_ID = "eleven_turbo_v2"  # Updated from deprecated eleven_monolingual_v1
+    DEFAULT_MODEL_ID = "eleven_turbo_v2_5"  # Updated from deprecated eleven_monolingual_v1
     DEFAULT_STABILITY = 0.5
     DEFAULT_SIMILARITY_BOOST = 0.75
     DEFAULT_MIME_TYPE = "audio/mpeg"

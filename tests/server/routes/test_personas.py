@@ -1,6 +1,6 @@
 """Tests for the persona API endpoints."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
@@ -90,8 +90,8 @@ class TestPersonas:
             preview_audio_url=None,
             preview_audio_text=DEFAULT_PREVIEW_TEXT,
             metadata={"category": "customer"},
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
             created_by="user@example.com",
             is_active=True,
         )
@@ -110,8 +110,8 @@ class TestPersonas:
             preview_audio_url=preview_audio_url,
             preview_audio_text=DEFAULT_PREVIEW_TEXT,
             metadata={"category": "customer"},
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
             created_by="user@example.com",
             is_active=True,
         )
@@ -176,8 +176,8 @@ class TestPersonas:
                 preview_audio_url="https://example.com/preview1.mp3",
                 preview_audio_text=DEFAULT_PREVIEW_TEXT,
                 metadata={},
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
                 created_by=None,
                 is_active=True,
             ),
@@ -194,8 +194,8 @@ class TestPersonas:
                 preview_audio_url="https://example.com/preview2.mp3",
                 preview_audio_text=DEFAULT_PREVIEW_TEXT,
                 metadata={},
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
                 created_by=None,
                 is_active=True,
             ),
@@ -244,8 +244,8 @@ class TestPersonas:
             preview_audio_url="https://example.com/preview.mp3",
             preview_audio_text=DEFAULT_PREVIEW_TEXT,
             metadata={},
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
             created_by=None,
             is_active=True,
         )
@@ -303,8 +303,8 @@ class TestPersonas:
             preview_audio_url=old_preview_url,
             preview_audio_text=DEFAULT_PREVIEW_TEXT,
             metadata={},
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
             created_by=None,
             is_active=True,
         )
@@ -323,8 +323,8 @@ class TestPersonas:
             preview_audio_url=new_preview_url,
             preview_audio_text=DEFAULT_PREVIEW_TEXT,
             metadata={},
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
             created_by=None,
             is_active=True,
         )
@@ -385,8 +385,8 @@ class TestPersonas:
             preview_audio_url=preview_url,
             preview_audio_text=DEFAULT_PREVIEW_TEXT,
             metadata={},
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
             created_by=None,
             is_active=True,
         )
@@ -405,8 +405,8 @@ class TestPersonas:
             preview_audio_url=preview_url,
             preview_audio_text=DEFAULT_PREVIEW_TEXT,
             metadata={},
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
             created_by=None,
             is_active=True,
         )
@@ -507,8 +507,8 @@ class TestPersonas:
             preview_audio_url=preview_url,
             preview_audio_text=DEFAULT_PREVIEW_TEXT,
             metadata={},
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
             created_by=None,
             is_active=True,
         )
@@ -556,8 +556,8 @@ class TestPersonas:
             preview_audio_url=None,  # No preview audio
             preview_audio_text=None,
             metadata={},
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
             created_by=None,
             is_active=True,
         )
@@ -693,8 +693,8 @@ class TestPersonas:
             preview_audio_url="https://example.com/preview.mp3",
             preview_audio_text=DEFAULT_PREVIEW_TEXT,
             metadata={},
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
             created_by=None,
             is_active=True,
         )
@@ -734,8 +734,8 @@ class TestPersonas:
             preview_audio_url="https://example.com/preview.mp3",
             preview_audio_text=DEFAULT_PREVIEW_TEXT,
             metadata={},
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
             created_by=None,
             is_active=True,
         )
@@ -751,3 +751,482 @@ class TestPersonas:
         )
 
         assert response.status_code == 400
+
+    @patch("voiceobs.server.routes.personas.get_persona_repo")
+    @patch("voiceobs.server.routes.personas.TTSServiceFactory")
+    @patch("voiceobs.server.routes.personas.get_audio_storage")
+    def test_generate_preview_audio_success(
+        self,
+        mock_get_audio_storage,
+        mock_tts_factory,
+        mock_get_persona_repo,
+        client,
+    ):
+        """Test successful preview audio generation for a persona."""
+        persona_id = uuid4()
+        preview_audio_url = "https://storage.example.com/audio/personas/preview/new.mp3"
+        custom_preview_text = "This is a custom preview text for testing."
+
+        # Mock existing persona with custom preview text
+        existing_persona = PersonaRow(
+            id=persona_id,
+            name="Test Persona",
+            description="Test description",
+            aggression=0.5,
+            patience=0.5,
+            verbosity=0.5,
+            traits=["test"],
+            tts_provider="openai",
+            tts_config={"model": "tts-1", "voice": "alloy", "speed": 1.0},
+            preview_audio_url=None,  # No existing preview
+            preview_audio_text=custom_preview_text,
+            metadata={},
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+            created_by=None,
+            is_active=True,
+        )
+
+        # Mock updated persona with preview audio URL
+        updated_persona = PersonaRow(
+            id=persona_id,
+            name="Test Persona",
+            description="Test description",
+            aggression=0.5,
+            patience=0.5,
+            verbosity=0.5,
+            traits=["test"],
+            tts_provider="openai",
+            tts_config={"model": "tts-1", "voice": "alloy", "speed": 1.0},
+            preview_audio_url=preview_audio_url,
+            preview_audio_text=custom_preview_text,
+            metadata={},
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+            created_by=None,
+            is_active=True,
+        )
+
+        # Mock TTS service
+        mock_tts_service = AsyncMock()
+        mock_tts_service.synthesize.return_value = (
+            b"generated_audio_bytes",
+            "audio/wav",
+            2000.0,
+        )
+        mock_tts_factory.create.return_value = mock_tts_service
+
+        # Mock audio storage
+        mock_audio_storage = AsyncMock()
+        mock_audio_storage.store_audio.return_value = preview_audio_url
+        mock_get_audio_storage.return_value = mock_audio_storage
+
+        # Mock repository
+        mock_repo = AsyncMock()
+        mock_repo.get.return_value = existing_persona
+        mock_repo.update.return_value = updated_persona
+        mock_get_persona_repo.return_value = mock_repo
+
+        response = client.post(f"/api/v1/personas/{persona_id}/preview-audio")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["audio_url"] == preview_audio_url
+        assert data["text"] == custom_preview_text
+        assert data["format"] == "audio/wav"
+
+        # Verify TTS service was called with correct parameters
+        mock_tts_service.synthesize.assert_called_once_with(
+            custom_preview_text,
+            {"model": "tts-1", "voice": "alloy", "speed": 1.0},
+        )
+
+        # Verify audio storage was called
+        mock_audio_storage.store_audio.assert_called_once_with(
+            b"generated_audio_bytes",
+            prefix=f"personas/preview/{persona_id}",
+            content_type="audio/wav",
+        )
+
+        # Verify persona was updated with preview audio URL and text
+        mock_repo.update.assert_called_once_with(
+            persona_id=persona_id,
+            preview_audio_url=preview_audio_url,
+            preview_audio_text=custom_preview_text,
+        )
+
+    @patch("voiceobs.server.routes.personas.get_persona_repo")
+    @patch("voiceobs.server.routes.personas.TTSServiceFactory")
+    @patch("voiceobs.server.routes.personas.get_audio_storage")
+    def test_generate_preview_audio_uses_default_text_when_missing(
+        self,
+        mock_get_audio_storage,
+        mock_tts_factory,
+        mock_get_persona_repo,
+        client,
+    ):
+        """Test preview audio generation uses DEFAULT_PREVIEW_TEXT when text is None."""
+        persona_id = uuid4()
+        preview_audio_url = "https://storage.example.com/audio/personas/preview/new.mp3"
+
+        # Mock existing persona without preview_audio_text
+        existing_persona = PersonaRow(
+            id=persona_id,
+            name="Test Persona",
+            description="Test description",
+            aggression=0.5,
+            patience=0.5,
+            verbosity=0.5,
+            traits=["test"],
+            tts_provider="elevenlabs",
+            tts_config={"voice_id": "test123"},
+            preview_audio_url=None,
+            preview_audio_text=None,  # No preview text
+            metadata={},
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+            created_by=None,
+            is_active=True,
+        )
+
+        # Mock updated persona
+        updated_persona = PersonaRow(
+            id=persona_id,
+            name="Test Persona",
+            description="Test description",
+            aggression=0.5,
+            patience=0.5,
+            verbosity=0.5,
+            traits=["test"],
+            tts_provider="elevenlabs",
+            tts_config={"voice_id": "test123"},
+            preview_audio_url=preview_audio_url,
+            preview_audio_text=DEFAULT_PREVIEW_TEXT,
+            metadata={},
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+            created_by=None,
+            is_active=True,
+        )
+
+        # Mock TTS service
+        mock_tts_service = AsyncMock()
+        mock_tts_service.synthesize.return_value = (
+            b"generated_audio_bytes",
+            "audio/mpeg",
+            1500.0,
+        )
+        mock_tts_factory.create.return_value = mock_tts_service
+
+        # Mock audio storage
+        mock_audio_storage = AsyncMock()
+        mock_audio_storage.store_audio.return_value = preview_audio_url
+        mock_get_audio_storage.return_value = mock_audio_storage
+
+        # Mock repository
+        mock_repo = AsyncMock()
+        mock_repo.get.return_value = existing_persona
+        mock_repo.update.return_value = updated_persona
+        mock_get_persona_repo.return_value = mock_repo
+
+        response = client.post(f"/api/v1/personas/{persona_id}/preview-audio")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["audio_url"] == preview_audio_url
+        assert data["text"] == DEFAULT_PREVIEW_TEXT
+        assert data["format"] == "audio/mpeg"
+
+        # Verify TTS service was called with DEFAULT_PREVIEW_TEXT
+        mock_tts_service.synthesize.assert_called_once_with(
+            DEFAULT_PREVIEW_TEXT,
+            {"voice_id": "test123"},
+        )
+
+    @patch("voiceobs.server.routes.personas.get_persona_repo")
+    def test_generate_preview_audio_persona_not_found(self, mock_get_persona_repo, client):
+        """Test generating preview audio for a persona that doesn't exist."""
+        persona_id = uuid4()
+
+        mock_repo = AsyncMock()
+        mock_repo.get.return_value = None
+        mock_get_persona_repo.return_value = mock_repo
+
+        response = client.post(f"/api/v1/personas/{persona_id}/preview-audio")
+
+        assert response.status_code == 404
+        data = response.json()
+        assert f"Persona '{persona_id}' not found" in data["detail"]
+
+    @patch("voiceobs.server.routes.personas.get_persona_repo")
+    @patch("voiceobs.server.routes.personas.TTSServiceFactory")
+    def test_generate_preview_audio_invalid_tts_provider(
+        self,
+        mock_tts_factory,
+        mock_get_persona_repo,
+        client,
+    ):
+        """Test generating preview audio with invalid TTS provider."""
+        persona_id = uuid4()
+
+        # Mock existing persona
+        existing_persona = PersonaRow(
+            id=persona_id,
+            name="Test Persona",
+            description="Test description",
+            aggression=0.5,
+            patience=0.5,
+            verbosity=0.5,
+            traits=["test"],
+            tts_provider="invalid_provider",
+            tts_config={},
+            preview_audio_url=None,
+            preview_audio_text="Test text",
+            metadata={},
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+            created_by=None,
+            is_active=True,
+        )
+
+        # Mock TTS factory to raise ValueError
+        mock_tts_factory.create.side_effect = ValueError(
+            "Unsupported TTS provider: invalid_provider"
+        )
+
+        mock_repo = AsyncMock()
+        mock_repo.get.return_value = existing_persona
+        mock_get_persona_repo.return_value = mock_repo
+
+        response = client.post(f"/api/v1/personas/{persona_id}/preview-audio")
+
+        assert response.status_code == 400
+        data = response.json()
+        assert "Failed to generate preview audio" in data["detail"]
+        assert "Unsupported TTS provider" in data["detail"]
+
+    @patch("voiceobs.server.routes.personas.get_persona_repo")
+    @patch("voiceobs.server.routes.personas.TTSServiceFactory")
+    def test_generate_preview_audio_tts_service_error(
+        self,
+        mock_tts_factory,
+        mock_get_persona_repo,
+        client,
+    ):
+        """Test generating preview audio when TTS service raises an exception."""
+        persona_id = uuid4()
+
+        # Mock existing persona
+        existing_persona = PersonaRow(
+            id=persona_id,
+            name="Test Persona",
+            description="Test description",
+            aggression=0.5,
+            patience=0.5,
+            verbosity=0.5,
+            traits=["test"],
+            tts_provider="openai",
+            tts_config={"model": "tts-1"},
+            preview_audio_url=None,
+            preview_audio_text="Test text",
+            metadata={},
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+            created_by=None,
+            is_active=True,
+        )
+
+        # Mock TTS service to raise a generic exception
+        mock_tts_service = AsyncMock()
+        mock_tts_service.synthesize.side_effect = Exception("TTS API connection failed")
+        mock_tts_factory.create.return_value = mock_tts_service
+
+        mock_repo = AsyncMock()
+        mock_repo.get.return_value = existing_persona
+        mock_get_persona_repo.return_value = mock_repo
+
+        response = client.post(f"/api/v1/personas/{persona_id}/preview-audio")
+
+        assert response.status_code == 500
+        data = response.json()
+        assert "TTS service error" in data["detail"]
+        assert "TTS API connection failed" in data["detail"]
+
+    @patch("voiceobs.server.routes.personas.get_persona_repo")
+    @patch("voiceobs.server.routes.personas.TTSServiceFactory")
+    @patch("voiceobs.server.routes.personas.get_audio_storage")
+    def test_generate_preview_audio_storage_error(
+        self,
+        mock_get_audio_storage,
+        mock_tts_factory,
+        mock_get_persona_repo,
+        client,
+    ):
+        """Test generating preview audio when audio storage fails."""
+        persona_id = uuid4()
+
+        # Mock existing persona
+        existing_persona = PersonaRow(
+            id=persona_id,
+            name="Test Persona",
+            description="Test description",
+            aggression=0.5,
+            patience=0.5,
+            verbosity=0.5,
+            traits=["test"],
+            tts_provider="openai",
+            tts_config={"model": "tts-1"},
+            preview_audio_url=None,
+            preview_audio_text="Test text",
+            metadata={},
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+            created_by=None,
+            is_active=True,
+        )
+
+        # Mock TTS service
+        mock_tts_service = AsyncMock()
+        mock_tts_service.synthesize.return_value = (
+            b"generated_audio_bytes",
+            "audio/mpeg",
+            1500.0,
+        )
+        mock_tts_factory.create.return_value = mock_tts_service
+
+        # Mock audio storage to raise an exception
+        mock_audio_storage = AsyncMock()
+        mock_audio_storage.store_audio.side_effect = Exception("S3 bucket not accessible")
+        mock_get_audio_storage.return_value = mock_audio_storage
+
+        mock_repo = AsyncMock()
+        mock_repo.get.return_value = existing_persona
+        mock_get_persona_repo.return_value = mock_repo
+
+        response = client.post(f"/api/v1/personas/{persona_id}/preview-audio")
+
+        assert response.status_code == 500
+        data = response.json()
+        assert "Failed to store preview audio" in data["detail"]
+        assert "S3 bucket not accessible" in data["detail"]
+
+    @patch("voiceobs.server.routes.personas.get_persona_repo")
+    @patch("voiceobs.server.routes.personas.TTSServiceFactory")
+    @patch("voiceobs.server.routes.personas.get_audio_storage")
+    def test_generate_preview_audio_repository_update_error(
+        self,
+        mock_get_audio_storage,
+        mock_tts_factory,
+        mock_get_persona_repo,
+        client,
+    ):
+        """Test generating preview audio when repository update fails."""
+        persona_id = uuid4()
+        preview_audio_url = "https://storage.example.com/audio/personas/preview/new.mp3"
+
+        # Mock existing persona
+        existing_persona = PersonaRow(
+            id=persona_id,
+            name="Test Persona",
+            description="Test description",
+            aggression=0.5,
+            patience=0.5,
+            verbosity=0.5,
+            traits=["test"],
+            tts_provider="openai",
+            tts_config={"model": "tts-1"},
+            preview_audio_url=None,
+            preview_audio_text="Test text",
+            metadata={},
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+            created_by=None,
+            is_active=True,
+        )
+
+        # Mock TTS service
+        mock_tts_service = AsyncMock()
+        mock_tts_service.synthesize.return_value = (
+            b"generated_audio_bytes",
+            "audio/mpeg",
+            1500.0,
+        )
+        mock_tts_factory.create.return_value = mock_tts_service
+
+        # Mock audio storage
+        mock_audio_storage = AsyncMock()
+        mock_audio_storage.store_audio.return_value = preview_audio_url
+        mock_get_audio_storage.return_value = mock_audio_storage
+
+        # Mock repository to raise ValueError on update
+        mock_repo = AsyncMock()
+        mock_repo.get.return_value = existing_persona
+        mock_repo.update.side_effect = ValueError("Database constraint violation")
+        mock_get_persona_repo.return_value = mock_repo
+
+        response = client.post(f"/api/v1/personas/{persona_id}/preview-audio")
+
+        assert response.status_code == 400
+        data = response.json()
+        assert "Failed to update persona" in data["detail"]
+        assert "Database constraint violation" in data["detail"]
+
+    @patch("voiceobs.server.routes.personas.get_persona_repo")
+    @patch("voiceobs.server.routes.personas.TTSServiceFactory")
+    @patch("voiceobs.server.routes.personas.get_audio_storage")
+    def test_generate_preview_audio_update_returns_none(
+        self,
+        mock_get_audio_storage,
+        mock_tts_factory,
+        mock_get_persona_repo,
+        client,
+    ):
+        """Test generating preview audio when repository update returns None."""
+        persona_id = uuid4()
+        preview_audio_url = "https://storage.example.com/audio/personas/preview/new.mp3"
+
+        # Mock existing persona
+        existing_persona = PersonaRow(
+            id=persona_id,
+            name="Test Persona",
+            description="Test description",
+            aggression=0.5,
+            patience=0.5,
+            verbosity=0.5,
+            traits=["test"],
+            tts_provider="openai",
+            tts_config={"model": "tts-1"},
+            preview_audio_url=None,
+            preview_audio_text="Test text",
+            metadata={},
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+            created_by=None,
+            is_active=True,
+        )
+
+        # Mock TTS service
+        mock_tts_service = AsyncMock()
+        mock_tts_service.synthesize.return_value = (
+            b"generated_audio_bytes",
+            "audio/mpeg",
+            1500.0,
+        )
+        mock_tts_factory.create.return_value = mock_tts_service
+
+        # Mock audio storage
+        mock_audio_storage = AsyncMock()
+        mock_audio_storage.store_audio.return_value = preview_audio_url
+        mock_get_audio_storage.return_value = mock_audio_storage
+
+        # Mock repository to return None on update
+        mock_repo = AsyncMock()
+        mock_repo.get.return_value = existing_persona
+        mock_repo.update.return_value = None
+        mock_get_persona_repo.return_value = mock_repo
+
+        response = client.post(f"/api/v1/personas/{persona_id}/preview-audio")
+
+        assert response.status_code == 500
+        data = response.json()
+        assert "Failed to update persona with preview audio URL" in data["detail"]

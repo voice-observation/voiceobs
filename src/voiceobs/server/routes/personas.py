@@ -405,3 +405,98 @@ async def get_persona_preview_audio(persona_id: str) -> PersonaAudioPreviewRespo
         text=persona.preview_audio_text or DEFAULT_PREVIEW_TEXT,
         format="audio/mpeg",
     )
+
+
+@router.post(
+    "/{persona_id}/preview-audio",
+    response_model=PersonaAudioPreviewResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Generate persona preview audio",
+    description="Generate and store preview audio for a persona using its TTS configuration.",
+    responses={
+        400: {"model": ErrorResponse, "description": "Invalid request or TTS generation failed"},
+        404: {"model": ErrorResponse, "description": "Persona not found"},
+        501: {"model": ErrorResponse, "description": "Persona API requires PostgreSQL database"},
+    },
+)
+async def generate_persona_preview_audio(persona_id: str) -> PersonaAudioPreviewResponse:
+    """Generate preview audio for a persona and update the persona record.
+
+    This endpoint:
+    1. Retrieves the persona from the database
+    2. Uses the persona's TTS provider and configuration to synthesize audio
+    3. Uses the persona's preview_audio_text (or DEFAULT_PREVIEW_TEXT if not set)
+    4. Stores the generated audio
+    5. Updates the persona with the new preview_audio_url
+    6. Returns the preview audio information
+    """
+    repo = get_persona_repo()
+    persona_uuid = parse_uuid(persona_id, "persona")
+
+    # Get persona from database
+    persona = await repo.get(persona_uuid)
+    if not persona:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Persona '{persona_id}' not found",
+        )
+
+    # Determine preview text to use
+    preview_text = persona.preview_audio_text or DEFAULT_PREVIEW_TEXT
+
+    # Generate preview audio using TTS service
+    try:
+        tts_service = TTSServiceFactory.create(persona.tts_provider)
+        audio_bytes, mime_type, _ = await tts_service.synthesize(
+            preview_text, persona.tts_config or {}
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to generate preview audio: {str(e)}",
+        ) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"TTS service error: {str(e)}",
+        ) from e
+
+    # Store audio using persona ID in the prefix
+    audio_storage = get_audio_storage()
+    try:
+        preview_audio_url = await audio_storage.store_audio(
+            audio_bytes,
+            prefix=f"personas/preview/{persona.id}",
+            content_type=mime_type,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to store preview audio: {str(e)}",
+        ) from e
+
+    # Update persona with preview audio URL and text
+    try:
+        updated_persona = await repo.update(
+            persona_id=persona_uuid,
+            preview_audio_url=preview_audio_url,
+            preview_audio_text=preview_text,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to update persona: {str(e)}",
+        ) from e
+
+    if updated_persona is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update persona with preview audio URL",
+        )
+
+    # Return preview audio information
+    return PersonaAudioPreviewResponse(
+        audio_url=preview_audio_url,
+        text=preview_text,
+        format=mime_type,
+    )
