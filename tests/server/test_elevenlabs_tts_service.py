@@ -2,7 +2,7 @@
 
 import os
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -17,9 +17,16 @@ class TestElevenLabsTTSService:
         """Create a mock ElevenLabs client."""
         mock_client = MagicMock()
 
-        # Mock the generate method
+        # Mock the text_to_speech.convert method (returns async generator)
         mock_audio_data = b"fake_elevenlabs_audio_data"
-        mock_client.generate = AsyncMock(return_value=mock_audio_data)
+
+        async def mock_convert_generator():
+            yield mock_audio_data
+
+        mock_text_to_speech = MagicMock()
+        mock_text_to_speech.convert = MagicMock(return_value=mock_convert_generator())
+        mock_text_to_speech.stream = MagicMock(return_value=mock_convert_generator())
+        mock_client.text_to_speech = mock_text_to_speech
 
         return mock_client
 
@@ -54,11 +61,11 @@ class TestElevenLabsTTSService:
             # Verify ElevenLabs client was created with API key
             mock_elevenlabs.assert_called_once_with(api_key="test_elevenlabs_key_123")
 
-            # Verify generate was called with correct defaults
-            mock_elevenlabs_client.generate.assert_called_once_with(
+            # Verify text_to_speech.convert was called with correct defaults
+            mock_elevenlabs_client.text_to_speech.convert.assert_called_once_with(
+                voice_id="21m00Tcm4TlvDq8ikWAM",
                 text="Hello world",
-                voice="21m00Tcm4TlvDq8ikWAM",
-                model="eleven_monolingual_v1",
+                model_id="eleven_turbo_v2_5",
                 voice_settings={
                     "stability": 0.5,
                     "similarity_boost": 0.75,
@@ -91,10 +98,10 @@ class TestElevenLabsTTSService:
             await service.synthesize("Test text", config)
 
             # Verify custom config was used
-            mock_elevenlabs_client.generate.assert_called_once_with(
+            mock_elevenlabs_client.text_to_speech.convert.assert_called_once_with(
+                voice_id="custom_voice_id",
                 text="Test text",
-                voice="custom_voice_id",
-                model="eleven_multilingual_v2",
+                model_id="eleven_multilingual_v2",
                 voice_settings={
                     "stability": 0.7,
                     "similarity_boost": 0.8,
@@ -119,10 +126,10 @@ class TestElevenLabsTTSService:
             await service.synthesize("Test", config)
 
             # Verify partial config merged with defaults
-            mock_elevenlabs_client.generate.assert_called_once_with(
+            mock_elevenlabs_client.text_to_speech.convert.assert_called_once_with(
+                voice_id="21m00Tcm4TlvDq8ikWAM",
                 text="Test",
-                voice="21m00Tcm4TlvDq8ikWAM",
-                model="eleven_monolingual_v1",  # default
+                model_id="eleven_turbo_v2_5",  # default
                 voice_settings={
                     "stability": 0.6,  # custom
                     "similarity_boost": 0.75,  # default
@@ -163,7 +170,14 @@ class TestElevenLabsTTSService:
 
         with patch("voiceobs.server.services.elevenlabs_tts.AsyncElevenLabs") as mock_elevenlabs:
             mock_client = MagicMock()
-            mock_client.generate = AsyncMock(side_effect=Exception("ElevenLabs API Error"))
+            mock_text_to_speech = MagicMock()
+
+            async def mock_convert_error():
+                raise Exception("ElevenLabs API Error")
+                yield  # Make it a generator (unreachable but needed for type)
+
+            mock_text_to_speech.convert = MagicMock(return_value=mock_convert_error())
+            mock_client.text_to_speech = mock_text_to_speech
             mock_elevenlabs.return_value = mock_client
 
             service = ElevenLabsTTSService()
@@ -184,7 +198,13 @@ class TestElevenLabsTTSService:
 
         with patch("voiceobs.server.services.elevenlabs_tts.AsyncElevenLabs") as mock_elevenlabs:
             mock_client = MagicMock()
-            mock_client.generate = AsyncMock(return_value=fake_mp3_data)
+            mock_text_to_speech = MagicMock()
+
+            async def mock_convert_generator():
+                yield fake_mp3_data
+
+            mock_text_to_speech.convert = MagicMock(return_value=mock_convert_generator())
+            mock_client.text_to_speech = mock_text_to_speech
             mock_elevenlabs.return_value = mock_client
 
             service = ElevenLabsTTSService()
@@ -244,7 +264,9 @@ class TestElevenLabsTTSService:
 
         with patch("voiceobs.server.services.elevenlabs_tts.AsyncElevenLabs") as mock_elevenlabs:
             mock_client = MagicMock()
-            mock_client.generate = MagicMock(return_value=mock_stream_generator())
+            mock_text_to_speech = MagicMock()
+            mock_text_to_speech.stream = MagicMock(return_value=mock_stream_generator())
+            mock_client.text_to_speech = mock_text_to_speech
             mock_elevenlabs.return_value = mock_client
 
             service = ElevenLabsTTSService()
@@ -258,15 +280,14 @@ class TestElevenLabsTTSService:
             assert chunks == mock_chunks
 
             # Verify ElevenLabs client was called with correct defaults
-            mock_client.generate.assert_called_once_with(
+            mock_client.text_to_speech.stream.assert_called_once_with(
+                voice_id="21m00Tcm4TlvDq8ikWAM",
                 text="Hello world",
-                voice="21m00Tcm4TlvDq8ikWAM",
-                model="eleven_monolingual_v1",
+                model_id="eleven_turbo_v2_5",
                 voice_settings={
                     "stability": 0.5,
                     "similarity_boost": 0.75,
                 },
-                stream=True,
             )
 
     async def test_synthesize_streaming_with_custom_config(
@@ -283,7 +304,9 @@ class TestElevenLabsTTSService:
 
         with patch("voiceobs.server.services.elevenlabs_tts.AsyncElevenLabs") as mock_elevenlabs:
             mock_client = MagicMock()
-            mock_client.generate = MagicMock(return_value=mock_stream_generator())
+            mock_text_to_speech = MagicMock()
+            mock_text_to_speech.stream = MagicMock(return_value=mock_stream_generator())
+            mock_client.text_to_speech = mock_text_to_speech
             mock_elevenlabs.return_value = mock_client
 
             service = ElevenLabsTTSService()
@@ -299,15 +322,14 @@ class TestElevenLabsTTSService:
                 chunks.append(chunk)
 
             # Verify custom config was used
-            mock_client.generate.assert_called_once_with(
+            mock_client.text_to_speech.stream.assert_called_once_with(
+                voice_id="custom_voice",
                 text="Test",
-                voice="custom_voice",
-                model="eleven_multilingual_v2",
+                model_id="eleven_multilingual_v2",
                 voice_settings={
                     "stability": 0.8,
                     "similarity_boost": 0.9,
                 },
-                stream=True,
             )
 
     async def test_synthesize_streaming_raises_error_when_api_key_missing(
@@ -343,7 +365,7 @@ class TestElevenLabsTTSService:
         """Test that default constants are defined correctly."""
         from voiceobs.server.services.elevenlabs_tts import ElevenLabsTTSService
 
-        assert ElevenLabsTTSService.DEFAULT_MODEL_ID == "eleven_monolingual_v1"
+        assert ElevenLabsTTSService.DEFAULT_MODEL_ID == "eleven_turbo_v2_5"
         assert ElevenLabsTTSService.DEFAULT_STABILITY == 0.5
         assert ElevenLabsTTSService.DEFAULT_SIMILARITY_BOOST == 0.75
         assert ElevenLabsTTSService.DEFAULT_MIME_TYPE == "audio/mpeg"

@@ -2,7 +2,7 @@
 
 import os
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -65,7 +65,7 @@ class TestElevenLabsTTSService:
             mock_elevenlabs_client.text_to_speech.convert.assert_called_once_with(
                 voice_id="21m00Tcm4TlvDq8ikWAM",
                 text="Hello world",
-                model_id="eleven_turbo_v2",
+                model_id="eleven_turbo_v2_5",
                 voice_settings={
                     "stability": 0.5,
                     "similarity_boost": 0.75,
@@ -129,7 +129,7 @@ class TestElevenLabsTTSService:
             mock_elevenlabs_client.text_to_speech.convert.assert_called_once_with(
                 voice_id="21m00Tcm4TlvDq8ikWAM",
                 text="Test",
-                model_id="eleven_turbo_v2",  # default
+                model_id="eleven_turbo_v2_5",  # default
                 voice_settings={
                     "stability": 0.6,  # custom
                     "similarity_boost": 0.75,  # default
@@ -283,7 +283,7 @@ class TestElevenLabsTTSService:
             mock_client.text_to_speech.stream.assert_called_once_with(
                 voice_id="21m00Tcm4TlvDq8ikWAM",
                 text="Hello world",
-                model_id="eleven_turbo_v2",
+                model_id="eleven_turbo_v2_5",
                 voice_settings={
                     "stability": 0.5,
                     "similarity_boost": 0.75,
@@ -365,7 +365,7 @@ class TestElevenLabsTTSService:
         """Test that default constants are defined correctly."""
         from voiceobs.server.services.elevenlabs_tts import ElevenLabsTTSService
 
-        assert ElevenLabsTTSService.DEFAULT_MODEL_ID == "eleven_turbo_v2"
+        assert ElevenLabsTTSService.DEFAULT_MODEL_ID == "eleven_turbo_v2_5"
         assert ElevenLabsTTSService.DEFAULT_STABILITY == 0.5
         assert ElevenLabsTTSService.DEFAULT_SIMILARITY_BOOST == 0.75
         assert ElevenLabsTTSService.DEFAULT_MIME_TYPE == "audio/mpeg"

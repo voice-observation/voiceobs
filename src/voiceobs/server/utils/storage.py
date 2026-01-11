@@ -15,7 +15,8 @@ def get_audio_storage_from_env() -> AudioStorage:
     Environment variables:
         VOICEOBS_AUDIO_STORAGE_PROVIDER: Storage provider ("local" or "s3", default: "local")
         VOICEOBS_AUDIO_STORAGE_PATH: Base path for local storage or bucket name for S3
-        VOICEOBS_AUDIO_S3_BUCKET: S3 bucket name (optional, uses VOICEOBS_AUDIO_STORAGE_PATH if not set)
+        VOICEOBS_AUDIO_S3_BUCKET: S3 bucket name (optional, uses
+            VOICEOBS_AUDIO_STORAGE_PATH if not set)
         VOICEOBS_AUDIO_S3_REGION: AWS region for S3 (default: "us-east-1")
 
     For S3 storage, AWS credentials must be provided via one of:
@@ -48,4 +49,3 @@ def get_audio_storage_from_env() -> AudioStorage:
             provider="local",
             base_path=base_path,
         )
-

@@ -19,12 +19,10 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
-from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
-
 
 # Default catalog path relative to this script's directory
 CATALOG_PATH_DEFAULT = str(Path(__file__).parent / "personas_catalog_v0_1.json")
@@ -65,8 +63,8 @@ def _get_database_url() -> str:
     )
 
 
-def load_catalog(path: str) -> Dict[str, Any]:
-    with open(path, "r", encoding="utf-8") as f:
+def load_catalog(path: str) -> dict[str, Any]:
+    with open(path, encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -74,15 +72,15 @@ def upsert_persona_row(
     engine: Engine,
     *,
     name: str,
-    description: Optional[str],
+    description: str | None,
     aggression: float,
     patience: float,
     verbosity: float,
     traits: Any,
     tts_provider: str,
-    tts_config: Dict[str, Any],
-    preview_audio_text: Optional[str],
-    metadata: Dict[str, Any],
+    tts_config: dict[str, Any],
+    preview_audio_text: str | None,
+    metadata: dict[str, Any],
     created_by: str = "system",
 ) -> None:
     """
@@ -186,8 +184,9 @@ def upsert_persona_row(
             sql_insert = text(
                 """
                 INSERT INTO personas
-                  (name, description, aggression, patience, verbosity, traits, tts_provider, tts_config,
-                   preview_audio_text, metadata, created_by, is_active, created_at, updated_at)
+                  (name, description, aggression, patience, verbosity, traits,
+                   tts_provider, tts_config, preview_audio_text, metadata,
+                   created_by, is_active, created_at, updated_at)
                 VALUES
                   (:name, :description, :aggression, :patience, :verbosity,
                    CAST(:traits AS jsonb),
@@ -273,7 +272,10 @@ def main() -> int:
             total += 1
 
     print(f"[ok] Seeded/updated {total} persona provider-variants.")
-    print("[note] preview_audio_url is not generated here. Run your separate preview generation job to fill it.")
+    print(
+        "[note] preview_audio_url is not generated here. "
+        "Run your separate preview generation job to fill it."
+    )
     return 0
 
 

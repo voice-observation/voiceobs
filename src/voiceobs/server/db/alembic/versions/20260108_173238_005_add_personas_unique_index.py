@@ -44,4 +44,3 @@ def downgrade() -> None:
     Drops the unique index on personas table.
     """
     op.execute("DROP INDEX IF EXISTS personas_provider_base_key_uq")
-

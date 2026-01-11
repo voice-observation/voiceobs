@@ -865,7 +865,7 @@ class TestPersonas:
         mock_get_persona_repo,
         client,
     ):
-        """Test preview audio generation uses DEFAULT_PREVIEW_TEXT when preview_audio_text is None."""
+        """Test preview audio generation uses DEFAULT_PREVIEW_TEXT when text is None."""
         persona_id = uuid4()
         preview_audio_url = "https://storage.example.com/audio/personas/preview/new.mp3"
 

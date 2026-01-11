@@ -69,6 +69,7 @@ def _get_database_url() -> str:
         "Database URL not configured. Configure server.database_url in voiceobs.yaml"
     )
 
+
 async def generate_preview_audio_for_persona(
     persona_id: UUID,
     persona_name: str,
@@ -95,14 +96,16 @@ async def generate_preview_audio_for_persona(
         tts_service = TTSServiceFactory.create(tts_provider)
 
         # Synthesize audio
-        print(f"[info] Generating audio for '{persona_name}' using {tts_provider}...", file=sys.stderr)
+        print(
+            f"[info] Generating audio for '{persona_name}' using {tts_provider}...",
+            file=sys.stderr,
+        )
         audio_bytes, mime_type, duration_ms = await tts_service.synthesize(
             preview_audio_text, tts_config
         )
 
         print(
-            f"[info] Generated audio: {len(audio_bytes)} bytes, "
-            f"{mime_type}, {duration_ms:.2f}ms",
+            f"[info] Generated audio: {len(audio_bytes)} bytes, {mime_type}, {duration_ms:.2f}ms",
             file=sys.stderr,
         )
 
@@ -258,10 +261,9 @@ def main() -> int:
     if args.persona_id:
         try:
             persona_id = UUID(args.persona_id)
-        except ValueError as e:
+        except ValueError:
             print(
-                f"[error] Invalid persona ID format: {args.persona_id}. "
-                "Expected a valid UUID.",
+                f"[error] Invalid persona ID format: {args.persona_id}. Expected a valid UUID.",
                 file=sys.stderr,
             )
             return 1
@@ -292,13 +294,14 @@ def main() -> int:
         return 0
     elif success_count > 0:
         print(
-            f"[warn] Generated preview audio for {success_count} out of {processed_count} persona(s).",
+            f"[warn] Generated preview audio for {success_count} "
+            f"out of {processed_count} persona(s).",
             file=sys.stderr,
         )
         return 1
     else:
         print(
-            f"[error] Failed to generate preview audio for any persona.",
+            "[error] Failed to generate preview audio for any persona.",
             file=sys.stderr,
         )
         return 2
@@ -306,4 +309,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
