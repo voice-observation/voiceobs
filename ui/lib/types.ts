@@ -285,3 +285,54 @@ export interface ReportHistoryFilters {
   status?: string;
   type?: string;
 }
+
+// Agent Types
+export interface Agent {
+  id: string;
+  name: string;
+  description: string | null;
+  phone_number: string | null;
+  status: "active" | "inactive" | "archived";
+  config: Record<string, unknown>;
+  created_at: string | null;
+  updated_at: string | null;
+  // Optional metrics fields
+  calls?: number;
+  success_rate?: number;
+  latency?: number;
+}
+
+export interface AgentListItem {
+  id: string;
+  name: string;
+  description: string | null;
+  phone_number: string | null;
+  status: "active" | "inactive" | "archived";
+  created_at: string | null;
+  updated_at: string | null;
+  // Optional metrics fields
+  calls?: number;
+  success_rate?: number;
+  latency?: number;
+}
+
+export interface AgentCreateRequest {
+  name: string;
+  description?: string | null;
+  phone_number?: string | null;
+  config?: Record<string, unknown>;
+  status?: "active" | "inactive";
+}
+
+export interface AgentUpdateRequest {
+  name?: string | null;
+  description?: string | null;
+  phone_number?: string | null;
+  config?: Record<string, unknown> | null;
+  status?: "active" | "inactive" | "archived" | null;
+}
+
+export interface AgentsListResponse {
+  count: number;
+  agents: AgentListItem[];
+}
