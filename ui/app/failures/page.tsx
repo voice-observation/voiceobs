@@ -37,7 +37,7 @@ export default function FailuresPage() {
       try {
         setLoading(true);
         setError(null);
-        const response = await api.listFailures(
+        const response = await api.conversations.listFailures(
           severityFilter !== "all" ? severityFilter : undefined,
           typeFilter !== "all" ? typeFilter : undefined
         );

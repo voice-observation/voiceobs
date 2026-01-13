@@ -1,26 +1,10 @@
 /**
- * Type-safe API client for voiceobs server.
- *
- * In development, requests are proxied through Next.js to avoid CORS issues.
- * The proxy is configured in next.config.js to forward /api/* to the voiceobs server.
+ * Conversations API client.
  */
 
-// Get API URL - use proxy on client-side, direct URL on server-side
-const getApiBaseUrl = () => {
-  // Client-side: use Next.js proxy
-  if (typeof window !== "undefined") {
-    return "/api";
-  }
-  // Server-side: use direct URL
-  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8765";
-};
+import { BaseApiClient } from "./base";
 
-export interface ApiError {
-  error: string;
-  message: string;
-  detail?: string;
-}
-
+// Re-export conversation-related types from main types file
 export interface ConversationSummary {
   id: string;
   turn_count: number;
@@ -115,75 +99,24 @@ export interface FailuresListResponse {
   by_type: Record<string, number>;
 }
 
-class ApiClient {
-  private maxRetries: number = 3;
-  private retryDelay: number = 1000;
-
-  private getBaseUrl(): string {
-    return getApiBaseUrl();
-  }
-
-  private async fetchWithRetry(
-    endpoint: string,
-    options: RequestInit = {},
-    retries: number = this.maxRetries
-  ): Promise<Response> {
-    const url = `${this.getBaseUrl()}${endpoint}`;
-
-    try {
-      const response = await fetch(url, {
-        ...options,
-        headers: {
-          "Content-Type": "application/json",
-          ...options.headers,
-        },
-      });
-
-      if (!response.ok) {
-        if (response.status >= 500 && retries > 0) {
-          // Retry on server errors
-          await new Promise((resolve) => setTimeout(resolve, this.retryDelay));
-          return this.fetchWithRetry(endpoint, options, retries - 1);
-        }
-
-        let error: ApiError;
-        try {
-          error = await response.json();
-        } catch {
-          error = {
-            error: "unknown",
-            message: `HTTP ${response.status}: ${response.statusText}`,
-          };
-        }
-        throw new Error(error.message || `API request failed: ${response.statusText}`);
-      }
-
-      return response;
-    } catch (error) {
-      if (retries > 0 && error instanceof TypeError) {
-        // Network error, retry
-        await new Promise((resolve) => setTimeout(resolve, this.retryDelay));
-        return this.fetchWithRetry(endpoint, options, retries - 1);
-      }
-      throw error;
-    }
-  }
-
-  private async get<T>(endpoint: string): Promise<T> {
-    const response = await this.fetchWithRetry(endpoint, { method: "GET" });
-    return response.json();
-  }
-
-  // Conversations API
+export class ConversationsApi extends BaseApiClient {
+  /**
+   * List all conversations.
+   */
   async listConversations(): Promise<ConversationsListResponse> {
     return this.get<ConversationsListResponse>("/conversations");
   }
 
+  /**
+   * Get a conversation by ID.
+   */
   async getConversation(conversationId: string): Promise<ConversationDetail> {
     return this.get<ConversationDetail>(`/conversations/${conversationId}`);
   }
 
-  // Failures API
+  /**
+   * List failures with optional filtering.
+   */
   async listFailures(severity?: string, type?: string): Promise<FailuresListResponse> {
     const params = new URLSearchParams();
     if (severity) params.append("severity", severity);
@@ -192,19 +125,17 @@ class ApiClient {
     return this.get<FailuresListResponse>(`/failures${query ? `?${query}` : ""}`);
   }
 
-  // Analysis API
+  /**
+   * Analyze all conversations.
+   */
   async analyzeAll(): Promise<AnalysisResponse> {
     return this.get<AnalysisResponse>("/analyze");
   }
 
+  /**
+   * Analyze a specific conversation.
+   */
   async analyzeConversation(conversationId: string): Promise<AnalysisResponse> {
     return this.get<AnalysisResponse>(`/analyze/${conversationId}`);
   }
-
-  // Health check
-  async healthCheck(): Promise<{ status: string; version: string; timestamp: string }> {
-    return this.get<{ status: string; version: string; timestamp: string }>("/health");
-  }
 }
-
-export const api = new ApiClient();

@@ -30,9 +30,9 @@ export default function DashboardPage() {
         setLoading(true);
         setError(null);
         const [analysisData, conversationsData, failuresData] = await Promise.all([
-          api.analyzeAll(),
-          api.listConversations(),
-          api.listFailures(),
+          api.conversations.analyzeAll(),
+          api.conversations.listConversations(),
+          api.conversations.listFailures(),
         ]);
         setAnalysis(analysisData);
         setConversations(conversationsData);
@@ -201,7 +201,7 @@ export default function DashboardPage() {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"

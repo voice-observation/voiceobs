@@ -1126,17 +1126,21 @@ class PersonaCreateRequest(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=255, description="Persona name")
     description: str | None = Field(None, description="Persona description")
-    aggression: float = Field(
-        ..., ge=0.0, le=1.0, description="Aggression level (0.0-1.0, required)"
+    aggression: float | None = Field(
+        None, ge=0.0, le=1.0, description="Aggression level (0.0-1.0, optional)"
     )
-    patience: float = Field(..., ge=0.0, le=1.0, description="Patience level (0.0-1.0, required)")
-    verbosity: float = Field(..., ge=0.0, le=1.0, description="Verbosity level (0.0-1.0, required)")
+    patience: float | None = Field(
+        None, ge=0.0, le=1.0, description="Patience level (0.0-1.0, optional)"
+    )
+    verbosity: float | None = Field(
+        None, ge=0.0, le=1.0, description="Verbosity level (0.0-1.0, optional)"
+    )
     traits: list[str] = Field(default_factory=list, description="List of personality traits")
-    tts_provider: str = Field(
-        ..., description="TTS provider: 'openai', 'elevenlabs', 'deepgram', etc."
+    tts_provider: str | None = Field(
+        None, description="TTS provider: 'openai', 'elevenlabs', 'deepgram', etc. (optional)"
     )
-    tts_config: dict[str, Any] = Field(
-        default_factory=dict, description="Provider-specific TTS configuration"
+    tts_config: dict[str, Any] | None = Field(
+        None, description="Provider-specific TTS configuration (optional)"
     )
     metadata: dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
     created_by: str | None = Field(None, description="User creating the persona")

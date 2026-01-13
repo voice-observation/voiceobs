@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api, type ConversationDetail, type TurnResponse, type FailureResponse } from "@/lib/api";
 import { AlertCircle, ArrowLeft, User, Bot, Clock } from "lucide-react";
-import { AudioPlayer } from "@/components/audio/AudioPlayer";
+import { AudioPlayer } from "@/components/shared/audio/AudioPlayer";
 import { getAudioUrl } from "@/lib/audio";
 
 export default function ConversationDetailPage({ params }: { params: { id: string } }) {
@@ -24,8 +24,8 @@ export default function ConversationDetailPage({ params }: { params: { id: strin
         setLoading(true);
         setError(null);
         const [convData, failuresData] = await Promise.all([
-          api.getConversation(params.id),
-          api.listFailures().then((data) =>
+          api.conversations.getConversation(params.id),
+          api.conversations.listFailures().then((data) =>
             data.failures.filter((f) => f.conversation_id === params.id)
           ),
         ]);
@@ -246,36 +246,33 @@ export default function ConversationDetailPage({ params }: { params: { id: strin
                         </div>
                       </div>
 
-                      {/* Stage Breakdown */}
-                      {(stageMetrics.asr || stageMetrics.llm || stageMetrics.tts) && (
+                      {Boolean(
+                        (stageMetrics.asr && typeof stageMetrics.asr === "number") ||
+                          (stageMetrics.llm && typeof stageMetrics.llm === "number") ||
+                          (stageMetrics.tts && typeof stageMetrics.tts === "number")
+                      ) && (
                         <div className="ml-7 grid grid-cols-3 gap-2 text-xs">
-                          {stageMetrics.asr && (
+                          {typeof stageMetrics.asr === "number" && (
                             <div className="p-2 bg-blue-50 dark:bg-blue-950 rounded">
                               <div className="font-medium">ASR</div>
                               <div className="text-muted-foreground">
-                                {typeof stageMetrics.asr === "number"
-                                  ? formatDuration(stageMetrics.asr)
-                                  : "-"}
+                                {formatDuration(stageMetrics.asr)}
                               </div>
                             </div>
                           )}
-                          {stageMetrics.llm && (
+                          {typeof stageMetrics.llm === "number" && (
                             <div className="p-2 bg-purple-50 dark:bg-purple-950 rounded">
                               <div className="font-medium">LLM</div>
                               <div className="text-muted-foreground">
-                                {typeof stageMetrics.llm === "number"
-                                  ? formatDuration(stageMetrics.llm)
-                                  : "-"}
+                                {formatDuration(stageMetrics.llm)}
                               </div>
                             </div>
                           )}
-                          {stageMetrics.tts && (
+                          {typeof stageMetrics.tts === "number" && (
                             <div className="p-2 bg-green-50 dark:bg-green-950 rounded">
                               <div className="font-medium">TTS</div>
                               <div className="text-muted-foreground">
-                                {typeof stageMetrics.tts === "number"
-                                  ? formatDuration(stageMetrics.tts)
-                                  : "-"}
+                                {formatDuration(stageMetrics.tts)}
                               </div>
                             </div>
                           )}

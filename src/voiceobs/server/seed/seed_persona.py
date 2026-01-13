@@ -26,6 +26,7 @@ from sqlalchemy.engine import Engine
 
 # Default catalog path relative to this script's directory
 CATALOG_PATH_DEFAULT = str(Path(__file__).parent / "personas_catalog_v0_1.json")
+MODELS_PATH_DEFAULT = str(Path(__file__).parent / "tts_provider_models.json")
 
 
 def _get_database_url() -> str:
@@ -64,8 +65,20 @@ def _get_database_url() -> str:
 
 
 def load_catalog(path: str) -> dict[str, Any]:
+    """Load persona catalog from JSON file."""
     with open(path, encoding="utf-8") as f:
         return json.load(f)
+
+
+def load_models(path: str) -> dict[str, dict[str, dict[str, Any]]]:
+    """Load TTS provider models from JSON file.
+
+    Returns:
+        Dictionary with structure: {provider: {model_name: {config}}}
+    """
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+        return data.get("models", {})
 
 
 def upsert_persona_row(
@@ -230,15 +243,68 @@ def ensure_unique_index(engine: Engine) -> None:
             print("[ok] Unique index created.", file=sys.stderr)
 
 
+def resolve_provider_config(
+    provider_name: str,
+    provider_value: str | dict[str, Any],
+    models: dict[str, dict[str, dict[str, Any]]],
+) -> dict[str, Any]:
+    """Resolve provider configuration from model reference or direct config.
+
+    Args:
+        provider_name: Name of the TTS provider (e.g., "elevenlabs", "openai").
+        provider_value: Either a model name string or a direct config dict.
+        models: Dictionary of provider models loaded from tts_provider_models.json.
+
+    Returns:
+        Resolved TTS configuration dictionary.
+
+    Raises:
+        ValueError: If model reference is not found.
+    """
+    # If provider_value is a string, it's a model reference
+    if isinstance(provider_value, str):
+        provider_models = models.get(provider_name, {})
+        if provider_value not in provider_models:
+            raise ValueError(
+                f"Model '{provider_value}' not found for provider '{provider_name}'. "
+                f"Available models: {list(provider_models.keys())}"
+            )
+        # Return a copy of the model config
+        return dict(provider_models[provider_value])
+
+    # Otherwise, it's a direct config dict (backward compatibility)
+    return dict(provider_value or {})
+
+
 def main() -> int:
     db_url = _get_database_url()
     catalog_path = os.getenv("PERSONA_CATALOG_PATH", CATALOG_PATH_DEFAULT)
+    models_path = os.getenv("TTS_MODELS_PATH", MODELS_PATH_DEFAULT)
 
     catalog = load_catalog(catalog_path)
     personas = catalog.get("personas", [])
     if not personas:
         print("[error] No personas found in catalog.")
         return 2
+
+    # Load models file (may not exist for backward compatibility)
+    models: dict[str, dict[str, dict[str, Any]]] = {}
+    if os.path.exists(models_path):
+        try:
+            models = load_models(models_path)
+            print(f"[info] Loaded TTS models from {models_path}", file=sys.stderr)
+        except Exception as e:
+            print(
+                f"[warn] Failed to load models file {models_path}: {e}. "
+                "Continuing with direct config format.",
+                file=sys.stderr,
+            )
+    else:
+        print(
+            f"[info] Models file not found at {models_path}. "
+            "Using direct config format (backward compatibility).",
+            file=sys.stderr,
+        )
 
     engine = create_engine(db_url, pool_pre_ping=True)
 
@@ -252,8 +318,12 @@ def main() -> int:
         common_metadata["base_persona_key"] = base_key
 
         providers = p.get("providers") or {}
-        for provider_name, provider_cfg in providers.items():
-            tts_config = dict(provider_cfg or {})
+        for provider_name, provider_value in providers.items():
+            try:
+                tts_config = resolve_provider_config(provider_name, provider_value, models)
+            except ValueError as e:
+                print(f"[error] {e}", file=sys.stderr)
+                continue
 
             upsert_persona_row(
                 engine,

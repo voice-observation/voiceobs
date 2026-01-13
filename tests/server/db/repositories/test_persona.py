@@ -230,7 +230,7 @@ class TestPersonaRepository:
 
     @pytest.mark.asyncio
     async def test_list_all_default(self, mock_db):
-        """Test listing all active personas (default)."""
+        """Test listing all personas (default is None = all personas)."""
         repo = PersonaRepository(mock_db)
 
         mock_db.fetch.return_value = [
@@ -271,7 +271,7 @@ class TestPersonaRepository:
                     "created_at": None,
                     "updated_at": None,
                     "created_by": None,
-                    "is_active": True,
+                    "is_active": False,
                 }
             ),
         ]
@@ -280,7 +280,9 @@ class TestPersonaRepository:
 
         assert len(result) == 2
         assert all(isinstance(p, PersonaRow) for p in result)
-        assert "WHERE is_active = $1" in mock_db.fetch.call_args[0][0]
+        # Default is None, so no WHERE clause for is_active
+        query = mock_db.fetch.call_args[0][0]
+        assert "WHERE" not in query or "is_active" not in query
 
     @pytest.mark.asyncio
     async def test_list_all_include_inactive(self, mock_db):
@@ -464,6 +466,151 @@ class TestPersonaRepository:
 
         assert result is not None
         assert result.metadata == {"key": "value"}
+
+    @pytest.mark.asyncio
+    async def test_row_to_persona_with_string_traits(self, mock_db):
+        """Test _row_to_persona handles string traits (JSONB from asyncpg)."""
+        repo = PersonaRepository(mock_db)
+        persona_id = uuid4()
+
+        # Mock traits as JSON string (how asyncpg might return it)
+        mock_db.fetchrow.return_value = MockRecord(
+            {
+                "id": persona_id,
+                "name": "Test Persona",
+                "description": None,
+                "aggression": 0.5,
+                "patience": 0.7,
+                "verbosity": 0.3,
+                "traits": '["friendly", "calm"]',  # JSON string
+                "tts_provider": "openai",
+                "tts_config": '{"model": "tts-1"}',  # JSON string
+                "preview_audio_url": None,
+                "preview_audio_text": None,
+                "metadata": '{"key": "value"}',  # JSON string
+                "created_at": None,
+                "updated_at": None,
+                "created_by": None,
+                "is_active": True,
+            }
+        )
+
+        result = await repo.get(persona_id)
+
+        assert result is not None
+        assert result.traits == ["friendly", "calm"]
+        assert result.tts_config == {"model": "tts-1"}
+        assert result.metadata == {"key": "value"}
+
+    @pytest.mark.asyncio
+    async def test_row_to_persona_with_object_traits(self, mock_db):
+        """Test _row_to_persona handles object traits (from seed data)."""
+        repo = PersonaRepository(mock_db)
+        persona_id = uuid4()
+
+        # Mock traits as list of objects (seed data format)
+        mock_db.fetchrow.return_value = MockRecord(
+            {
+                "id": persona_id,
+                "name": "Test Persona",
+                "description": None,
+                "aggression": 0.5,
+                "patience": 0.7,
+                "verbosity": 0.3,
+                "traits": [{"key": "friendly"}, {"key": "calm"}],  # Object format
+                "tts_provider": "openai",
+                "tts_config": {},
+                "preview_audio_url": None,
+                "preview_audio_text": None,
+                "metadata": {},
+                "created_at": None,
+                "updated_at": None,
+                "created_by": None,
+                "is_active": True,
+            }
+        )
+
+        result = await repo.get(persona_id)
+
+        assert result is not None
+        assert result.traits == ["friendly", "calm"]  # Should extract "key" values
+
+    @pytest.mark.asyncio
+    async def test_row_to_persona_with_none_fields(self, mock_db):
+        """Test _row_to_persona handles None fields correctly."""
+        repo = PersonaRepository(mock_db)
+        persona_id = uuid4()
+
+        mock_db.fetchrow.return_value = MockRecord(
+            {
+                "id": persona_id,
+                "name": "Test Persona",
+                "description": None,
+                "aggression": 0.5,
+                "patience": 0.7,
+                "verbosity": 0.3,
+                "traits": None,  # None traits
+                "tts_provider": "openai",
+                "tts_config": None,  # None tts_config
+                "preview_audio_url": None,
+                "preview_audio_text": None,
+                "metadata": None,  # None metadata
+                "created_at": None,
+                "updated_at": None,
+                "created_by": None,
+                "is_active": True,
+            }
+        )
+
+        result = await repo.get(persona_id)
+
+        assert result is not None
+        assert result.traits == []
+        assert result.tts_config == {}
+        assert result.metadata == {}
+
+    @pytest.mark.asyncio
+    async def test_update_persona_is_active(self, mock_db):
+        """Test updating persona is_active status."""
+        repo = PersonaRepository(mock_db)
+        persona_id = uuid4()
+
+        # Mock return value for get() call at the end of update
+        # Note: update() calls get() which needs fetchrow
+        mock_db.fetchrow.return_value = MockRecord(
+            {
+                "id": persona_id,
+                "name": "Test",
+                "description": None,
+                "aggression": 0.5,
+                "patience": 0.7,
+                "verbosity": 0.3,
+                "traits": [],
+                "tts_provider": "openai",
+                "tts_config": {},
+                "preview_audio_url": None,
+                "preview_audio_text": None,
+                "metadata": {},
+                "created_at": None,
+                "updated_at": None,
+                "created_by": None,
+                "is_active": False,
+            }
+        )
+
+        result = await repo.update(persona_id, is_active=False)
+
+        assert result is not None
+        assert result.is_active is False
+        # Verify is_active was included in update (False is not None, so it should be included)
+        # The update method filters out None values, and False is not None
+        assert mock_db.execute.called
+        # Check that execute was called with is_active in the query
+        call_args = mock_db.execute.call_args
+        if call_args:
+            update_query = call_args[0][0] if call_args[0] else ""
+            # is_active=False should be included since False is not None
+            assert "is_active" in update_query
         mock_db.execute.assert_called_once()
 
     @pytest.mark.asyncio

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,6 +24,21 @@ from voiceobs.server.routes import (
     test_scenarios_router,
     test_suites_router,
 )
+
+# Load environment variables from .env file if it exists
+try:
+    from dotenv import load_dotenv
+
+    # Try to find .env file in project root
+    # app.py is at: src/voiceobs/server/app.py
+    # Going up: server -> voiceobs -> src -> project_root
+    project_root = Path(__file__).parent.parent.parent.parent
+    env_path = project_root / ".env"
+    if env_path.exists():
+        load_dotenv(env_path, override=False)  # Don't override existing env vars
+except ImportError:
+    # python-dotenv not installed, skip loading .env file
+    pass
 
 
 @asynccontextmanager

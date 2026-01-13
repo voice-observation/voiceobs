@@ -1,8 +1,12 @@
 """Storage utility functions for the voiceobs server."""
 
 import os
+from typing import TYPE_CHECKING
 
 from voiceobs.server.storage import AudioStorage
+
+if TYPE_CHECKING:
+    from voiceobs.server.storage.s3 import S3Storage
 
 
 def get_audio_storage_from_env() -> AudioStorage:
@@ -49,3 +53,56 @@ def get_audio_storage_from_env() -> AudioStorage:
             provider="local",
             base_path=base_path,
         )
+
+
+async def get_presigned_url_if_s3(
+    audio_storage: AudioStorage, url: str, expiry: int | None = None
+) -> str:
+    """Get a presigned URL if the URL is an S3 URL, otherwise return the URL as-is.
+
+    Args:
+        audio_storage: AudioStorage instance to use for generating presigned URLs.
+        url: URL to check and potentially convert to presigned URL.
+        expiry: URL expiry time in seconds (only used for S3 URLs).
+
+    Returns:
+        Presigned URL if the input is an S3 URL, otherwise the original URL.
+    """
+    # Check if URL is an S3 URL
+    if not url or not url.startswith("s3://"):
+        return url
+
+    # Check if storage provider is S3
+    if audio_storage._provider_name != "s3":
+        # Not S3 storage, return URL as-is
+        return url
+
+    # Access the underlying S3Storage provider
+    s3_provider: S3Storage = audio_storage._provider  # type: ignore[assignment]
+
+    # Generate presigned URL
+    return await s3_provider.get_presigned_url_from_s3_url(url, expiry=expiry)
+
+
+async def get_presigned_url_for_audio(url: str | None, expiry: int | None = None) -> str | None:
+    """Get a presigned URL for an audio URL if using S3 storage, otherwise return as-is.
+
+    This is a convenience function that gets the audio storage from dependencies
+    and converts S3 URLs to presigned URLs.
+
+    Args:
+        url: Audio URL to convert (can be None).
+        expiry: URL expiry time in seconds (only used for S3 URLs).
+
+    Returns:
+        Presigned URL if the input is an S3 URL, None if input is None,
+        otherwise the original URL.
+    """
+    if url is None:
+        return None
+
+    # Import here to avoid circular dependencies
+    from voiceobs.server.dependencies import get_audio_storage
+
+    audio_storage = get_audio_storage()
+    return await get_presigned_url_if_s3(audio_storage, url, expiry=expiry)

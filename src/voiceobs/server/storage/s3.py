@@ -222,6 +222,51 @@ class S3Storage:
         )
         return url
 
+    async def get_presigned_url_from_s3_url(self, s3_url: str, expiry: int | None = None) -> str:
+        """Generate a presigned URL from an S3 URL.
+
+        Args:
+            s3_url: S3 URL in format "s3://bucket-name/key".
+            expiry: URL expiry time in seconds (defaults to configured value).
+
+        Returns:
+            Presigned URL string.
+
+        Raises:
+            ValueError: If the URL is not a valid S3 URL or bucket doesn't match.
+        """
+        import asyncio
+
+        if not s3_url.startswith("s3://"):
+            raise ValueError(f"Invalid S3 URL format: {s3_url}")
+
+        # Extract bucket and key from s3://bucket/key format
+        url_parts = s3_url[5:].split("/", 1)  # Remove "s3://" prefix
+        if len(url_parts) != 2:
+            raise ValueError(f"Invalid S3 URL format: {s3_url}")
+
+        bucket_name, s3_key = url_parts
+
+        # Verify bucket matches
+        if bucket_name != self.bucket_name:
+            raise ValueError(
+                f"S3 URL bucket '{bucket_name}' does not match configured bucket "
+                f"'{self.bucket_name}'"
+            )
+
+        expiry_seconds = expiry or self.presigned_url_expiry
+
+        loop = asyncio.get_event_loop()
+        url = await loop.run_in_executor(
+            None,
+            lambda: self.s3_client.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": self.bucket_name, "Key": s3_key},
+                ExpiresIn=expiry_seconds,
+            ),
+        )
+        return url
+
     async def store_audio(
         self, audio_data: bytes, prefix: str, content_type: str | None = None
     ) -> str:
