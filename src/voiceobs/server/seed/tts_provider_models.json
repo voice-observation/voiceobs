@@ -1,0 +1,130 @@
+{
+  "version": "0.1",
+  "models": {
+    "elevenlabs": {
+      "brian_turbo": {
+        "voice_id": "ByWUwXA3MMLREYmxtB32",
+        "voice_name": "Brian",
+        "model_id": "eleven_turbo_v2_5"
+      },
+      "larry_turbo": {
+        "voice_id": "fIGaHjfrR8KmMy0vGEVJ",
+        "voice_name": "Larry",
+        "model_id": "eleven_turbo_v2_5"
+      },
+      "callum_turbo": {
+        "voice_id": "N2lVS1w4EtoT3dr4eOWO",
+        "voice_name": "Callum",
+        "model_id": "eleven_turbo_v2_5"
+      },
+      "brian_elderly": {
+        "voice_id": "nPczCjzI2devNBz1zQrb",
+        "voice_name": "Brian",
+        "model_id": "eleven_turbo_v2_5"
+      },
+      "sara_turbo": {
+        "voice_id": "5na4ejPa9YijpM3gug82",
+        "voice_name": "Sara",
+        "model_id": "eleven_turbo_v2_5"
+      },
+      "lily_turbo": {
+        "voice_id": "pFZP5JQG7iQjIQuC4Bku",
+        "voice_name": "Lily",
+        "model_id": "eleven_turbo_v2_5"
+      },
+      "laura_turbo": {
+        "voice_id": "FGY2WhTYpPnrIDTdsKH5",
+        "voice_name": "Laura",
+        "model_id": "eleven_turbo_v2_5"
+      },
+      "daniel_turbo": {
+        "voice_id": "onwK4e9ZLuTAKqWW03F9",
+        "voice_name": "Daniel",
+        "model_id": "eleven_turbo_v2_5"
+      },
+      "sarah_turbo": {
+        "voice_id": "EXAVITQu4vr4xnSDxMaL",
+        "voice_name": "Sarah",
+        "model_id": "eleven_turbo_v2_5"
+      },
+      "charlie_turbo": {
+        "voice_id": "SAz9YHcvj6GT2YYXdXww",
+        "voice_name": "Charlie",
+        "model_id": "eleven_turbo_v2_5"
+      },
+      "brad_turbo": {
+        "voice_id": "MYiFAKeVwcvm4z9VsFAR",
+        "voice_name": "Brad",
+        "model_id": "eleven_turbo_v2_5"
+      }
+    },
+    "openai": {
+      "alloy_tts1": {
+        "model": "tts-1",
+        "voice": "alloy",
+        "speed": 1.0
+      },
+      "echo_tts1": {
+        "model": "tts-1",
+        "voice": "echo",
+        "speed": 1.0
+      },
+      "fable_tts1": {
+        "model": "tts-1",
+        "voice": "fable",
+        "speed": 1.0
+      },
+      "onyx_tts1": {
+        "model": "tts-1",
+        "voice": "onyx",
+        "speed": 1.0
+      },
+      "nova_tts1": {
+        "model": "tts-1",
+        "voice": "nova",
+        "speed": 1.0
+      },
+      "shimmer_tts1": {
+        "model": "tts-1",
+        "voice": "shimmer",
+        "speed": 1.0
+      },
+      "alloy_tts1_hd": {
+        "model": "tts-1-hd",
+        "voice": "alloy",
+        "speed": 1.0
+      },
+      "echo_tts1_hd": {
+        "model": "tts-1-hd",
+        "voice": "echo",
+        "speed": 1.0
+      }
+    },
+    "deepgram": {
+      "asteria_en": {
+        "model": "aura-asteria-en"
+      },
+      "luna_en": {
+        "model": "aura-luna-en"
+      },
+      "stella_en": {
+        "model": "aura-stella-en"
+      },
+      "athena_en": {
+        "model": "aura-athena-en"
+      },
+      "hera_en": {
+        "model": "aura-hera-en"
+      },
+      "orion_en": {
+        "model": "aura-orion-en"
+      },
+      "arcas_en": {
+        "model": "aura-arcas-en"
+      },
+      "perseus_en": {
+        "model": "aura-perseus-en"
+      }
+    }
+  }
+}

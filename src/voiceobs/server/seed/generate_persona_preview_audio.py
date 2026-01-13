@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import sys
 from pathlib import Path
 from typing import Any
@@ -155,14 +156,16 @@ async def process_personas(
         )
         query_params = {"persona_id": persona_id}
     else:
+        # Query all personas without preview_audio_url
+        # They must have preview_audio_text to generate audio
         query = text(
             """
             SELECT id, name, tts_provider, tts_config, preview_audio_text
             FROM personas
-            WHERE preview_audio_text IS NOT NULL
-              AND preview_audio_text != ''
+            WHERE is_active = true
               AND (preview_audio_url IS NULL OR preview_audio_url = '')
-              AND is_active = true
+              AND preview_audio_text IS NOT NULL
+              AND preview_audio_text != ''
             ORDER BY created_at ASC
             """
         )
@@ -199,7 +202,16 @@ async def process_personas(
         persona_id = persona_row["id"]
         persona_name = persona_row["name"]
         tts_provider = persona_row["tts_provider"]
-        tts_config = persona_row["tts_config"] or {}
+
+        # Parse tts_config if it's a JSON string (JSONB fields may be returned as strings)
+        tts_config_raw = persona_row["tts_config"]
+        if isinstance(tts_config_raw, str):
+            tts_config = json.loads(tts_config_raw) if tts_config_raw else {}
+        elif tts_config_raw is None:
+            tts_config = {}
+        else:
+            tts_config = tts_config_raw
+
         preview_audio_text = persona_row["preview_audio_text"]
 
         processed_count += 1

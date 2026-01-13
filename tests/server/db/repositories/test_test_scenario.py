@@ -288,6 +288,34 @@ class TestTestScenarioRepository:
         assert mock_db.fetchrow.called
 
     @pytest.mark.asyncio
+    async def test_update_scenario_no_changes(self, mock_db):
+        """Test updating scenario with no changes returns existing."""
+        mock_persona_repo = PersonaRepository(mock_db)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+
+        scenario_id = uuid4()
+
+        # Mock get to return existing scenario
+        mock_db.fetchrow.return_value = MockRecord(
+            {
+                "id": scenario_id,
+                "suite_id": uuid4(),
+                "name": "Test Scenario",
+                "goal": "Test goal",
+                "persona_id": uuid4(),
+                "max_turns": 10,
+                "timeout": 300,
+            }
+        )
+
+        result = await repo.update(scenario_id=scenario_id)
+
+        assert result is not None
+        # Should call fetchrow for get but not execute for update
+        assert mock_db.fetchrow.called
+        assert not mock_db.execute.called
+
+    @pytest.mark.asyncio
     async def test_get_scenario(self, mock_db):
         """Test getting a scenario by UUID."""
         mock_persona_repo = PersonaRepository(mock_db)

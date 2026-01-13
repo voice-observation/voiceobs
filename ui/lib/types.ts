@@ -140,6 +140,21 @@ export interface PipelinesListResponse {
 }
 
 // Persona Types
+// PersonaListItem - used in list responses (simplified model)
+export interface PersonaListItem {
+  id: string;
+  name: string;
+  description: string | null;
+  aggression: number; // 0-1
+  patience: number; // 0-1
+  verbosity: number; // 0-1
+  traits: string[];
+  preview_audio_url: string | null;
+  preview_audio_text: string | null;
+  is_active: boolean;
+}
+
+// PersonaResponse - full persona model with all fields (UI-facing, excludes backend config)
 export interface Persona {
   id: string;
   name: string;
@@ -148,46 +163,47 @@ export interface Persona {
   patience: number; // 0-1
   verbosity: number; // 0-1
   traits: string[];
-  accent?: string | null;
-  gender?: string | null;
-  background_noise?: boolean;
-  temperature?: number; // 0-1
-  enabled?: boolean;
-  is_predefined: boolean;
+  preview_audio_url: string | null;
+  preview_audio_text: string | null;
+  metadata: Record<string, unknown>;
   created_at: string | null;
   updated_at: string | null;
+  created_by: string | null;
+  is_active: boolean;
 }
 
 export interface PersonaCreateRequest {
   name: string;
   description?: string | null;
-  aggression: number;
-  patience: number;
-  verbosity: number;
+  aggression?: number; // 0-1, optional
+  patience?: number; // 0-1, optional
+  verbosity?: number; // 0-1, optional
   traits?: string[];
-  accent?: string | null;
-  gender?: string | null;
-  background_noise?: boolean;
-  temperature?: number;
+  metadata?: Record<string, unknown>;
+  created_by?: string | null;
+  tts_provider?: string;
+  tts_config?: Record<string, unknown>;
 }
 
 export interface PersonaUpdateRequest {
   name?: string | null;
   description?: string | null;
-  aggression?: number | null;
-  patience?: number | null;
-  verbosity?: number | null;
+  aggression?: number | null; // 0-1
+  patience?: number | null; // 0-1
+  verbosity?: number | null; // 0-1
   traits?: string[] | null;
-  accent?: string | null;
-  gender?: string | null;
-  background_noise?: boolean | null;
-  temperature?: number | null;
-  enabled?: boolean | null;
+  metadata?: Record<string, unknown> | null;
 }
 
 export interface PersonasListResponse {
   count: number;
-  personas: Persona[];
+  personas: PersonaListItem[];
+}
+
+export interface PersonaAudioPreviewResponse {
+  audio_url: string;
+  text: string;
+  format: string;
 }
 
 // Report Types

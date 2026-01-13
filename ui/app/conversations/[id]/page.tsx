@@ -24,8 +24,8 @@ export default function ConversationDetailPage({ params }: { params: { id: strin
         setLoading(true);
         setError(null);
         const [convData, failuresData] = await Promise.all([
-          api.getConversation(params.id),
-          api.listFailures().then((data) =>
+          api.conversations.getConversation(params.id),
+          api.conversations.listFailures().then((data) =>
             data.failures.filter((f) => f.conversation_id === params.id)
           ),
         ]);

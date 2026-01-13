@@ -211,3 +211,84 @@ class TestSpanRepository:
         count = await repo.count()
 
         assert count == 10
+
+    @pytest.mark.asyncio
+    async def test_add_span_with_datetime_objects(self, mock_db):
+        """Test adding span with datetime objects instead of strings."""
+        from datetime import datetime, timezone
+
+        repo = SpanRepository(mock_db)
+        start_time = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+        end_time = datetime(2024, 1, 1, 0, 0, 1, tzinfo=timezone.utc)
+
+        span_id = await repo.add(
+            name="voice.turn",
+            start_time=start_time,
+            end_time=end_time,
+            duration_ms=1000.0,
+        )
+
+        assert isinstance(span_id, UUID)
+        call_args = mock_db.execute.call_args[0]
+        assert call_args[3] == start_time
+        assert call_args[4] == end_time
+
+    @pytest.mark.asyncio
+    async def test_add_span_with_none_times(self, mock_db):
+        """Test adding span with None times."""
+        repo = SpanRepository(mock_db)
+
+        span_id = await repo.add(
+            name="voice.turn",
+            start_time=None,
+            end_time=None,
+            duration_ms=100.0,
+        )
+
+        assert isinstance(span_id, UUID)
+        call_args = mock_db.execute.call_args[0]
+        assert call_args[3] is None
+        assert call_args[4] is None
+
+    @pytest.mark.asyncio
+    async def test_add_span_with_iso_string_no_z(self, mock_db):
+        """Test adding span with ISO string without Z suffix."""
+        from datetime import datetime
+
+        repo = SpanRepository(mock_db)
+
+        span_id = await repo.add(
+            name="voice.turn",
+            start_time="2024-01-01T00:00:00+00:00",
+            duration_ms=100.0,
+        )
+
+        assert isinstance(span_id, UUID)
+        call_args = mock_db.execute.call_args[0]
+        assert isinstance(call_args[3], datetime)
+
+    @pytest.mark.asyncio
+    async def test_get_span_with_null_attributes(self, mock_db):
+        """Test getting span with null attributes."""
+        repo = SpanRepository(mock_db)
+        span_id = uuid4()
+        mock_db.fetchrow.return_value = MockRecord(
+            {
+                "id": span_id,
+                "name": "voice.turn",
+                "start_time": None,
+                "end_time": None,
+                "duration_ms": 100.0,
+                "attributes": None,
+                "trace_id": None,
+                "span_id": None,
+                "parent_span_id": None,
+                "conversation_id": None,
+                "created_at": None,
+            }
+        )
+
+        result = await repo.get(span_id)
+
+        assert result is not None
+        assert result.attributes == {}

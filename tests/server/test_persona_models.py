@@ -125,7 +125,7 @@ class TestPersonaCreateRequest:
         assert request.name == "Minimal Persona"
         assert request.description is None
         assert request.traits == []
-        assert request.tts_config == {}
+        assert request.tts_config is None  # Now optional, defaults to None
         assert request.metadata == {}
         assert request.created_by is None
 
@@ -245,17 +245,17 @@ class TestPersonaCreateRequest:
         errors = exc_info.value.errors()
         assert any(e["loc"] == ("name",) for e in errors)
 
-    def test_persona_create_request_tts_provider_required(self):
-        """Test tts_provider is required."""
-        with pytest.raises(ValidationError) as exc_info:
-            PersonaCreateRequest(
-                name="Test",
-                aggression=0.5,
-                patience=0.5,
-                verbosity=0.5,
-            )
-        errors = exc_info.value.errors()
-        assert any(e["loc"] == ("tts_provider",) for e in errors)
+    def test_persona_create_request_tts_provider_optional(self):
+        """Test tts_provider is optional (can be None)."""
+        # tts_provider is now optional, so this should not raise an error
+        request = PersonaCreateRequest(
+            name="Test",
+            aggression=0.5,
+            patience=0.5,
+            verbosity=0.5,
+        )
+        assert request.tts_provider is None
+        assert request.tts_config is None
 
     def test_persona_create_request_boundary_values(self):
         """Test boundary values for trait ranges."""

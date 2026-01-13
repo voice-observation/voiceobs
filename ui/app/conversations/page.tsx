@@ -30,7 +30,7 @@ export default function ConversationsPage() {
       try {
         setLoading(true);
         setError(null);
-        const response = await api.listConversations();
+        const response = await api.conversations.listConversations();
         setData(response);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load conversations");

@@ -30,9 +30,9 @@ export default function DashboardPage() {
         setLoading(true);
         setError(null);
         const [analysisData, conversationsData, failuresData] = await Promise.all([
-          api.analyzeAll(),
-          api.listConversations(),
-          api.listFailures(),
+          api.conversations.analyzeAll(),
+          api.conversations.listConversations(),
+          api.conversations.listFailures(),
         ]);
         setAnalysis(analysisData);
         setConversations(conversationsData);

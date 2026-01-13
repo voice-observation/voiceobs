@@ -48,6 +48,7 @@ class TestPersonas:
         data = response.json()
         assert "not available" in data["detail"]
 
+    @patch("voiceobs.server.routes.personas.get_presigned_url_for_audio")
     @patch("voiceobs.server.routes.personas.get_persona_repo")
     @patch("voiceobs.server.routes.personas.TTSServiceFactory")
     @patch("voiceobs.server.routes.personas.get_audio_storage")
@@ -56,6 +57,7 @@ class TestPersonas:
         mock_get_audio_storage,
         mock_tts_factory,
         mock_get_persona_repo,
+        mock_get_presigned_url,
         client,
     ):
         """Test successful persona creation with preview audio generation."""
@@ -76,28 +78,8 @@ class TestPersonas:
         mock_audio_storage.store_audio.return_value = preview_audio_url
         mock_get_audio_storage.return_value = mock_audio_storage
 
-        # Mock persona repository - first created without preview_audio_url
-        mock_persona_initial = PersonaRow(
-            id=persona_id,
-            name="Angry Customer",
-            description="An aggressive customer persona",
-            aggression=0.8,
-            patience=0.2,
-            verbosity=0.6,
-            traits=["impatient", "demanding"],
-            tts_provider="openai",
-            tts_config={"model": "tts-1", "voice": "alloy", "speed": 1.0},
-            preview_audio_url=None,
-            preview_audio_text=DEFAULT_PREVIEW_TEXT,
-            metadata={"category": "customer"},
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
-            created_by="user@example.com",
-            is_active=True,
-        )
-
-        # Mock persona after update with preview_audio_url
-        mock_persona_updated = PersonaRow(
+        # Mock persona created with preview_audio_url (route sets it during creation)
+        mock_persona = PersonaRow(
             id=persona_id,
             name="Angry Customer",
             description="An aggressive customer persona",
@@ -117,9 +99,11 @@ class TestPersonas:
         )
 
         mock_repo = AsyncMock()
-        mock_repo.create.return_value = mock_persona_initial
-        mock_repo.update.return_value = mock_persona_updated
+        mock_repo.create.return_value = mock_persona
         mock_get_persona_repo.return_value = mock_repo
+
+        # Mock presigned URL function to return the original URL
+        mock_get_presigned_url.return_value = preview_audio_url
 
         response = client.post(
             "/api/v1/personas",
@@ -153,8 +137,9 @@ class TestPersonas:
         # Verify audio storage was called with store_audio
         mock_audio_storage.store_audio.assert_called_once()
 
-        # Verify persona was updated with preview audio URL
-        mock_repo.update.assert_called_once()
+        # Verify persona was created with preview audio URL (no update needed)
+        mock_repo.create.assert_called_once()
+        # Note: The route no longer calls update since preview_audio_url is set during creation
 
     @patch("voiceobs.server.routes.personas.get_persona_repo")
     def test_list_personas_success(self, mock_get_persona_repo, client):
@@ -614,13 +599,16 @@ class TestPersonas:
                 "patience": 0.5,
                 "verbosity": 0.5,
                 "tts_provider": "invalid_provider",
-                "tts_config": {},
+                "tts_config": {"model": "test"},  # Non-empty config to trigger TTS generation
             },
         )
 
         assert response.status_code == 400
         data = response.json()
         assert "Unsupported TTS provider" in data["detail"]
+
+        # Verify persona was NOT created (error should be raised before creation)
+        mock_repo.create.assert_not_called()
 
     @patch("voiceobs.server.routes.personas.get_persona_repo")
     @patch("voiceobs.server.routes.personas.TTSServiceFactory")

@@ -1,29 +1,31 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, Plus, ToggleLeft, ToggleRight } from "lucide-react";
-import { api, type Persona } from "@/lib/api";
+import { AlertCircle, Plus } from "lucide-react";
+import { api } from "@/lib/api";
+import { logger } from "@/lib/logger";
 import { PersonaCard } from "@/components/personas/PersonaCard";
 import { CreatePersonaDialog } from "@/components/personas/CreatePersonaDialog";
-import type { PersonaCreateRequest } from "@/lib/types";
+import type { PersonaCreateRequest, PersonaListItem } from "@/lib/types";
 
 export default function PersonasPage() {
-  const [personas, setPersonas] = useState<Persona[]>([]);
+  const [personas, setPersonas] = useState<PersonaListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("predefined");
+  const [activeTab, setActiveTab] = useState("active");
 
   useEffect(() => {
     async function fetchData() {
       try {
         setLoading(true);
         setError(null);
-        const response = await api.listPersonas();
+        // Fetch all personas (both active and inactive)
+        const response = await api.personas.listPersonas(null);
         setPersonas(response.personas);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load personas");
@@ -34,13 +36,26 @@ export default function PersonasPage() {
     fetchData();
   }, []);
 
-  const predefinedPersonas = personas.filter((p) => p.is_predefined);
-  const customPersonas = personas.filter((p) => !p.is_predefined);
+  const activePersonas = personas.filter((p) => p.is_active);
+  const inactivePersonas = personas.filter((p) => !p.is_active);
 
   const handleCreatePersona = async (data: PersonaCreateRequest) => {
     try {
-      const newPersona = await api.createPersona(data);
-      setPersonas((prev) => [...prev, newPersona]);
+      const newPersona = await api.personas.createPersona(data);
+      // Convert PersonaResponse to PersonaListItem for display
+      const personaListItem: PersonaListItem = {
+        id: newPersona.id,
+        name: newPersona.name,
+        description: newPersona.description,
+        aggression: newPersona.aggression,
+        patience: newPersona.patience,
+        verbosity: newPersona.verbosity,
+        traits: newPersona.traits,
+        preview_audio_url: newPersona.preview_audio_url,
+        preview_audio_text: newPersona.preview_audio_text,
+        is_active: newPersona.is_active,
+      };
+      setPersonas((prev) => [...prev, personaListItem]);
     } catch (err) {
       throw err; // Re-throw to let dialog handle it
     }
@@ -48,37 +63,66 @@ export default function PersonasPage() {
 
   const handleToggleEnabled = async (id: string, enabled: boolean) => {
     try {
-      const updatedPersona = await api.updatePersona(id, { enabled });
+      // Optimistically update UI
       setPersonas((prev) =>
-        prev.map((p) => (p.id === id ? updatedPersona : p))
+        prev.map((p) => (p.id === id ? { ...p, is_active: enabled } : p))
       );
+
+      // Call the API to update the persona's active status
+      const updatedPersona = await api.personas.setPersonaActive(id, enabled);
+
+      // Update the persona in the list with the response from the API
+      setPersonas((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, is_active: updatedPersona.is_active } : p))
+      );
+
+      logger.info("Persona active status updated", { personaId: id, isActive: enabled });
     } catch (err) {
-      console.error("Failed to update persona:", err);
+      logger.error("Failed to update persona active status", err, { personaId: id, isActive: enabled });
+      // Revert on error by refreshing
+      try {
+        const response = await api.personas.listPersonas(null);
+        setPersonas(response.personas);
+      } catch (refreshErr) {
+        logger.error("Failed to refresh personas after toggle error", refreshErr);
+      }
     }
   };
 
-  const handleListenVoice = (id: string) => {
-    // TODO: Implement voice playback
-    console.log("Listen voice for persona:", id);
-  };
+  const handleListenVoice = async (id: string) => {
+    try {
+      let preview;
+      try {
+        // Try to get existing preview audio
+        preview = await api.personas.getPersonaPreviewAudio(id);
+      } catch (err) {
+        // If preview doesn't exist, generate it
+        logger.debug("Preview audio not found, generating...", { personaId: id });
+        preview = await api.personas.generatePersonaPreviewAudio(id);
+      }
 
-  const handleEnableAll = async () => {
-    const currentPersonas = activeTab === "predefined" ? predefinedPersonas : customPersonas;
-    const disabledPersonas = currentPersonas.filter((p) => !(p.enabled ?? true));
-
-    for (const persona of disabledPersonas) {
-      await handleToggleEnabled(persona.id, true);
+      if (preview.audio_url) {
+        // Create audio element and play
+        const audio = new Audio(preview.audio_url);
+        audio.play().catch((err) => {
+          logger.error("Failed to play audio", err, { personaId: id, audioUrl: preview.audio_url });
+        });
+        // Clean up when done
+        audio.addEventListener("ended", () => {
+          audio.remove();
+        });
+        audio.addEventListener("error", () => {
+          logger.error("Audio playback error", undefined, { personaId: id, audioUrl: preview.audio_url });
+          audio.remove();
+        });
+      } else {
+        logger.warn("No preview audio URL available", { personaId: id });
+      }
+    } catch (err) {
+      logger.error("Failed to get or generate preview audio", err, { personaId: id });
     }
   };
 
-  const handleDisableAll = async () => {
-    const currentPersonas = activeTab === "predefined" ? predefinedPersonas : customPersonas;
-    const enabledPersonas = currentPersonas.filter((p) => p.enabled ?? true);
-
-    for (const persona of enabledPersonas) {
-      await handleToggleEnabled(persona.id, false);
-    }
-  };
 
   if (loading) {
     return (
@@ -123,19 +167,11 @@ export default function PersonasPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="flex items-center justify-between">
           <TabsList>
-            <TabsTrigger value="predefined">Pre-defined Personas</TabsTrigger>
-            <TabsTrigger value="custom">Custom Personas</TabsTrigger>
+            <TabsTrigger value="active">Active Personas</TabsTrigger>
+            <TabsTrigger value="inactive">Inactive Personas</TabsTrigger>
           </TabsList>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleDisableAll}>
-              <ToggleLeft className="w-4 h-4 mr-2" />
-              Disable All
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleEnableAll}>
-              <ToggleRight className="w-4 h-4 mr-2" />
-              Enable All
-            </Button>
             <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
               <Plus className="w-4 h-4 mr-2" />
               Create Persona
@@ -143,10 +179,10 @@ export default function PersonasPage() {
           </div>
         </div>
 
-        <TabsContent value="predefined" className="mt-6">
-          {predefinedPersonas.length > 0 ? (
+        <TabsContent value="active" className="mt-6">
+          {activePersonas.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {predefinedPersonas.map((persona) => (
+              {activePersonas.map((persona) => (
                 <PersonaCard
                   key={persona.id}
                   persona={persona}
@@ -159,17 +195,17 @@ export default function PersonasPage() {
             <Card>
               <CardContent className="pt-6">
                 <div className="text-center py-12 text-muted-foreground">
-                  <p>No pre-defined personas found</p>
+                  <p>No active personas found</p>
                 </div>
               </CardContent>
             </Card>
           )}
         </TabsContent>
 
-        <TabsContent value="custom" className="mt-6">
-          {customPersonas.length > 0 ? (
+        <TabsContent value="inactive" className="mt-6">
+          {inactivePersonas.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {customPersonas.map((persona) => (
+              {inactivePersonas.map((persona) => (
                 <PersonaCard
                   key={persona.id}
                   persona={persona}
@@ -182,7 +218,7 @@ export default function PersonasPage() {
             <Card>
               <CardContent className="pt-6">
                 <div className="text-center py-12 text-muted-foreground">
-                  <p>No custom personas found</p>
+                  <p>No inactive personas found</p>
                   <Button
                     variant="outline"
                     className="mt-4"

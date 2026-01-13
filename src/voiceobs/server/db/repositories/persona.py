@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -29,7 +30,7 @@ class PersonaRepository:
         aggression: float,
         patience: float,
         verbosity: float,
-        tts_provider: str,
+        tts_provider: str | None = None,
         tts_config: dict[str, Any] | None = None,
         description: str | None = None,
         traits: list[str] | None = None,
@@ -60,12 +61,13 @@ class PersonaRepository:
         Raises:
             ValueError: If tts_provider is not supported.
         """
-        # Validate TTS provider
-        if tts_provider.lower() not in SUPPORTED_TTS_PROVIDERS:
-            supported = ", ".join(sorted(SUPPORTED_TTS_PROVIDERS))
-            raise ValueError(
-                f"Unsupported TTS provider: {tts_provider}. Supported providers: {supported}"
-            )
+        # Validate TTS provider only if provided
+        if tts_provider is not None:
+            if tts_provider.lower() not in SUPPORTED_TTS_PROVIDERS:
+                supported = ", ".join(sorted(SUPPORTED_TTS_PROVIDERS))
+                raise ValueError(
+                    f"Unsupported TTS provider: {tts_provider}. Supported providers: {supported}"
+                )
 
         persona_id = uuid4()
         tts_config = tts_config or {}
@@ -79,7 +81,10 @@ class PersonaRepository:
                 traits, tts_provider, tts_config, preview_audio_url,
                 preview_audio_text, metadata, created_by, is_active
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, true)
+            VALUES (
+                $1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9::jsonb,
+                $10, $11, $12::jsonb, $13, true
+            )
             """,
             persona_id,
             name,
@@ -87,12 +92,12 @@ class PersonaRepository:
             aggression,
             patience,
             verbosity,
-            traits,
+            json.dumps(traits),  # Convert list to JSON string for JSONB column
             tts_provider,
-            tts_config,
+            json.dumps(tts_config),  # Convert dict to JSON string for JSONB column
             preview_audio_url,
             preview_audio_text,
-            metadata,
+            json.dumps(metadata),  # Convert dict to JSON string for JSONB column
             created_by,
         )
 
@@ -164,7 +169,7 @@ class PersonaRepository:
 
     async def list_all(
         self,
-        is_active: bool | None = True,
+        is_active: bool | None = None,
         limit: int | None = None,
         offset: int | None = None,
     ) -> list[PersonaRow]:
@@ -230,6 +235,7 @@ class PersonaRepository:
         preview_audio_url: str | None = None,
         preview_audio_text: str | None = None,
         metadata: dict[str, Any] | None = None,
+        is_active: bool | None = None,
     ) -> PersonaRow | None:
         """Update an existing persona.
 
@@ -273,6 +279,7 @@ class PersonaRepository:
             "preview_audio_url": preview_audio_url,
             "preview_audio_text": preview_audio_text,
             "metadata": metadata,
+            "is_active": is_active,
         }
 
         # Filter out None values and build SQL clauses
@@ -282,8 +289,15 @@ class PersonaRepository:
 
         for field_name, field_value in field_values.items():
             if field_value is not None:
-                updates.append(f"{field_name} = ${param_idx}")
-                params.append(field_value)
+                if field_name == "traits":
+                    updates.append(f"{field_name} = ${param_idx}::jsonb")
+                    params.append(json.dumps(field_value))
+                elif field_name in ("tts_config", "metadata"):
+                    updates.append(f"{field_name} = ${param_idx}::jsonb")
+                    params.append(json.dumps(field_value))
+                else:
+                    updates.append(f"{field_name} = ${param_idx}")
+                    params.append(field_value)
                 param_idx += 1
 
         if not updates:
@@ -368,6 +382,46 @@ class PersonaRepository:
         Returns:
             PersonaRow instance.
         """
+        # Parse JSONB fields if they come as strings (asyncpg might return them as strings)
+        traits = row["traits"]
+        if isinstance(traits, str):
+            traits = json.loads(traits) if traits else []
+        elif traits is None:
+            traits = []
+
+        # Ensure traits is a list of strings (not objects)
+        # If traits contains objects, extract string values or convert to strings
+        if traits and isinstance(traits, list):
+            parsed_traits = []
+            for trait in traits:
+                if isinstance(trait, str):
+                    parsed_traits.append(trait)
+                elif isinstance(trait, dict):
+                    # If it's an object, try to extract a meaningful string representation
+                    # For seed data format: {"key": "...", "value": ...}
+                    if "key" in trait:
+                        parsed_traits.append(str(trait["key"]))
+                    elif "value" in trait:
+                        parsed_traits.append(str(trait["value"]))
+                    else:
+                        # Fallback: convert entire object to string
+                        parsed_traits.append(str(trait))
+                else:
+                    parsed_traits.append(str(trait))
+            traits = parsed_traits
+
+        tts_config = row["tts_config"]
+        if isinstance(tts_config, str):
+            tts_config = json.loads(tts_config) if tts_config else {}
+        elif tts_config is None:
+            tts_config = {}
+
+        metadata = row["metadata"]
+        if isinstance(metadata, str):
+            metadata = json.loads(metadata) if metadata else {}
+        elif metadata is None:
+            metadata = {}
+
         return PersonaRow(
             id=row["id"],
             name=row["name"],
@@ -375,12 +429,12 @@ class PersonaRepository:
             aggression=row["aggression"],
             patience=row["patience"],
             verbosity=row["verbosity"],
-            traits=row["traits"] or [],
+            traits=traits,
             tts_provider=row["tts_provider"],
-            tts_config=row["tts_config"] or {},
+            tts_config=tts_config,
             preview_audio_url=row["preview_audio_url"],
             preview_audio_text=row["preview_audio_text"],
-            metadata=row["metadata"] or {},
+            metadata=metadata,
             created_at=row["created_at"],
             updated_at=row["updated_at"],
             created_by=row["created_by"],
