@@ -15,6 +15,7 @@ import { TestScenariosApi } from "./testScenarios";
 import { TestExecutionsApi } from "./testExecutions";
 import { PipelinesApi } from "./pipelines";
 import { ReportsApi } from "./reports";
+import { AgentsApi } from "./agents";
 
 /**
  * Main API client class that provides access to all entity-specific APIs.
@@ -27,6 +28,7 @@ class ApiClient extends BaseApiClient {
   public readonly testExecutions: TestExecutionsApi;
   public readonly pipelines: PipelinesApi;
   public readonly reports: ReportsApi;
+  public readonly agents: AgentsApi;
 
   constructor() {
     super();
@@ -37,6 +39,7 @@ class ApiClient extends BaseApiClient {
     this.testExecutions = new TestExecutionsApi();
     this.pipelines = new PipelinesApi();
     this.reports = new ReportsApi();
+    this.agents = new AgentsApi();
   }
 
   /**
@@ -58,6 +61,7 @@ export { TestScenariosApi } from "./testScenarios";
 export { TestExecutionsApi } from "./testExecutions";
 export { PipelinesApi } from "./pipelines";
 export { ReportsApi } from "./reports";
+export { AgentsApi } from "./agents";
 
 // Export types
 export type { ApiError } from "./base";
@@ -98,4 +102,9 @@ export type {
   ScheduledReportsListResponse,
   ReportHistoryResponse,
   ReportHistoryFilters,
+  Agent,
+  AgentListItem,
+  AgentCreateRequest,
+  AgentUpdateRequest,
+  AgentsListResponse,
 } from "../types";
