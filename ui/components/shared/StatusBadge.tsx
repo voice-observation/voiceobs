@@ -10,9 +10,9 @@ const statusBadgeVariants = cva(
   {
     variants: {
       status: {
-        passed: "border-success/20 bg-success/10 text-success-foreground",
-        failed: "border-destructive/20 bg-destructive/10 text-destructive-foreground",
-        warning: "border-warning/20 bg-warning/10 text-warning-foreground",
+        passed: "border-success/20 bg-success/10 text-success",
+        failed: "border-destructive/20 bg-destructive/10 text-destructive",
+        warning: "border-warning/20 bg-warning/10 text-warning",
         pending: "border-muted-foreground/20 bg-muted text-muted-foreground",
       },
       size: {
