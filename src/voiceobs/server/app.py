@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from voiceobs._version import __version__
 from voiceobs.server.dependencies import init_database, shutdown_database
 from voiceobs.server.routes import (
+    agents_router,
     analysis_router,
     audio_router,
     conversations_router,
@@ -91,5 +92,6 @@ def create_app() -> FastAPI:
     app.include_router(test_scenarios_router)
     app.include_router(test_executions_router)
     app.include_router(personas_router)
+    app.include_router(agents_router)
 
     return app
