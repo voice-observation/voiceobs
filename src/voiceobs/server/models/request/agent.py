@@ -18,10 +18,14 @@ class AgentCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="Agent name")
     agent_type: str = Field(default="phone", description="Agent type: 'phone', 'web', etc.")
     # Convenience fields - will be converted to contact_info
-    phone_number: str | None = Field(None, description="Agent phone number (E.164 format, for phone agents)")
+    phone_number: str | None = Field(
+        None, description="Agent phone number (E.164 format, for phone agents)"
+    )
     web_url: str | None = Field(None, description="Agent web URL (for web agents)")
     # Direct contact_info - alternative to convenience fields
-    contact_info: dict[str, Any] | None = Field(None, description="Contact information (alternative to phone_number/web_url)")
+    contact_info: dict[str, Any] | None = Field(
+        None, description="Contact information (alternative to phone_number/web_url)"
+    )
     goal: str = Field(..., min_length=1, description="What the agent is supposed to achieve")
     supported_intents: list[str] = Field(
         ..., min_length=1, description="List of supported agent intents"
@@ -29,8 +33,8 @@ class AgentCreateRequest(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
     created_by: str | None = Field(None, description="User creating the agent")
 
-    @model_validator(mode='after')
-    def validate_and_build_contact_info(self) -> 'AgentCreateRequest':
+    @model_validator(mode="after")
+    def validate_and_build_contact_info(self) -> AgentCreateRequest:
         """Validate contact method and build contact_info from convenience fields."""
         # Build contact_info from convenience fields if provided
         if self.contact_info is None:
@@ -63,7 +67,7 @@ class AgentCreateRequest(BaseModel):
                     "goal": "Help customers with product inquiries and support requests",
                     "supported_intents": ["product_inquiry", "support_request", "billing_question"],
                     "metadata": {"department": "support", "priority": "high"},
-                    "created_by": "user@example.com"
+                    "created_by": "user@example.com",
                 },
                 {
                     "name": "Web Chat Agent",
@@ -72,16 +76,19 @@ class AgentCreateRequest(BaseModel):
                     "goal": "Handle customer inquiries via web interface",
                     "supported_intents": ["product_inquiry", "support_request"],
                     "metadata": {"department": "support"},
-                    "created_by": "user@example.com"
+                    "created_by": "user@example.com",
                 },
                 {
                     "name": "Custom Agent",
                     "agent_type": "custom",
-                    "contact_info": {"custom_endpoint": "https://custom.example.com", "api_key": "secret"},
+                    "contact_info": {
+                        "custom_endpoint": "https://custom.example.com",
+                        "api_key": "secret",
+                    },
                     "goal": "Custom agent with flexible contact info",
                     "supported_intents": ["custom_intent"],
-                    "created_by": "user@example.com"
-                }
+                    "created_by": "user@example.com",
+                },
             ]
         }
     )
@@ -96,13 +103,15 @@ class AgentUpdateRequest(BaseModel):
     phone_number: str | None = Field(None, description="Agent phone number (for phone agents)")
     web_url: str | None = Field(None, description="Agent web URL (for web agents)")
     # Direct contact_info update
-    contact_info: dict[str, Any] | None = Field(None, description="Contact information (will merge with existing)")
+    contact_info: dict[str, Any] | None = Field(
+        None, description="Contact information (will merge with existing)"
+    )
     goal: str | None = Field(None, min_length=1, description="Agent goal")
     supported_intents: list[str] | None = Field(None, description="Supported intents")
     metadata: dict[str, Any] | None = Field(None, description="Additional metadata")
 
-    @model_validator(mode='after')
-    def validate_contact_method(self) -> 'AgentUpdateRequest':
+    @model_validator(mode="after")
+    def validate_contact_method(self) -> AgentUpdateRequest:
         """Validate contact method if agent_type is specified."""
         if self.agent_type:
             # Build contact_info from convenience fields if provided
@@ -124,4 +133,3 @@ class AgentVerificationRequest(BaseModel):
     """Request model for manually triggering agent verification."""
 
     force: bool = Field(False, description="Force re-verification even if already verified")
-

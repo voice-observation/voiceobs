@@ -45,4 +45,3 @@ class ErrorResponse(BaseModel):
             }
         }
     )
-

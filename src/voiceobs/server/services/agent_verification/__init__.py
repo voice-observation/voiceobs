@@ -1,6 +1,12 @@
 """Agent verification services package."""
 
 from voiceobs.server.services.agent_verification.base import AgentVerifier
+from voiceobs.server.services.agent_verification.errors import (
+    CallDisconnectedError,
+    CallNotAnsweredError,
+    ProviderError,
+    VerificationError,
+)
 from voiceobs.server.services.agent_verification.factory import AgentVerifierFactory
 from voiceobs.server.services.agent_verification.phone_verifier import PhoneAgentVerifier
 from voiceobs.server.services.agent_verification.service import AgentVerificationService
@@ -16,4 +22,8 @@ __all__ = [
     "AgentVerificationService",
     "PhoneAgentVerifier",
     "WebAgentVerifier",
+    "VerificationError",
+    "CallNotAnsweredError",
+    "CallDisconnectedError",
+    "ProviderError",
 ]

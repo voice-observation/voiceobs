@@ -10,6 +10,9 @@ from uuid import UUID, uuid4
 from voiceobs.server.db.connection import Database
 from voiceobs.server.db.models import AgentRow
 
+# Sentinel value to distinguish between None (set to NULL) and not provided
+_NOT_PROVIDED = object()
+
 
 class AgentRepository:
     """Repository for agent operations."""
@@ -37,7 +40,7 @@ class AgentRepository:
         Args:
             name: Agent name
             agent_type: Agent type ('phone', 'web', etc.)
-            contact_info: Contact information dict (e.g., {"phone_number": "..."} or {"web_url": "..."})
+            contact_info: Contact info dict (e.g., {"phone_number": "..."} or {"web_url": "..."})
             goal: Agent goal
             supported_intents: List of supported intents
             metadata: Additional metadata
@@ -82,8 +85,8 @@ class AgentRepository:
             """
             SELECT id, name, agent_type, contact_info, goal, supported_intents,
                    connection_status, verification_attempts, last_verification_at,
-                   verification_error, metadata, created_at, updated_at,
-                   created_by, is_active
+                   verification_error, verification_transcript, verification_reasoning,
+                   metadata, created_at, updated_at, created_by, is_active
             FROM agents WHERE id = $1
             """,
             agent_id,
@@ -107,8 +110,8 @@ class AgentRepository:
             """
             SELECT id, name, agent_type, contact_info, goal, supported_intents,
                    connection_status, verification_attempts, last_verification_at,
-                   verification_error, metadata, created_at, updated_at,
-                   created_by, is_active
+                   verification_error, verification_transcript, verification_reasoning,
+                   metadata, created_at, updated_at, created_by, is_active
             FROM agents WHERE id = $1
             """,
             agent_id,
@@ -169,8 +172,8 @@ class AgentRepository:
             f"""
             SELECT id, name, agent_type, contact_info, goal, supported_intents,
                    connection_status, verification_attempts, last_verification_at,
-                   verification_error, metadata, created_at, updated_at,
-                   created_by, is_active
+                   verification_error, verification_transcript, verification_reasoning,
+                   metadata, created_at, updated_at, created_by, is_active
             FROM agents
             {where_clause}
             ORDER BY created_at DESC
@@ -184,17 +187,19 @@ class AgentRepository:
     async def update(
         self,
         agent_id: UUID,
-        name: str | None = None,
-        agent_type: str | None = None,
-        contact_info: dict[str, Any] | None = None,
-        goal: str | None = None,
-        supported_intents: list[str] | None = None,
-        connection_status: str | None = None,
-        verification_attempts: int | None = None,
-        last_verification_at: datetime | None = None,
-        verification_error: str | None = None,
-        metadata: dict[str, Any] | None = None,
-        is_active: bool | None = None,
+        name: str | None | object = _NOT_PROVIDED,
+        agent_type: str | None | object = _NOT_PROVIDED,
+        contact_info: dict[str, Any] | None | object = _NOT_PROVIDED,
+        goal: str | None | object = _NOT_PROVIDED,
+        supported_intents: list[str] | None | object = _NOT_PROVIDED,
+        connection_status: str | None | object = _NOT_PROVIDED,
+        verification_attempts: int | None | object = _NOT_PROVIDED,
+        last_verification_at: datetime | None | object = _NOT_PROVIDED,
+        verification_error: str | None | object = _NOT_PROVIDED,
+        verification_transcript: list[dict[str, str]] | None | object = _NOT_PROVIDED,
+        verification_reasoning: str | None | object = _NOT_PROVIDED,
+        metadata: dict[str, Any] | None | object = _NOT_PROVIDED,
+        is_active: bool | None | object = _NOT_PROVIDED,
     ) -> AgentRow | None:
         """Update an existing agent.
 
@@ -209,6 +214,8 @@ class AgentRepository:
             verification_attempts: Number of verification attempts
             last_verification_at: Last verification timestamp
             verification_error: Verification error message
+            verification_transcript: Conversation transcript from verification
+            verification_reasoning: Explanation of verification result
             metadata: Additional metadata
             is_active: Active status
 
@@ -229,23 +236,36 @@ class AgentRepository:
             "verification_attempts": verification_attempts,
             "last_verification_at": last_verification_at,
             "verification_error": verification_error,
+            "verification_transcript": verification_transcript,
+            "verification_reasoning": verification_reasoning,
             "metadata": metadata,
             "is_active": is_active,
         }
 
-        # Filter out None values and build SQL clauses
+        # Build SQL clauses, handling provided values
         updates = []
         params: list[Any] = []
         param_idx = 1
 
         for field_name, field_value in field_values.items():
-            if field_value is not None:
-                if field_name in ("contact_info", "supported_intents", "metadata"):
-                    updates.append(f"{field_name} = ${param_idx}::jsonb")
-                    params.append(json.dumps(field_value))
-                else:
-                    updates.append(f"{field_name} = ${param_idx}")
-                    params.append(field_value)
+            if field_value is _NOT_PROVIDED:
+                continue  # Skip fields not provided
+
+            if field_value is None:
+                # Set to NULL explicitly
+                updates.append(f"{field_name} = NULL")
+            elif field_name in (
+                "contact_info",
+                "supported_intents",
+                "metadata",
+                "verification_transcript",
+            ):
+                updates.append(f"{field_name} = ${param_idx}::jsonb")
+                params.append(json.dumps(field_value))
+                param_idx += 1
+            else:
+                updates.append(f"{field_name} = ${param_idx}")
+                params.append(field_value)
                 param_idx += 1
 
         if not updates:
@@ -270,24 +290,43 @@ class AgentRepository:
     async def update_status(
         self,
         agent_id: UUID,
-        status: str,
-        error: str | None = None,
+        connection_status: str | None = None,
+        verification_attempts: int | None = None,
+        last_verification_at: datetime | None = None,
+        verification_error: str | None = None,
+        verification_transcript: list[dict[str, str]] | None = None,
+        verification_reasoning: str | None = None,
     ) -> AgentRow | None:
         """Update agent connection status.
 
         Args:
             agent_id: Agent UUID
-            status: New connection status
-            error: Optional error message
+            connection_status: New connection status
+            verification_attempts: Number of verification attempts
+            last_verification_at: Timestamp of last verification
+            verification_error: Optional error message
+            verification_transcript: Conversation transcript from verification
+            verification_reasoning: Explanation of verification result
 
         Returns:
             The updated agent row, or None if not found.
         """
-        return await self.update(
-            agent_id,
-            connection_status=status,
-            verification_error=error,
-        )
+        # Build kwargs, only including non-None values
+        kwargs = {}
+        if connection_status is not None:
+            kwargs["connection_status"] = connection_status
+        if verification_attempts is not None:
+            kwargs["verification_attempts"] = verification_attempts
+        if last_verification_at is not None:
+            kwargs["last_verification_at"] = last_verification_at
+        if verification_error is not None:
+            kwargs["verification_error"] = verification_error
+        if verification_transcript is not None:
+            kwargs["verification_transcript"] = verification_transcript
+        if verification_reasoning is not None:
+            kwargs["verification_reasoning"] = verification_reasoning
+
+        return await self.update(agent_id, **kwargs)
 
     async def delete(self, agent_id: UUID, soft: bool = True) -> bool:
         """Delete an agent.
@@ -371,6 +410,12 @@ class AgentRepository:
         elif metadata is None:
             metadata = {}
 
+        verification_transcript = row["verification_transcript"]
+        if isinstance(verification_transcript, str):
+            verification_transcript = (
+                json.loads(verification_transcript) if verification_transcript else None
+            )
+
         return AgentRow(
             id=row["id"],
             name=row["name"],
@@ -382,10 +427,11 @@ class AgentRepository:
             verification_attempts=row["verification_attempts"],
             last_verification_at=row["last_verification_at"],
             verification_error=row["verification_error"],
+            verification_transcript=verification_transcript,
+            verification_reasoning=row["verification_reasoning"],
             metadata=metadata,
             created_at=row["created_at"],
             updated_at=row["updated_at"],
             created_by=row["created_by"],
             is_active=row["is_active"],
         )
-

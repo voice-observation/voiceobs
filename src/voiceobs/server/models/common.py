@@ -8,4 +8,3 @@ class SpanAttributes(BaseModel):
 
     # Allow any additional attributes
     model_config = ConfigDict(extra="allow")
-

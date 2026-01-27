@@ -116,4 +116,3 @@ def downgrade() -> None:
 
     # Drop agents table
     op.drop_table("agents")
-

@@ -12,7 +12,9 @@ class AgentVerifier(ABC):
     """
 
     @abstractmethod
-    async def verify(self, contact_info: dict[str, Any]) -> tuple[bool, str | None]:
+    async def verify(
+        self, contact_info: dict[str, Any]
+    ) -> tuple[bool, str | None, list[dict[str, str]] | None]:
         """Verify that an agent is reachable and responsive.
 
         Args:
@@ -21,9 +23,10 @@ class AgentVerifier(ABC):
                          {"web_url": "..."} for web agents)
 
         Returns:
-            Tuple of (is_verified, error_message)
+            Tuple of (is_verified, error_message, transcript)
                 - is_verified: True if agent is verified, False otherwise
                 - error_message: Error message if verification failed, None if successful
+                - transcript: Conversation transcript from verification, None if not available
 
         Raises:
             ValueError: If contact_info is missing required fields

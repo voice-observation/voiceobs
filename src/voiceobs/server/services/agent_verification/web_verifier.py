@@ -1,9 +1,12 @@
 """Web agent verification implementation."""
 
+from __future__ import annotations
+
 import logging
 from typing import Any
 
 from voiceobs.server.services.agent_verification.base import AgentVerifier
+from voiceobs.server.utils.validators import is_valid_url
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +46,7 @@ class WebAgentVerifier(AgentVerifier):
             raise ValueError("web_url is required in contact_info for web agents")
 
         # Basic validation: check URL format
-        if not self._is_valid_url(web_url):
+        if not is_valid_url(web_url):
             return False, f"Invalid web URL format: {web_url}"
 
         # TODO: Implement actual web verification
@@ -61,7 +64,7 @@ class WebAgentVerifier(AgentVerifier):
         #         if health_data.get("status") == "ready":
         #             return True, None
         #         else:
-        #             return False, f"Agent not ready: {health_data.get('message', 'Unknown error')}"
+        #             return False, f"Agent not ready: {health_data.get('message')}"
         #     else:
         #         return False, f"HTTP {response.status_code}: {response.text}"
         # except httpx.TimeoutException:
@@ -74,31 +77,6 @@ class WebAgentVerifier(AgentVerifier):
         # In production, this should make an actual HTTP request
         logger.info(f"Web URL format validated: {web_url}")
         return True, None
-
-    def _is_valid_url(self, url: str) -> bool:
-        """Validate URL format.
-
-        Args:
-            url: URL to validate
-
-        Returns:
-            True if URL format is valid, False otherwise
-        """
-        # Basic URL validation: must start with http:// or https://
-        if not url.startswith(("http://", "https://")):
-            return False
-
-        # Check if there's at least a domain after the protocol
-        # More sophisticated validation can be added here
-        parts = url.split("://", 1)
-        if len(parts) != 2:
-            return False
-
-        domain = parts[1]
-        if not domain or len(domain) < 3:  # Minimum: "a.b"
-            return False
-
-        return True
 
     def get_agent_type(self) -> str:
         """Get the agent type this verifier handles.

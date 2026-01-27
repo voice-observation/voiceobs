@@ -139,4 +139,3 @@ class ClearSpansResponse(BaseModel):
     cleared: int = Field(..., description="Number of spans cleared")
 
     model_config = ConfigDict(json_schema_extra={"example": {"cleared": 15}})
-

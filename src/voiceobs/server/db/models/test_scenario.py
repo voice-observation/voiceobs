@@ -17,4 +17,3 @@ class TestScenarioRow:
     persona_id: UUID
     max_turns: int | None = None
     timeout: int | None = None
-

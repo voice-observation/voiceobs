@@ -19,4 +19,3 @@ class TestExecutionRow:
     started_at: datetime | None = None
     completed_at: datetime | None = None
     result_json: dict[str, Any] = field(default_factory=dict)
-

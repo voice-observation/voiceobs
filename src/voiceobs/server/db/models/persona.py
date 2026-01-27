@@ -28,4 +28,3 @@ class PersonaRow:
     updated_at: datetime | None = None
     created_by: str | None = None
     is_active: bool = True
-

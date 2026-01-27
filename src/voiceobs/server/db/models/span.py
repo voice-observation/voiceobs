@@ -23,4 +23,3 @@ class SpanRow:
     parent_span_id: str | None
     conversation_id: UUID | None
     created_at: datetime | None = None
-

@@ -22,6 +22,8 @@ class AgentRow:
     verification_attempts: int = 0
     last_verification_at: datetime | None = None
     verification_error: str | None = None
+    verification_transcript: list[dict[str, str]] | None = None
+    verification_reasoning: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -38,4 +40,3 @@ class AgentRow:
     def web_url(self) -> str | None:
         """Get web URL from contact_info (for web agents)."""
         return self.contact_info.get("web_url") if self.agent_type == "web" else None
-

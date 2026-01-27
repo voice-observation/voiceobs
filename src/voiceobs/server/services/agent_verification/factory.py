@@ -35,9 +35,7 @@ class AgentVerifierFactory:
 
         if verifier_class is None:
             supported = ", ".join(cls._verifiers.keys())
-            raise ValueError(
-                f"Unsupported agent type: {agent_type}. Supported types: {supported}"
-            )
+            raise ValueError(f"Unsupported agent type: {agent_type}. Supported types: {supported}")
 
         return verifier_class()
 

@@ -22,4 +22,3 @@ class TurnRow:
     transcript: str | None
     attributes: dict[str, Any] = field(default_factory=dict)
     created_at: datetime | None = None
-

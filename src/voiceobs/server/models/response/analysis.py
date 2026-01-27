@@ -121,4 +121,3 @@ class AnalysisResponse(BaseModel):
     stages: StagesResponse = Field(..., description="Stage latency metrics")
     turns: TurnMetricsResponse = Field(..., description="Turn timing metrics")
     eval: EvalMetricsResponse = Field(..., description="Semantic evaluation metrics")
-

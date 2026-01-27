@@ -31,6 +31,7 @@ for advanced queries, but are not required for basic API operations.
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import Any, Protocol
 
@@ -49,6 +50,8 @@ from voiceobs.server.db.repositories import (
 )
 from voiceobs.server.services.agent_verification.service import AgentVerificationService
 from voiceobs.server.store import SpanStore, get_span_store
+
+logger = logging.getLogger(__name__)
 
 
 class SpanStorageProtocol(Protocol):
@@ -254,28 +257,37 @@ _audio_storage: Any | None = None
 
 
 def _get_database_url() -> str | None:
-    """Get the database URL from environment or config.
+    """Get the database URL from environment variable or config file.
 
     Checks in order:
-    1. VOICEOBS_DATABASE_URL environment variable
-    2. server.database_url in config file
+    1. VOICEOBS_DATABASE_URL environment variable (takes precedence)
+    2. server.database_url in config file (voiceobs.yaml) (fallback)
 
     Returns:
         Database URL or None if not configured.
     """
-    # First check environment variable
+    # First check environment variable (takes precedence)
     env_url = os.environ.get("VOICEOBS_DATABASE_URL")
     if env_url:
+        logger.info(f"Database URL found in environment variable: {env_url[:30]}...")
         return env_url
 
-    # Then try config file (but don't fail if config can't be loaded)
+    # Fallback to config file (voiceobs.yaml)
     try:
         from voiceobs.config import get_config
 
         config = get_config()
-        return config.server.database_url
-    except Exception:
-        return None
+        config_url = config.server.database_url
+        if config_url:
+            logger.info(f"Database URL found in config file (voiceobs.yaml): {config_url[:30]}...")
+            return config_url
+        else:
+            logger.info("Database URL is None in config file (voiceobs.yaml)")
+    except Exception as e:
+        logger.warning(f"Failed to load database URL from config file: {e}", exc_info=True)
+
+    logger.warning("No database URL configured (neither in environment variable nor config file)")
+    return None
 
 
 async def init_database() -> None:
@@ -287,12 +299,15 @@ async def init_database() -> None:
     """
     global _database, _span_storage
     global _conversation_repo, _turn_repo, _failure_repo, _metrics_repo
-    global _test_suite_repo, _test_scenario_repo, _test_execution_repo, _persona_repo, _agent_repo, _use_postgres
+    global _test_suite_repo, _test_scenario_repo, _test_execution_repo, _persona_repo, _agent_repo
+    global _agent_verification_service, _use_postgres
 
     database_url = _get_database_url()
+    logger.info(f"Database URL retrieved: {'configured' if database_url else 'not configured'}")
 
     if database_url:
         # Use PostgreSQL
+        logger.info("Initializing PostgreSQL database connection")
         _use_postgres = True
         _database = Database(database_url=database_url)
         await _database.connect()
@@ -317,6 +332,7 @@ async def init_database() -> None:
         )
     else:
         # Use in-memory store
+        logger.info("Using in-memory storage (PostgreSQL not configured)")
         _use_postgres = False
         _span_storage = InMemorySpanStoreAdapter(get_span_store())
         _conversation_repo = None
@@ -338,7 +354,8 @@ async def shutdown_database() -> None:
     """
     global _database, _span_storage
     global _conversation_repo, _turn_repo, _failure_repo, _metrics_repo
-    global _test_suite_repo, _test_scenario_repo, _test_execution_repo, _persona_repo, _agent_repo, _use_postgres
+    global _test_suite_repo, _test_scenario_repo, _test_execution_repo, _persona_repo, _agent_repo
+    global _agent_verification_service, _use_postgres
 
     if _database is not None:
         await _database.disconnect()
@@ -450,6 +467,20 @@ def get_agent_repository() -> AgentRepository | None:
         Agent repository or None if using in-memory storage.
     """
     return _agent_repo
+
+
+def get_agent_verification_service() -> AgentVerificationService | None:
+    """Get the agent verification service.
+
+    Returns:
+        Agent verification service or None if using in-memory storage.
+    """
+    if _agent_verification_service is None:
+        logger.debug(
+            "get_agent_verification_service called but service is None "
+            "(PostgreSQL may not be configured)"
+        )
+    return _agent_verification_service
 
 
 def is_using_postgres() -> bool:

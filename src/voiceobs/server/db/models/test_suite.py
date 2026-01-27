@@ -16,4 +16,3 @@ class TestSuiteRow:
     description: str | None = None
     status: str = "pending"  # pending, running, completed
     created_at: datetime | None = None
-

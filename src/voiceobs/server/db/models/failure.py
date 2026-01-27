@@ -22,4 +22,3 @@ class FailureRow:
     signal_value: float | None
     threshold: float | None
     created_at: datetime | None = None
-

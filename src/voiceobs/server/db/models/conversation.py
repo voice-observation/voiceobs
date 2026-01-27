@@ -18,4 +18,3 @@ class ConversationRow:
     updated_at: datetime | None = None
     audio_path: str | None = None
     audio_metadata: dict[str, Any] = field(default_factory=dict)
-
