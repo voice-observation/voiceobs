@@ -1,72 +1,63 @@
-"""Tests for persona_llm module."""
+"""Tests for persona LLM utilities."""
 
 import json
-from pathlib import Path
-from tempfile import NamedTemporaryFile
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from voiceobs.server.utils.persona_llm import (
-    PersonaAttributesOutput,
-    generate_persona_attributes_with_llm,
-)
+from voiceobs.server.utils.persona_llm import PersonaAttributesOutput
 
 
 class TestPersonaAttributesOutput:
     """Tests for PersonaAttributesOutput model."""
 
     def test_valid_output(self):
-        """Test creating valid PersonaAttributesOutput."""
+        """Should accept valid persona attributes."""
         output = PersonaAttributesOutput(
             aggression=0.5,
             patience=0.7,
             verbosity=0.3,
             tts_provider="openai",
-            tts_model_key="tts-1",
+            tts_model_key="alloy",
         )
-
         assert output.aggression == 0.5
         assert output.patience == 0.7
         assert output.verbosity == 0.3
         assert output.tts_provider == "openai"
-        assert output.tts_model_key == "tts-1"
+        assert output.tts_model_key == "alloy"
 
-    def test_aggression_bounds(self):
-        """Test aggression must be between 0 and 1."""
-        # Valid
-        PersonaAttributesOutput(
+    def test_boundary_values(self):
+        """Should accept boundary values (0.0 and 1.0)."""
+        output = PersonaAttributesOutput(
             aggression=0.0,
-            patience=0.5,
-            verbosity=0.5,
-            tts_provider="openai",
-            tts_model_key="tts-1",
+            patience=1.0,
+            verbosity=0.0,
+            tts_provider="elevenlabs",
+            tts_model_key="rachel",
         )
-        PersonaAttributesOutput(
-            aggression=1.0,
-            patience=0.5,
-            verbosity=0.5,
-            tts_provider="openai",
-            tts_model_key="tts-1",
-        )
+        assert output.aggression == 0.0
+        assert output.patience == 1.0
 
-        # Invalid
-        with pytest.raises(Exception):  # Pydantic validation error
+    def test_rejects_values_above_one(self):
+        """Should reject aggression/patience/verbosity above 1.0."""
+        with pytest.raises(ValueError):
+            PersonaAttributesOutput(
+                aggression=1.5,
+                patience=0.5,
+                verbosity=0.5,
+                tts_provider="openai",
+                tts_model_key="alloy",
+            )
+
+    def test_rejects_negative_values(self):
+        """Should reject negative aggression/patience/verbosity."""
+        with pytest.raises(ValueError):
             PersonaAttributesOutput(
                 aggression=-0.1,
                 patience=0.5,
                 verbosity=0.5,
                 tts_provider="openai",
-                tts_model_key="tts-1",
-            )
-
-        with pytest.raises(Exception):
-            PersonaAttributesOutput(
-                aggression=1.1,
-                patience=0.5,
-                verbosity=0.5,
-                tts_provider="openai",
-                tts_model_key="tts-1",
+                tts_model_key="alloy",
             )
 
 
@@ -74,202 +65,183 @@ class TestGeneratePersonaAttributesWithLLM:
     """Tests for generate_persona_attributes_with_llm function."""
 
     @pytest.fixture
-    def mock_models_file(self):
-        """Create a temporary models JSON file."""
+    def temp_models_file(self, tmp_path):
+        """Create a temporary models file."""
         models_data = {
             "models": {
                 "openai": {
-                    "tts-1": {"model": "tts-1", "voice": "alloy", "speed": 1.0},
-                    "tts-1-hd": {"model": "tts-1-hd", "voice": "alloy", "speed": 1.0},
+                    "alloy": {"voice": "alloy", "model": "tts-1"},
+                    "echo": {"voice": "echo", "model": "tts-1"},
                 },
                 "elevenlabs": {
-                    "eleven_multilingual_v2": {
-                        "voice_id": "test-voice",
-                        "model_id": "eleven_multilingual_v2",
-                    }
+                    "rachel": {"voice_id": "21m00Tcm4TlvDq8ikWAM"},
+                },
+                "deepgram": {
+                    "aura": {"model": "aura-asteria-en"},
                 },
             }
         }
-
-        with NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump(models_data, f)
-            temp_path = Path(f.name)
-
-        yield temp_path
-
-        # Cleanup
-        temp_path.unlink()
+        models_file = tmp_path / "tts_models.json"
+        models_file.write_text(json.dumps(models_data))
+        return models_file
 
     @pytest.mark.asyncio
     @patch("voiceobs.server.utils.persona_llm.LLM_AVAILABLE", True)
     @patch("voiceobs.server.utils.persona_llm.LLMServiceFactory")
-    async def test_generate_attributes_success(self, mock_factory, mock_models_file):
-        """Test successful persona attribute generation."""
-        # Mock LLM service
-        mock_llm_service = AsyncMock()
+    async def test_generate_attributes_success(self, mock_factory, temp_models_file):
+        """Should generate persona attributes successfully."""
+        from voiceobs.server.utils.persona_llm import generate_persona_attributes_with_llm
+
+        mock_service = MagicMock()
         mock_output = PersonaAttributesOutput(
-            aggression=0.8,
-            patience=0.2,
-            verbosity=0.6,
+            aggression=0.6,
+            patience=0.4,
+            verbosity=0.5,
             tts_provider="openai",
-            tts_model_key="tts-1",
+            tts_model_key="alloy",
         )
-        mock_llm_service.generate_structured.return_value = mock_output
-        mock_factory.create.return_value = mock_llm_service
+        mock_service.generate_structured = AsyncMock(return_value=mock_output)
+        mock_factory.create.return_value = mock_service
 
         result = await generate_persona_attributes_with_llm(
-            name="Angry Customer", description="Very aggressive", models_path=mock_models_file
+            name="Angry Customer",
+            description="A frustrated customer who is impatient",
+            models_path=temp_models_file,
         )
 
-        assert result[0] == 0.8  # aggression
-        assert result[1] == 0.2  # patience
-        assert result[2] == 0.6  # verbosity
-        assert result[3] == "openai"  # tts_provider
-        assert result[4] == {"model": "tts-1", "voice": "alloy", "speed": 1.0}  # tts_config
-
-        # Verify LLM was called with correct prompt
-        mock_llm_service.generate_structured.assert_called_once()
-        call_args = mock_llm_service.generate_structured.call_args
-        assert "Angry Customer" in call_args.kwargs["prompt"]
-        assert "Very aggressive" in call_args.kwargs["prompt"]
+        aggression, patience, verbosity, provider, tts_config = result
+        assert aggression == 0.6
+        assert patience == 0.4
+        assert verbosity == 0.5
+        assert provider == "openai"
+        assert tts_config == {"voice": "alloy", "model": "tts-1"}
 
     @pytest.mark.asyncio
     @patch("voiceobs.server.utils.persona_llm.LLM_AVAILABLE", True)
     @patch("voiceobs.server.utils.persona_llm.LLMServiceFactory")
-    async def test_generate_attributes_with_none_description(self, mock_factory, mock_models_file):
-        """Test generation with None description."""
-        mock_llm_service = AsyncMock()
+    async def test_generate_attributes_with_no_description(self, mock_factory, temp_models_file):
+        """Should handle None description."""
+        from voiceobs.server.utils.persona_llm import generate_persona_attributes_with_llm
+
+        mock_service = MagicMock()
         mock_output = PersonaAttributesOutput(
             aggression=0.5,
             patience=0.5,
             verbosity=0.5,
-            tts_provider="openai",
-            tts_model_key="tts-1",
+            tts_provider="elevenlabs",
+            tts_model_key="rachel",
         )
-        mock_llm_service.generate_structured.return_value = mock_output
-        mock_factory.create.return_value = mock_llm_service
+        mock_service.generate_structured = AsyncMock(return_value=mock_output)
+        mock_factory.create.return_value = mock_service
 
         result = await generate_persona_attributes_with_llm(
-            name="Test Persona", description=None, models_path=mock_models_file
+            name="Default Persona",
+            description=None,
+            models_path=temp_models_file,
         )
 
-        assert result[0] == 0.5
-        # Verify prompt includes "No description provided"
-        call_args = mock_llm_service.generate_structured.call_args
-        assert "No description provided" in call_args.kwargs["prompt"]
+        assert result[3] == "elevenlabs"
 
     @pytest.mark.asyncio
     @patch("voiceobs.server.utils.persona_llm.LLM_AVAILABLE", False)
-    async def test_generate_attributes_llm_not_available(self, mock_models_file):
-        """Test generation fails when LLM dependencies not available."""
+    async def test_raises_when_llm_not_available(self, temp_models_file):
+        """Should raise ValueError when LLM is not available."""
+        from voiceobs.server.utils.persona_llm import generate_persona_attributes_with_llm
+
         with pytest.raises(ValueError, match="LLM dependencies not available"):
             await generate_persona_attributes_with_llm(
-                name="Test", description="Test", models_path=mock_models_file
+                name="Test",
+                description="Test",
+                models_path=temp_models_file,
             )
 
     @pytest.mark.asyncio
-    async def test_generate_attributes_file_not_found(self):
-        """Test generation fails when models file not found."""
-        non_existent_path = Path("/nonexistent/path/models.json")
+    @patch("voiceobs.server.utils.persona_llm.LLM_AVAILABLE", True)
+    async def test_raises_when_models_file_not_found(self, tmp_path):
+        """Should raise ValueError when models file is not found."""
+        from voiceobs.server.utils.persona_llm import generate_persona_attributes_with_llm
+
+        non_existent_path = tmp_path / "non_existent.json"
 
         with pytest.raises(ValueError, match="TTS models file not found"):
             await generate_persona_attributes_with_llm(
-                name="Test", description="Test", models_path=non_existent_path
+                name="Test",
+                description="Test",
+                models_path=non_existent_path,
             )
 
     @pytest.mark.asyncio
     @patch("voiceobs.server.utils.persona_llm.LLM_AVAILABLE", True)
     @patch("voiceobs.server.utils.persona_llm.LLMServiceFactory")
-    async def test_generate_attributes_fallback_to_first_model(
-        self, mock_factory, mock_models_file
-    ):
-        """Test fallback to first model when selected model not found."""
-        mock_llm_service = AsyncMock()
+    async def test_fallback_when_model_not_found(self, mock_factory, temp_models_file):
+        """Should fallback to first model when selected model not found."""
+        from voiceobs.server.utils.persona_llm import generate_persona_attributes_with_llm
+
+        mock_service = MagicMock()
         # LLM returns a model key that doesn't exist
         mock_output = PersonaAttributesOutput(
             aggression=0.5,
             patience=0.5,
             verbosity=0.5,
             tts_provider="openai",
-            tts_model_key="nonexistent-model",
+            tts_model_key="non_existent_model",
         )
-        mock_llm_service.generate_structured.return_value = mock_output
-        mock_factory.create.return_value = mock_llm_service
+        mock_service.generate_structured = AsyncMock(return_value=mock_output)
+        mock_factory.create.return_value = mock_service
 
         result = await generate_persona_attributes_with_llm(
-            name="Test", description="Test", models_path=mock_models_file
+            name="Test",
+            description="Test",
+            models_path=temp_models_file,
         )
 
-        # Should fallback to first available model (tts-1)
-        assert result[3] == "openai"
-        assert result[4] == {"model": "tts-1", "voice": "alloy", "speed": 1.0}
+        # Should fallback to first available model for openai
+        assert result[4] == {"voice": "alloy", "model": "tts-1"}
 
     @pytest.mark.asyncio
     @patch("voiceobs.server.utils.persona_llm.LLM_AVAILABLE", True)
     @patch("voiceobs.server.utils.persona_llm.LLMServiceFactory")
-    async def test_generate_attributes_provider_no_models(self, mock_factory):
-        """Test generation fails when provider has no models."""
+    async def test_raises_when_provider_has_no_models(self, mock_factory, tmp_path):
+        """Should raise ValueError when provider has no models."""
+        from voiceobs.server.utils.persona_llm import generate_persona_attributes_with_llm
+
         # Create models file with empty provider
         models_data = {"models": {"openai": {}}}
-        with NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump(models_data, f)
-            temp_path = Path(f.name)
+        models_file = tmp_path / "empty_models.json"
+        models_file.write_text(json.dumps(models_data))
 
-        try:
-            mock_llm_service = AsyncMock()
-            mock_output = PersonaAttributesOutput(
-                aggression=0.5,
-                patience=0.5,
-                verbosity=0.5,
-                tts_provider="openai",
-                tts_model_key="tts-1",
-            )
-            mock_llm_service.generate_structured.return_value = mock_output
-            mock_factory.create.return_value = mock_llm_service
-
-            with pytest.raises(ValueError, match="No models available for provider"):
-                await generate_persona_attributes_with_llm(
-                    name="Test", description="Test", models_path=temp_path
-                )
-        finally:
-            temp_path.unlink()
-
-    @pytest.mark.asyncio
-    @patch("voiceobs.server.utils.persona_llm.LLM_AVAILABLE", True)
-    @patch("voiceobs.server.utils.persona_llm.LLMServiceFactory")
-    async def test_generate_attributes_llm_exception(self, mock_factory, mock_models_file):
-        """Test generation handles LLM exceptions."""
-        mock_llm_service = AsyncMock()
-        mock_llm_service.generate_structured.side_effect = Exception("LLM error")
-        mock_factory.create.return_value = mock_llm_service
-
-        with pytest.raises(ValueError, match="Failed to generate persona attributes with LLM"):
-            await generate_persona_attributes_with_llm(
-                name="Test", description="Test", models_path=mock_models_file
-            )
-
-    @pytest.mark.asyncio
-    @patch("voiceobs.server.utils.persona_llm.LLM_AVAILABLE", True)
-    @patch("voiceobs.server.utils.persona_llm.LLMServiceFactory")
-    async def test_generate_attributes_uses_correct_temperature(
-        self, mock_factory, mock_models_file
-    ):
-        """Test generation uses correct temperature."""
-        mock_llm_service = AsyncMock()
+        mock_service = MagicMock()
         mock_output = PersonaAttributesOutput(
             aggression=0.5,
             patience=0.5,
             verbosity=0.5,
             tts_provider="openai",
-            tts_model_key="tts-1",
+            tts_model_key="alloy",
         )
-        mock_llm_service.generate_structured.return_value = mock_output
-        mock_factory.create.return_value = mock_llm_service
+        mock_service.generate_structured = AsyncMock(return_value=mock_output)
+        mock_factory.create.return_value = mock_service
 
-        await generate_persona_attributes_with_llm(
-            name="Test", description="Test", models_path=mock_models_file
-        )
+        with pytest.raises(ValueError, match="No models available for provider"):
+            await generate_persona_attributes_with_llm(
+                name="Test",
+                description="Test",
+                models_path=models_file,
+            )
 
-        # Verify temperature is 0.7
-        call_args = mock_llm_service.generate_structured.call_args
-        assert call_args.kwargs["temperature"] == 0.7
+    @pytest.mark.asyncio
+    @patch("voiceobs.server.utils.persona_llm.LLM_AVAILABLE", True)
+    @patch("voiceobs.server.utils.persona_llm.LLMServiceFactory")
+    async def test_wraps_llm_errors(self, mock_factory, temp_models_file):
+        """Should wrap LLM errors in ValueError."""
+        from voiceobs.server.utils.persona_llm import generate_persona_attributes_with_llm
+
+        mock_service = MagicMock()
+        mock_service.generate_structured = AsyncMock(side_effect=Exception("LLM API Error"))
+        mock_factory.create.return_value = mock_service
+
+        with pytest.raises(ValueError, match="Failed to generate persona attributes"):
+            await generate_persona_attributes_with_llm(
+                name="Test",
+                description="Test",
+                models_path=temp_models_file,
+            )

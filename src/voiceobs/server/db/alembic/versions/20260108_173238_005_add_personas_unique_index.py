@@ -29,6 +29,8 @@ def upgrade() -> None:
     # Create unique index for upsert logic: (tts_provider, metadata->>'base_persona_key')
     # This allows ON CONFLICT to work for upserting personas by provider and base_persona_key
     # The WHERE clause ensures the index only applies when base_persona_key is not null
+    # Drop index if it exists to handle cases where migration was partially run
+    op.execute("DROP INDEX IF EXISTS personas_provider_base_key_uq")
     op.execute(
         """
         CREATE UNIQUE INDEX personas_provider_base_key_uq

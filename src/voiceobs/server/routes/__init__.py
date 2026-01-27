@@ -1,5 +1,6 @@
 """API routes for the voiceobs server."""
 
+from voiceobs.server.routes.agents import router as agents_router
 from voiceobs.server.routes.analysis import router as analysis_router
 from voiceobs.server.routes.audio import router as audio_router
 from voiceobs.server.routes.conversations import router as conversations_router
@@ -13,6 +14,7 @@ from voiceobs.server.routes.test_scenarios import router as test_scenarios_route
 from voiceobs.server.routes.test_suites import router as test_suites_router
 
 __all__ = [
+    "agents_router",
     "analysis_router",
     "audio_router",
     "conversations_router",

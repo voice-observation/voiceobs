@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -10,8 +11,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from voiceobs._version import __version__
+from voiceobs.server.config.logging_config import configure_logging
 from voiceobs.server.dependencies import init_database, shutdown_database
 from voiceobs.server.routes import (
+    agents_router,
     analysis_router,
     audio_router,
     conversations_router,
@@ -24,6 +27,8 @@ from voiceobs.server.routes import (
     test_scenarios_router,
     test_suites_router,
 )
+
+logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file if it exists
 try:
@@ -45,12 +50,11 @@ except ImportError:
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan handler.
 
-    Manages database connection on startup and shutdown.
+    Manages database connection and agent worker on startup and shutdown.
     """
     # Startup: initialize database connection
     await init_database()
     yield
-    # Shutdown: close database connection
     await shutdown_database()
 
 
@@ -60,6 +64,9 @@ def create_app() -> FastAPI:
     Returns:
         Configured FastAPI application instance.
     """
+    # Configure logging first so all module logs are visible
+    configure_logging()
+
     app = FastAPI(
         title="voiceobs",
         description="Voice AI observability server",
@@ -91,5 +98,6 @@ def create_app() -> FastAPI:
     app.include_router(test_scenarios_router)
     app.include_router(test_executions_router)
     app.include_router(personas_router)
+    app.include_router(agents_router)
 
     return app

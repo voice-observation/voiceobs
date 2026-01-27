@@ -1,6 +1,13 @@
 """Utility functions for the voiceobs server."""
 
+from __future__ import annotations
+
+import logging
+import time
+from collections.abc import Generator
+from contextlib import contextmanager
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -118,3 +125,67 @@ def parse_uuid(uuid_str: str, resource_name: str = "resource") -> UUID:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid {resource_name} ID format: {uuid_str}",
         )
+
+
+@contextmanager
+def log_timing(logger: logging.Logger, operation: str) -> Generator[None, None, None]:
+    """Context manager to log operation timing.
+
+    Args:
+        logger: Logger instance to use for logging
+        operation: Description of the operation being timed
+
+    Yields:
+        None
+
+    Examples:
+        >>> import logging
+        >>> logger = logging.getLogger(__name__)
+        >>> with log_timing(logger, "Database query"):
+        ...     # do something
+        ...     pass
+        # Logs: "Database query took 0.123s"
+    """
+    start = time.monotonic()
+    try:
+        yield
+    finally:
+        duration = time.monotonic() - start
+        logger.info(f"{operation} took {duration:.3f}s")
+
+
+async def safe_cleanup(*closables: Any, logger: logging.Logger | None = None) -> None:
+    """Safely close multiple async resources, ignoring errors.
+
+    This helper attempts to close each resource in order, continuing even if
+    some closures fail. It checks for common close methods in order:
+    aclose(), disconnect(), close().
+
+    Args:
+        *closables: Resources to close (can include None values)
+        logger: Optional logger to log cleanup errors at DEBUG level
+
+    Examples:
+        >>> async def example():
+        ...     session = aiohttp.ClientSession()
+        ...     room = rtc.Room()
+        ...     api_client = api.LiveKitAPI()
+        ...     # ... use resources ...
+        ...     await safe_cleanup(session, room, api_client)
+    """
+    for closable in closables:
+        if closable is None:
+            continue
+        try:
+            if hasattr(closable, "aclose"):
+                await closable.aclose()
+            elif hasattr(closable, "disconnect"):
+                await closable.disconnect()
+            elif hasattr(closable, "close"):
+                result = closable.close()
+                # Handle both sync and async close methods
+                if hasattr(result, "__await__"):
+                    await result
+        except Exception:
+            if logger:
+                logger.debug(f"Cleanup error for {type(closable).__name__}", exc_info=True)

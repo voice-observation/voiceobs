@@ -432,3 +432,82 @@ class TestDeepgramTTSService:
 
             # Should get the duration from WAV file
             assert abs(duration_ms - 1000.0) < 10.0  # Approximately 1 second
+
+    async def test_synthesize_raises_error_on_empty_audio_data(
+        self, mock_env_with_api_key: None
+    ) -> None:
+        """Test that synthesize raises error when API returns empty audio data."""
+        from voiceobs.server.services.deepgram_tts import DeepgramTTSService
+
+        with patch("voiceobs.server.services.deepgram_tts.DeepgramClient") as mock_deepgram:
+            mock_client = MagicMock()
+            # Return empty iterator
+            mock_client.speak.v1.audio.generate = MagicMock(return_value=iter([]))
+            mock_deepgram.return_value = mock_client
+
+            service = DeepgramTTSService()
+
+            with pytest.raises(ValueError) as exc_info:
+                await service.synthesize("Test", {})
+
+            assert "empty audio data" in str(exc_info.value)
+
+    async def test_synthesize_raises_error_on_invalid_wav_header(
+        self, mock_env_with_api_key: None
+    ) -> None:
+        """Test that synthesize raises error when audio data has invalid WAV header."""
+        from voiceobs.server.services.deepgram_tts import DeepgramTTSService
+
+        with patch("voiceobs.server.services.deepgram_tts.DeepgramClient") as mock_deepgram:
+            mock_client = MagicMock()
+            # Return data that doesn't start with RIFF
+            invalid_data = b"NOTW" + b"\x00" * 100
+            mock_client.speak.v1.audio.generate = MagicMock(return_value=iter([invalid_data]))
+            mock_deepgram.return_value = mock_client
+
+            service = DeepgramTTSService()
+
+            with pytest.raises(ValueError) as exc_info:
+                await service.synthesize("Test", {})
+
+            assert "Invalid WAV file" in str(exc_info.value)
+            assert "RIFF header" in str(exc_info.value)
+
+    async def test_estimate_duration_very_large_file_fallback(
+        self, mock_env_with_api_key: None
+    ) -> None:
+        """Test duration estimation fallback for files producing unreasonable duration."""
+        from voiceobs.server.services.deepgram_tts import DeepgramTTSService
+
+        service = DeepgramTTSService()
+
+        # Create very large data that would produce > 1 hour duration
+        # bytes_per_second = 24000 * 2 * 1 = 48000
+        # 1 hour = 3600 seconds = 3600 * 48000 = 172,800,000 bytes
+        # Create data larger than this to trigger fallback
+        # We'll use 200 million bytes worth of logical calculation
+        # but actually mock _estimate_duration to simulate this
+
+        # Test the _estimate_duration method directly
+        # 200MB file size, after calculation would give duration_ms > 3600000
+        # which should trigger the conservative fallback
+        # The conservative fallback is: min(duration_ms, size_bytes / 1000.0)
+        # For 200MB, that's min(very_large, 200000)
+
+        # We'll create actual data that tests this path
+        # by having data that computes to > 3600000 ms
+        # bytes_per_second = 48000
+        # need duration_ms > 3600000
+        # duration_seconds = data_bytes / 48000
+        # data_bytes > 3600 * 48000 = 172,800,000
+
+        # Create data that will trigger this path
+        test_data = b"RIFF" + b"\x00" * 173_000_000  # Just over 1 hour worth
+
+        # Mock the calculation directly since we can't actually allocate that much memory
+        result = service._estimate_duration(test_data)
+
+        # Should fall back to conservative estimate: size_bytes / 1000.0
+        # The result should be min(calculated, len(test_data) / 1000.0)
+        assert result > 0
+        assert result <= len(test_data) / 1000.0

@@ -1,7 +1,6 @@
 """Prompt templates for persona-related LLM operations."""
 
 # fmt: off
-# noqa: E501
 PERSONA_ATTRIBUTES_PROMPT = """Based on the following persona information, determine appropriate personality attributes and TTS configuration.
 
 Persona Name: {name}
@@ -25,8 +24,8 @@ Return your recommendations as JSON with the following structure:
 - tts_model_key: a valid model key from the selected provider's models
 
 Consider the persona's name and description when making recommendations. For example:
-- A "Friendly Customer Service" persona might have low aggression (0.2), high patience (0.8), and moderate verbosity (0.5)  # noqa: E501
-- A "Technical Support Expert" might have moderate aggression (0.4), high patience (0.7), and high verbosity (0.8)  # noqa: E501
-- A "Sales Representative" might have high aggression (0.7), moderate patience (0.5), and high verbosity (0.8)  # noqa: E501
+- A "Friendly Customer Service" persona might have low aggression (0.2), high patience (0.8), and moderate verbosity (0.5)
+- A "Technical Support Expert" might have moderate aggression (0.4), high patience (0.7), and high verbosity (0.8)
+- A "Sales Representative" might have high aggression (0.7), moderate patience (0.5), and high verbosity (0.8)
 """
 # fmt: on
