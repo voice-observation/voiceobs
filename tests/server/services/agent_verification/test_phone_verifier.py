@@ -376,6 +376,9 @@ class TestAdaptiveGreetingState:
         mock_api.sip.create_sip_participant = AsyncMock()
         mock_api.aclose = AsyncMock()
 
+        mock_session = MagicMock()
+        mock_session.aclose = AsyncMock()
+
         with (
             patch(
                 "voiceobs.server.services.agent_verification.phone_verifier.api.LiveKitAPI",
@@ -384,6 +387,9 @@ class TestAdaptiveGreetingState:
             patch(
                 "voiceobs.server.services.agent_verification.phone_verifier.rtc.Room"
             ) as mock_room_class,
+            patch(
+                "voiceobs.server.services.agent_verification.phone_verifier.LiveKitProviderFactory"
+            ) as mock_factory_class,
             patch(
                 "voiceobs.server.services.agent_verification.phone_verifier.create_room_token",
                 return_value="test_token",
@@ -397,6 +403,10 @@ class TestAdaptiveGreetingState:
             mock_room.connect = AsyncMock()
             mock_room.disconnect = AsyncMock()
             mock_room_class.return_value = mock_room
+
+            mock_factory = MagicMock()
+            mock_factory.create_agent_session.return_value = mock_session
+            mock_factory_class.return_value = mock_factory
 
             # Track state at the point _run_conversation is called
             state_at_run = {}
@@ -1031,6 +1041,9 @@ class TestCleanupOrder:
         mock_api.sip.create_sip_participant = AsyncMock()
         mock_api.aclose = AsyncMock()
 
+        mock_session = MagicMock()
+        mock_session.aclose = AsyncMock()
+
         with (
             patch(
                 "voiceobs.server.services.agent_verification.phone_verifier.api.LiveKitAPI",
@@ -1039,6 +1052,9 @@ class TestCleanupOrder:
             patch(
                 "voiceobs.server.services.agent_verification.phone_verifier.rtc.Room"
             ) as mock_room_class,
+            patch(
+                "voiceobs.server.services.agent_verification.phone_verifier.LiveKitProviderFactory"
+            ) as mock_factory_class,
             patch(
                 "voiceobs.server.services.agent_verification.phone_verifier.create_room_token",
                 return_value="test_token",
@@ -1052,6 +1068,10 @@ class TestCleanupOrder:
             mock_room.connect = AsyncMock()
             mock_room.disconnect = AsyncMock()
             mock_room_class.return_value = mock_room
+
+            mock_factory = MagicMock()
+            mock_factory.create_agent_session.return_value = mock_session
+            mock_factory_class.return_value = mock_factory
 
             # Track state at the point _run_conversation is called
             state_at_run = {}

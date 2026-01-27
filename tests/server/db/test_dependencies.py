@@ -264,12 +264,22 @@ class TestDependencyFunctions:
         mock_db.connect = AsyncMock()
         mock_db.init_schema = AsyncMock()
 
+        mock_settings = MagicMock()
+        mock_settings.livekit_url = "wss://test.livekit.cloud"
+        mock_settings.livekit_api_key = "test_key"
+        mock_settings.livekit_api_secret = "test_secret"
+        mock_settings.sip_outbound_trunk_id = "trunk_123"
+
         with patch(
             "voiceobs.server.dependencies._get_database_url",
             return_value="postgresql://test:test@localhost/test",
         ):
             with patch("voiceobs.server.dependencies.Database", return_value=mock_db):
-                await init_database()
+                with patch(
+                    "voiceobs.server.services.agent_verification.service.get_verification_settings",
+                    return_value=mock_settings,
+                ):
+                    await init_database()
 
         assert is_using_postgres()
         mock_db.connect.assert_called_once()
@@ -284,12 +294,22 @@ class TestDependencyFunctions:
         mock_db.init_schema = AsyncMock()
         mock_db.disconnect = AsyncMock()
 
+        mock_settings = MagicMock()
+        mock_settings.livekit_url = "wss://test.livekit.cloud"
+        mock_settings.livekit_api_key = "test_key"
+        mock_settings.livekit_api_secret = "test_secret"
+        mock_settings.sip_outbound_trunk_id = "trunk_123"
+
         with patch(
             "voiceobs.server.dependencies._get_database_url",
             return_value="postgresql://test:test@localhost/test",
         ):
             with patch("voiceobs.server.dependencies.Database", return_value=mock_db):
-                await init_database()
+                with patch(
+                    "voiceobs.server.services.agent_verification.service.get_verification_settings",
+                    return_value=mock_settings,
+                ):
+                    await init_database()
 
         assert is_using_postgres()
 
