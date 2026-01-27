@@ -1010,9 +1010,9 @@ class TestCleanupOrder:
             assert "http_session_close" in cleanup_order
             agent_idx = cleanup_order.index("agent_session_aclose")
             http_idx = cleanup_order.index("http_session_close")
-            assert (
-                agent_idx < http_idx
-            ), f"AgentSession should be closed before HTTP session. Order was: {cleanup_order}"
+            assert agent_idx < http_idx, (
+                f"AgentSession should be closed before HTTP session. Order was: {cleanup_order}"
+            )
 
     @pytest.mark.asyncio
     async def test_init_sets_agent_session_to_none(self, verifier):
