@@ -577,6 +577,344 @@ class TestAdaptiveGreetingConversation:
         assert verifier._other_party_spoke_first is True
 
 
+class TestCallNotAnsweredError:
+    """Tests for CallNotAnsweredError handling."""
+
+    @pytest.fixture
+    def mock_settings(self):
+        """Create mock verification settings."""
+        settings = MagicMock()
+        settings.livekit_url = "wss://test.livekit.cloud"
+        settings.livekit_api_key = "test_key"
+        settings.livekit_api_secret = "test_secret"
+        settings.sip_outbound_trunk_id = "trunk_123"
+        settings.verification_call_timeout = 30
+        settings.verification_max_turns = 3
+        settings.verification_initial_wait_timeout = 4.5
+        return settings
+
+    @pytest.fixture
+    def verifier(self, mock_settings):
+        """Create a verifier instance."""
+        with patch(
+            "voiceobs.server.services.agent_verification.phone_verifier.get_verification_settings"
+        ) as mock_get_settings:
+            mock_get_settings.return_value = mock_settings
+            return PhoneAgentVerifier()
+
+    @pytest.mark.asyncio
+    async def test_verify_handles_call_not_answered_error(self, verifier, mock_settings):
+        """Test that verify handles CallNotAnsweredError gracefully."""
+        from voiceobs.server.services.agent_verification.errors import CallNotAnsweredError
+
+        mock_api = MagicMock()
+        mock_api.room.create_room = AsyncMock()
+        mock_api.room.delete_room = AsyncMock()
+        mock_api.aclose = AsyncMock()
+
+        # Simulate CallNotAnsweredError
+        mock_api.sip.create_sip_participant = AsyncMock(
+            side_effect=CallNotAnsweredError("Call was not answered within timeout")
+        )
+
+        with patch(
+            "voiceobs.server.services.agent_verification.phone_verifier.api.LiveKitAPI",
+            return_value=mock_api,
+        ):
+            is_verified, error_msg, transcript = await verifier.verify(
+                {"phone_number": "+1234567890"}
+            )
+
+            assert is_verified is False
+            assert "not answered" in error_msg.lower()
+
+
+class TestEventHandlerCallbacks:
+    """Tests for event handler callbacks in _run_conversation."""
+
+    @pytest.fixture
+    def mock_settings(self):
+        """Create mock verification settings."""
+        settings = MagicMock()
+        settings.livekit_url = "wss://test.livekit.cloud"
+        settings.livekit_api_key = "test_key"
+        settings.livekit_api_secret = "test_secret"
+        settings.sip_outbound_trunk_id = "trunk_123"
+        settings.verification_call_timeout = 30
+        settings.verification_max_turns = 1  # Exit quickly
+        settings.verification_initial_wait_timeout = 0.1
+        return settings
+
+    @pytest.fixture
+    def verifier(self, mock_settings):
+        """Create a verifier instance."""
+        with patch(
+            "voiceobs.server.services.agent_verification.phone_verifier.get_verification_settings"
+        ) as mock_get_settings:
+            mock_get_settings.return_value = mock_settings
+            return PhoneAgentVerifier()
+
+    @pytest.mark.asyncio
+    async def test_agent_state_changed_tts_started(self, verifier):
+        """Test agent_state_changed handler tracks TTS start time."""
+        mock_room = MagicMock()
+        mock_session = MagicMock()
+        mock_session.start = AsyncMock()
+
+        # Capture event handlers
+        handlers = {}
+
+        def capture_handler(event_name):
+            def decorator(func):
+                handlers[event_name] = func
+                return func
+
+            return decorator
+
+        mock_session.on = capture_handler
+
+        # Make _wait_for_speech return immediately
+        verifier._wait_for_speech = AsyncMock(return_value=True)
+        verifier._turns = 1  # Exit immediately
+
+        mock_session.generate_reply = AsyncMock()
+
+        await verifier._run_conversation(mock_room, mock_session)
+
+        # Simulate agent_state_changed event with speaking state
+        if "agent_state_changed" in handlers:
+            mock_event = MagicMock()
+            mock_event.new_state = "speaking"
+            mock_event.old_state = "listening"
+
+            handlers["agent_state_changed"](mock_event)
+            assert verifier._tts_start_time is not None
+
+    @pytest.mark.asyncio
+    async def test_agent_state_changed_tts_completed(self, verifier):
+        """Test agent_state_changed handler tracks TTS completion."""
+        mock_room = MagicMock()
+        mock_session = MagicMock()
+        mock_session.start = AsyncMock()
+
+        handlers = {}
+
+        def capture_handler(event_name):
+            def decorator(func):
+                handlers[event_name] = func
+                return func
+
+            return decorator
+
+        mock_session.on = capture_handler
+
+        verifier._wait_for_speech = AsyncMock(return_value=True)
+        verifier._turns = 1
+
+        mock_session.generate_reply = AsyncMock()
+
+        await verifier._run_conversation(mock_room, mock_session)
+
+        if "agent_state_changed" in handlers:
+            # First, start speaking
+            mock_event = MagicMock()
+            mock_event.new_state = "speaking"
+            mock_event.old_state = "listening"
+            handlers["agent_state_changed"](mock_event)
+
+            # Add turn timings to store TTS duration
+            verifier._turn_timings = [{"turn": 1, "llm_duration": 0.5}]
+
+            # Then stop speaking
+            mock_event2 = MagicMock()
+            mock_event2.new_state = "listening"
+            mock_event2.old_state = "speaking"
+            handlers["agent_state_changed"](mock_event2)
+
+            assert verifier._tts_start_time is None  # Reset after completion
+            assert "tts_duration" in verifier._turn_timings[0]
+
+    @pytest.mark.asyncio
+    async def test_user_input_transcribed_handler(self, verifier):
+        """Test user_input_transcribed handler tracks STT timing."""
+        mock_room = MagicMock()
+        mock_session = MagicMock()
+        mock_session.start = AsyncMock()
+
+        handlers = {}
+
+        def capture_handler(event_name):
+            def decorator(func):
+                handlers[event_name] = func
+                return func
+
+            return decorator
+
+        mock_session.on = capture_handler
+
+        verifier._wait_for_speech = AsyncMock(return_value=True)
+        verifier._turns = 1
+
+        mock_session.generate_reply = AsyncMock()
+
+        await verifier._run_conversation(mock_room, mock_session)
+
+        if "user_input_transcribed" in handlers:
+            # Set up timing state
+            verifier._last_agent_response_time = asyncio.get_event_loop().time() - 0.5
+            verifier._turn_timings = [{"turn": 1, "llm_duration": 0.5}]
+
+            handlers["user_input_transcribed"]("test transcript")
+
+            assert "stt_duration" in verifier._turn_timings[0]
+
+    @pytest.mark.asyncio
+    async def test_conversation_item_added_user(self, verifier):
+        """Test conversation_item_added handler for user messages."""
+        mock_room = MagicMock()
+        mock_session = MagicMock()
+        mock_session.start = AsyncMock()
+
+        handlers = {}
+
+        def capture_handler(event_name):
+            def decorator(func):
+                handlers[event_name] = func
+                return func
+
+            return decorator
+
+        mock_session.on = capture_handler
+
+        verifier._wait_for_speech = AsyncMock(return_value=True)
+        verifier._turns = 1
+
+        mock_session.generate_reply = AsyncMock()
+
+        await verifier._run_conversation(mock_room, mock_session)
+
+        if "conversation_item_added" in handlers:
+            mock_event = MagicMock()
+            mock_event.item.role = "user"
+            mock_event.item.text_content = "Hello there"
+
+            initial_turns = verifier._turns
+            handlers["conversation_item_added"](mock_event)
+
+            assert len(verifier._transcript) > 0
+            assert verifier._transcript[-1]["role"] == "user"
+            assert verifier._transcript[-1]["content"] == "Hello there"
+            assert verifier._turns == initial_turns + 1
+
+    @pytest.mark.asyncio
+    async def test_conversation_item_added_assistant(self, verifier):
+        """Test conversation_item_added handler for assistant messages."""
+        mock_room = MagicMock()
+        mock_session = MagicMock()
+        mock_session.start = AsyncMock()
+
+        handlers = {}
+
+        def capture_handler(event_name):
+            def decorator(func):
+                handlers[event_name] = func
+                return func
+
+            return decorator
+
+        mock_session.on = capture_handler
+
+        verifier._wait_for_speech = AsyncMock(return_value=True)
+        verifier._turns = 1
+
+        mock_session.generate_reply = AsyncMock()
+
+        await verifier._run_conversation(mock_room, mock_session)
+
+        if "conversation_item_added" in handlers:
+            # Set up timing state
+            verifier._last_user_input_time = asyncio.get_event_loop().time() - 0.3
+
+            mock_event = MagicMock()
+            mock_event.item.role = "assistant"
+            mock_event.item.text_content = "Hi, how can I help?"
+
+            handlers["conversation_item_added"](mock_event)
+
+            assert len(verifier._transcript) > 0
+            assert verifier._transcript[-1]["role"] == "assistant"
+            assert verifier._last_agent_response_time is not None
+            assert len(verifier._turn_timings) > 0
+
+
+class TestTimingCallbacks:
+    """Tests for timing callback handling in conversation."""
+
+    @pytest.fixture
+    def mock_settings(self):
+        """Create mock verification settings."""
+        settings = MagicMock()
+        settings.livekit_url = "wss://test.livekit.cloud"
+        settings.livekit_api_key = "test_key"
+        settings.livekit_api_secret = "test_secret"
+        settings.sip_outbound_trunk_id = "trunk_123"
+        settings.verification_call_timeout = 30
+        settings.verification_max_turns = 3
+        settings.verification_initial_wait_timeout = 4.5
+        return settings
+
+    @pytest.fixture
+    def verifier(self, mock_settings):
+        """Create a verifier instance."""
+        with patch(
+            "voiceobs.server.services.agent_verification.phone_verifier.get_verification_settings"
+        ) as mock_get_settings:
+            mock_get_settings.return_value = mock_settings
+            return PhoneAgentVerifier()
+
+    def test_log_timing_summary_with_no_timings(self, verifier):
+        """Test _log_timing_summary handles empty timings gracefully."""
+        verifier._turn_timings = []
+        # Should not raise
+        verifier._log_timing_summary()
+
+    def test_log_timing_summary_with_llm_timings(self, verifier):
+        """Test _log_timing_summary logs LLM timing averages."""
+        verifier._turn_timings = [
+            {"turn": 1, "llm_duration": 0.5},
+            {"turn": 2, "llm_duration": 0.7},
+        ]
+        # Should not raise and should log averages
+        verifier._log_timing_summary()
+
+    def test_log_timing_summary_with_stt_timings(self, verifier):
+        """Test _log_timing_summary logs STT timing averages."""
+        verifier._turn_timings = [
+            {"turn": 1, "llm_duration": 0.5, "stt_duration": 0.2},
+            {"turn": 2, "llm_duration": 0.7, "stt_duration": 0.3},
+        ]
+        # Should not raise and should log STT averages
+        verifier._log_timing_summary()
+
+    def test_log_timing_summary_with_tts_timings(self, verifier):
+        """Test _log_timing_summary logs TTS timing averages."""
+        verifier._turn_timings = [
+            {"turn": 1, "llm_duration": 0.5, "tts_duration": 0.4},
+            {"turn": 2, "llm_duration": 0.7, "tts_duration": 0.6},
+        ]
+        # Should not raise and should log TTS averages
+        verifier._log_timing_summary()
+
+    def test_log_timing_summary_with_all_timings(self, verifier):
+        """Test _log_timing_summary logs all timing types."""
+        verifier._turn_timings = [
+            {"turn": 1, "llm_duration": 0.5, "stt_duration": 0.2, "tts_duration": 0.4},
+            {"turn": 2, "llm_duration": 0.7, "stt_duration": 0.3, "tts_duration": 0.6},
+        ]
+        # Should not raise and should log all averages
+        verifier._log_timing_summary()
+
+
 class TestCleanupOrder:
     """Tests for proper cleanup order to prevent session closed errors."""
 

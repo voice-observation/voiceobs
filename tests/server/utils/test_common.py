@@ -4,11 +4,18 @@ import logging
 import time
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
+from uuid import UUID
 
 import pytest
+from fastapi import HTTPException
 
 from voiceobs.server.utils import parse_iso_datetime
-from voiceobs.server.utils.common import log_timing, safe_cleanup
+from voiceobs.server.utils.common import (
+    analysis_result_to_response,
+    log_timing,
+    parse_uuid,
+    safe_cleanup,
+)
 
 
 class TestParseIsoDatetime:
@@ -276,3 +283,99 @@ class TestSafeCleanup:
 
         # Should not raise
         await safe_cleanup(mock_obj)
+
+
+class TestParseUUID:
+    """Tests for parse_uuid function."""
+
+    def test_valid_uuid(self):
+        """Should return UUID for valid UUID string."""
+        uuid_str = "550e8400-e29b-41d4-a716-446655440000"
+        result = parse_uuid(uuid_str, "test")
+        assert isinstance(result, UUID)
+        assert str(result) == uuid_str
+
+    def test_valid_uuid_uppercase(self):
+        """Should handle uppercase UUID strings."""
+        uuid_str = "550E8400-E29B-41D4-A716-446655440000"
+        result = parse_uuid(uuid_str, "test")
+        assert isinstance(result, UUID)
+
+    def test_invalid_uuid_raises_http_exception(self):
+        """Should raise HTTPException for invalid UUID string."""
+        with pytest.raises(HTTPException) as exc_info:
+            parse_uuid("invalid-uuid", "conversation")
+
+        assert exc_info.value.status_code == 400
+        assert "Invalid conversation ID format" in exc_info.value.detail
+
+    def test_empty_string_raises_http_exception(self):
+        """Should raise HTTPException for empty string."""
+        with pytest.raises(HTTPException) as exc_info:
+            parse_uuid("", "span")
+
+        assert exc_info.value.status_code == 400
+        assert "Invalid span ID format" in exc_info.value.detail
+
+    def test_partial_uuid_raises_http_exception(self):
+        """Should raise HTTPException for partial UUID."""
+        with pytest.raises(HTTPException) as exc_info:
+            parse_uuid("550e8400-e29b", "turn")
+
+        assert exc_info.value.status_code == 400
+
+
+class TestAnalysisResultToResponse:
+    """Tests for analysis_result_to_response function."""
+
+    def test_converts_result_to_response(self):
+        """Should convert AnalysisResult to AnalysisResponse."""
+        from voiceobs.analyzer import AnalysisResult, EvalMetrics, StageMetrics, TurnMetrics
+        from voiceobs.server.models.response.analysis import AnalysisResponse
+
+        # Create StageMetrics with durations (count is computed from len(durations_ms))
+        asr_metrics = StageMetrics("asr")
+        asr_metrics.durations_ms = [90.0, 100.0, 110.0]  # 3 spans
+
+        llm_metrics = StageMetrics("llm")
+        llm_metrics.durations_ms = [180.0, 200.0, 220.0, 240.0]  # 4 spans
+
+        tts_metrics = StageMetrics("tts")
+        tts_metrics.durations_ms = [140.0, 150.0, 160.0]  # 3 spans
+
+        # Create TurnMetrics
+        turn_metrics = TurnMetrics()
+        turn_metrics.silence_after_user_ms = [100.0, 200.0, 150.0]
+        turn_metrics.total_agent_turns = 25
+        turn_metrics.interruptions = 3
+
+        # Create EvalMetrics
+        eval_metrics = EvalMetrics()
+        eval_metrics.total_evals = 20
+        eval_metrics.intent_correct_count = 15
+        eval_metrics.intent_incorrect_count = 5
+
+        # Create AnalysisResult
+        result = AnalysisResult(
+            total_spans=100,
+            total_conversations=10,
+            total_turns=50,
+            asr_metrics=asr_metrics,
+            llm_metrics=llm_metrics,
+            tts_metrics=tts_metrics,
+            turn_metrics=turn_metrics,
+            eval_metrics=eval_metrics,
+        )
+
+        response = analysis_result_to_response(result)
+
+        assert isinstance(response, AnalysisResponse)
+        assert response.summary.total_spans == 100
+        assert response.summary.total_conversations == 10
+        assert response.summary.total_turns == 50
+        assert response.stages.asr.count == 3
+        assert response.stages.llm.count == 4
+        assert response.stages.tts.count == 3
+        assert response.turns.silence_samples == 3
+        assert response.turns.interruptions == 3
+        assert response.eval.total_evals == 20
