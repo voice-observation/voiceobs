@@ -301,8 +301,8 @@ class TestAgentRepository:
         assert not mock_db.execute.called
 
     @pytest.mark.asyncio
-    async def test_update_status_with_verification_fields(self, mock_db):
-        """Test update_status with verification transcript and reasoning."""
+    async def test_update_with_status_and_verification_fields(self, mock_db):
+        """Test update with status and verification transcript and reasoning."""
         repo = AgentRepository(mock_db)
         agent_id = uuid4()
         now = datetime.now(timezone.utc)
@@ -331,7 +331,7 @@ class TestAgentRepository:
             }
         )
 
-        result = await repo.update_status(
+        result = await repo.update(
             agent_id,
             connection_status="verified",
             verification_attempts=1,
@@ -422,28 +422,13 @@ class TestAgentRepository:
         assert result.metadata == {}
 
     @pytest.mark.asyncio
-    async def test_delete_soft(self, mock_db):
-        """Test soft deleting an agent (default)."""
-        repo = AgentRepository(mock_db)
-        agent_id = uuid4()
-        mock_db.execute.return_value = "UPDATE 1"
-
-        result = await repo.delete(agent_id, soft=True)
-
-        assert result is True
-        mock_db.execute.assert_called_once()
-        sql = mock_db.execute.call_args[0][0]
-        assert "UPDATE agents" in sql
-        assert "is_active = false" in sql
-
-    @pytest.mark.asyncio
-    async def test_delete_hard(self, mock_db):
-        """Test hard deleting an agent."""
+    async def test_delete(self, mock_db):
+        """Test deleting an agent."""
         repo = AgentRepository(mock_db)
         agent_id = uuid4()
         mock_db.execute.return_value = "DELETE 1"
 
-        result = await repo.delete(agent_id, soft=False)
+        result = await repo.delete(agent_id)
 
         assert result is True
         mock_db.execute.assert_called_once()
@@ -456,7 +441,7 @@ class TestAgentRepository:
         repo = AgentRepository(mock_db)
         mock_db.execute.return_value = "DELETE 0"
 
-        result = await repo.delete(uuid4(), soft=False)
+        result = await repo.delete(uuid4())
 
         assert result is False
 
@@ -487,8 +472,8 @@ class TestAgentRepository:
         assert "WHERE is_active" not in sql
 
     @pytest.mark.asyncio
-    async def test_update_status_to_pending_retry(self, mock_db):
-        """Test update_status can set pending_retry status with verification fields."""
+    async def test_update_to_pending_retry_status(self, mock_db):
+        """Test update can set pending_retry status with verification fields."""
         repo = AgentRepository(mock_db)
         agent_id = uuid4()
         now = datetime.now(timezone.utc)
@@ -520,7 +505,7 @@ class TestAgentRepository:
             }
         )
 
-        result = await repo.update_status(
+        result = await repo.update(
             agent_id,
             connection_status="pending_retry",
             verification_attempts=1,

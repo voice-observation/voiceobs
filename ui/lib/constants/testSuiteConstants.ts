@@ -12,7 +12,7 @@ export const testScopes = [
 ];
 
 export const edgeCases = [
-  { id: "hesitations", label: "Hesitations & filler words (\"um\", \"uh\")", icon: MessageSquare },
+  { id: "hesitations", label: 'Hesitations & filler words ("um", "uh")', icon: MessageSquare },
   { id: "interrupts", label: "User interrupts or changes mind", icon: RefreshCw },
   { id: "noisy_environments", label: "Noisy environments (car, cafe)", icon: Volume2 },
   { id: "adversarial", label: "Confusing or adversarial requests", icon: AlertCircle },

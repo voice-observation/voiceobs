@@ -127,7 +127,17 @@ export function WaveformVisualizer({
       ctx.lineTo(endX, height);
       ctx.stroke();
     });
-  }, [normalizedData, duration, currentTime, segments, height, waveColor, progressColor, cursorColor, segmentColors]);
+  }, [
+    normalizedData,
+    duration,
+    currentTime,
+    segments,
+    height,
+    waveColor,
+    progressColor,
+    cursorColor,
+    segmentColors,
+  ]);
 
   // Handle resize
   React.useEffect(() => {
@@ -230,7 +240,11 @@ export function WaveformVisualizer({
   }, [isDragging, onSeek, duration]);
 
   return (
-    <div ref={containerRef} className={cn("w-full relative", className)} style={{ height: `${height}px` }}>
+    <div
+      ref={containerRef}
+      className={cn("relative w-full", className)}
+      style={{ height: `${height}px` }}
+    >
       <canvas
         ref={canvasRef}
         onClick={handleClick}
@@ -238,7 +252,7 @@ export function WaveformVisualizer({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        className="w-full h-full cursor-pointer"
+        className="h-full w-full cursor-pointer"
       />
     </div>
   );

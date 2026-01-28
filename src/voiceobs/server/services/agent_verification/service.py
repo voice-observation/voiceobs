@@ -61,7 +61,7 @@ class AgentVerificationService:
             current_attempt = (agent.verification_attempts or 0) + 1
 
             # Update status to "connecting"
-            await self._agent_repo.update_status(
+            await self._agent_repo.update(
                 agent_id=agent_id,
                 connection_status="connecting",
                 verification_attempts=current_attempt,
@@ -75,7 +75,7 @@ class AgentVerificationService:
             except ValueError:
                 error_msg = f"Unsupported agent type: {agent.agent_type}"
                 logger.error(f"{error_msg} for agent {agent_id}")
-                await self._agent_repo.update_status(
+                await self._agent_repo.update(
                     agent_id=agent_id,
                     connection_status="failed",
                     verification_error=error_msg,
@@ -88,7 +88,7 @@ class AgentVerificationService:
 
                 if is_verified:
                     # Update to verified status
-                    await self._agent_repo.update_status(
+                    await self._agent_repo.update(
                         agent_id=agent_id,
                         connection_status="verified",
                         verification_error=None,
@@ -143,7 +143,7 @@ class AgentVerificationService:
 
         if current_attempt < max_retries:
             # Schedule retry
-            await self._agent_repo.update_status(
+            await self._agent_repo.update(
                 agent_id=agent_id,
                 connection_status="pending_retry",
                 verification_error=error_message,
@@ -156,7 +156,7 @@ class AgentVerificationService:
             self._schedule_retry(agent_id, current_attempt)
         else:
             # Max retries exceeded
-            await self._agent_repo.update_status(
+            await self._agent_repo.update(
                 agent_id=agent_id,
                 connection_status="failed",
                 verification_error=error_message,

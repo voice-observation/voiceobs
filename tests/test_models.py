@@ -441,8 +441,8 @@ class TestPersonaRow:
         assert deepgram_row.tts_provider == "deepgram"
         assert deepgram_row.tts_config["model"] == "aura-asteria-en"
 
-    def test_persona_row_soft_delete(self):
-        """Test persona row with is_active flag for soft delete."""
+    def test_persona_row_is_active_flag(self):
+        """Test persona row with is_active flag."""
         active_persona = PersonaRow(
             id=uuid4(),
             name="Active Persona",

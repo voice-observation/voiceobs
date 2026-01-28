@@ -624,28 +624,13 @@ class TestPersonaRepository:
         mock_db.execute.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_delete_soft(self, mock_db):
-        """Test soft deleting a persona (default)."""
-        repo = PersonaRepository(mock_db)
-        persona_id = uuid4()
-        mock_db.execute.return_value = "UPDATE 1"
-
-        result = await repo.delete(persona_id, soft=True)
-
-        assert result is True
-        mock_db.execute.assert_called_once()
-        sql = mock_db.execute.call_args[0][0]
-        assert "UPDATE personas" in sql
-        assert "is_active = false" in sql
-
-    @pytest.mark.asyncio
-    async def test_delete_hard(self, mock_db):
-        """Test hard deleting a persona."""
+    async def test_delete(self, mock_db):
+        """Test deleting a persona."""
         repo = PersonaRepository(mock_db)
         persona_id = uuid4()
         mock_db.execute.return_value = "DELETE 1"
 
-        result = await repo.delete(persona_id, soft=False)
+        result = await repo.delete(persona_id)
 
         assert result is True
         mock_db.execute.assert_called_once()
@@ -658,7 +643,7 @@ class TestPersonaRepository:
         repo = PersonaRepository(mock_db)
         mock_db.execute.return_value = "DELETE 0"
 
-        result = await repo.delete(uuid4(), soft=False)
+        result = await repo.delete(uuid4())
 
         assert result is False
 

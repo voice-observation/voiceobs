@@ -433,8 +433,8 @@ class TestPersonas:
         assert response.status_code == 404
 
     @patch("voiceobs.server.routes.personas.get_persona_repo")
-    def test_delete_persona_soft_delete(self, mock_get_persona_repo, client):
-        """Test soft deleting a persona (default)."""
+    def test_delete_persona(self, mock_get_persona_repo, client):
+        """Test deleting a persona."""
         persona_id = uuid4()
 
         mock_repo = AsyncMock()
@@ -444,21 +444,7 @@ class TestPersonas:
         response = client.delete(f"/api/v1/personas/{persona_id}")
 
         assert response.status_code == 204
-        mock_repo.delete.assert_called_once_with(persona_id, soft=True)
-
-    @patch("voiceobs.server.routes.personas.get_persona_repo")
-    def test_delete_persona_hard_delete(self, mock_get_persona_repo, client):
-        """Test hard deleting a persona."""
-        persona_id = uuid4()
-
-        mock_repo = AsyncMock()
-        mock_repo.delete.return_value = True
-        mock_get_persona_repo.return_value = mock_repo
-
-        response = client.delete(f"/api/v1/personas/{persona_id}?soft=false")
-
-        assert response.status_code == 204
-        mock_repo.delete.assert_called_once_with(persona_id, soft=False)
+        mock_repo.delete.assert_called_once_with(persona_id)
 
     @patch("voiceobs.server.routes.personas.get_persona_repo")
     def test_delete_persona_not_found(self, mock_get_persona_repo, client):

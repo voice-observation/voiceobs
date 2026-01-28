@@ -1,6 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Crimson+Text&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Geist+Mono&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Crimson+Text&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Geist+Mono&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -154,25 +154,31 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-background font-sans text-foreground antialiased;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply font-semibold tracking-tight;
   }
 
-  code, pre {
+  code,
+  pre {
     @apply font-mono;
   }
 }
 
 @layer components {
   .glass-card {
-    @apply bg-card/80 backdrop-blur-sm border border-border/50 rounded-lg;
+    @apply rounded-lg border border-border/50 bg-card/80 backdrop-blur-sm;
   }
 
   .status-badge {
-    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium;
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium;
   }
 
   .status-pass {
@@ -192,19 +198,19 @@
   }
 
   .metric-card {
-    @apply p-4 rounded-lg border border-border bg-card hover:bg-secondary/50 transition-colors;
+    @apply rounded-lg border border-border bg-card p-4 transition-colors hover:bg-secondary/50;
   }
 
   .waveform-bar {
-    @apply bg-primary/60 rounded-full transition-all duration-75;
+    @apply rounded-full bg-primary/60 transition-all duration-75;
   }
 
   .timeline-segment {
-    @apply h-8 rounded cursor-pointer transition-all hover:opacity-90;
+    @apply h-8 cursor-pointer rounded transition-all hover:opacity-90;
   }
 
   .nav-item {
-    @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors;
+    @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground;
   }
 
   .nav-item-active {
@@ -214,7 +220,7 @@
 
 @layer utilities {
   .gradient-text {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent;
+    @apply bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent;
   }
 
   .animate-pulse-slow {

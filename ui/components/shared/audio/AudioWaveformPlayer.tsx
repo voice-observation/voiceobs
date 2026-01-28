@@ -5,7 +5,13 @@ import type WaveSurfer from "wavesurfer.js";
 import WaveSurferLib from "wavesurfer.js";
 import { Play, Pause, Volume2, VolumeX, SkipBack, SkipForward } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { formatTime, type PlaybackSpeed, PLAYBACK_SPEEDS } from "@/lib/audio";
 
@@ -200,7 +206,7 @@ export function AudioWaveformPlayer({
   if (error) {
     return (
       <div className={cn("space-y-4", className)}>
-        <div className="w-full rounded-md border border-border bg-card p-6 min-h-[100px] flex items-center justify-center">
+        <div className="flex min-h-[100px] w-full items-center justify-center rounded-md border border-border bg-card p-6">
           <p className="text-muted-foreground">{error}</p>
         </div>
       </div>
@@ -210,10 +216,10 @@ export function AudioWaveformPlayer({
   return (
     <div className={cn("space-y-4", className)}>
       {/* Waveform */}
-      <div className="w-full rounded-md border border-border bg-card p-3 min-h-[100px] relative">
+      <div className="relative min-h-[100px] w-full rounded-md border border-border bg-card p-3">
         <div ref={containerRef} className="w-full" />
         {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-card/80 text-muted-foreground text-sm rounded-md">
+          <div className="absolute inset-0 flex items-center justify-center rounded-md bg-card/80 text-sm text-muted-foreground">
             Loading audio...
           </div>
         )}
@@ -221,7 +227,7 @@ export function AudioWaveformPlayer({
 
       {/* Controls */}
       {showControls && (
-        <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex flex-wrap items-center gap-4">
           {/* Skip Backward */}
           {showSkipControls && (
             <Button
@@ -278,7 +284,7 @@ export function AudioWaveformPlayer({
                 step="0.01"
                 value={isMuted ? 0 : volume}
                 onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-                className="w-24 h-2 bg-muted rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-primary [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-pointer"
+                className="h-2 w-24 cursor-pointer appearance-none rounded-lg bg-muted [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-primary [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary"
                 style={{
                   background: `linear-gradient(to right, hsl(var(--primary)) 0%, hsl(var(--primary)) ${(isMuted ? 0 : volume) * 100}%, hsl(var(--muted)) ${(isMuted ? 0 : volume) * 100}%, hsl(var(--muted)) 100%)`,
                 }}
@@ -308,7 +314,7 @@ export function AudioWaveformPlayer({
 
           {/* Time Display */}
           {showTimeDisplay && (
-            <div className="flex items-center gap-1 text-sm text-muted-foreground ml-auto">
+            <div className="ml-auto flex items-center gap-1 text-sm text-muted-foreground">
               <span>{formatTime(currentTime)}</span>
               <span>/</span>
               <span>{formatTime(duration)}</span>

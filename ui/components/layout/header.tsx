@@ -40,7 +40,7 @@ export function Header() {
   return (
     <header className="flex h-16 items-center border-b border-border bg-background px-4 md:px-6">
       {shouldShowTitle && (
-        <div className="flex items-center gap-2 md:ml-0 ml-12">
+        <div className="ml-12 flex items-center gap-2 md:ml-0">
           <h2 className="text-lg font-semibold">{getPageTitle()}</h2>
         </div>
       )}

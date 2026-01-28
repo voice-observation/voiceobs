@@ -4,18 +4,24 @@ import { useState, useRef } from "react";
 import type WaveSurfer from "wavesurfer.js";
 import { Play, Pause, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Waveform } from "./Waveform";
 import { formatTime, type PlaybackSpeed, PLAYBACK_SPEEDS } from "@/lib/audio";
 import { cn } from "@/lib/utils";
 
 export interface AudioPlayerProps {
   audioUrl: string;
-  conversationId: string;
+  conversationId?: string;
   className?: string;
 }
 
-export function AudioPlayer({ audioUrl, conversationId, className }: AudioPlayerProps) {
+export function AudioPlayer({ audioUrl, className }: AudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -91,7 +97,7 @@ export function AudioPlayer({ audioUrl, conversationId, className }: AudioPlayer
   if (error) {
     return (
       <div className={cn("space-y-4", className)}>
-        <div className="w-full rounded-md border border-border bg-card p-6 min-h-[100px] flex items-center justify-center">
+        <div className="flex min-h-[100px] w-full items-center justify-center rounded-md border border-border bg-card p-6">
           <p className="text-muted-foreground">{error}</p>
         </div>
       </div>
@@ -101,7 +107,7 @@ export function AudioPlayer({ audioUrl, conversationId, className }: AudioPlayer
   return (
     <div className={cn("space-y-4", className)}>
       {/* Waveform */}
-      <div className="w-full rounded-md border border-border bg-card p-3 min-h-[100px] relative">
+      <div className="relative min-h-[100px] w-full rounded-md border border-border bg-card p-3">
         <Waveform
           audioUrl={audioUrl}
           onReady={handleReady}
@@ -115,14 +121,14 @@ export function AudioPlayer({ audioUrl, conversationId, className }: AudioPlayer
           height={100}
         />
         {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-card/80 text-muted-foreground text-sm rounded-md">
+          <div className="absolute inset-0 flex items-center justify-center rounded-md bg-card/80 text-sm text-muted-foreground">
             Loading audio...
           </div>
         )}
       </div>
 
       {/* Controls */}
-      <div className="flex items-center gap-4 flex-wrap">
+      <div className="flex flex-wrap items-center gap-4">
         {/* Play/Pause Button */}
         <Button
           onClick={togglePlayPause}
@@ -152,7 +158,7 @@ export function AudioPlayer({ audioUrl, conversationId, className }: AudioPlayer
             step="0.01"
             value={isMuted ? 0 : volume}
             onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-            className="w-24 h-2 bg-muted rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-primary [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-pointer"
+            className="h-2 w-24 cursor-pointer appearance-none rounded-lg bg-muted [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-primary [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary"
             style={{
               background: `linear-gradient(to right, hsl(var(--primary)) 0%, hsl(var(--primary)) ${(isMuted ? 0 : volume) * 100}%, hsl(var(--muted)) ${(isMuted ? 0 : volume) * 100}%, hsl(var(--muted)) 100%)`,
             }}
@@ -178,7 +184,7 @@ export function AudioPlayer({ audioUrl, conversationId, className }: AudioPlayer
         </div>
 
         {/* Time Display */}
-        <div className="flex items-center gap-1 text-sm text-muted-foreground ml-auto">
+        <div className="ml-auto flex items-center gap-1 text-sm text-muted-foreground">
           <span>{formatTime(currentTime)}</span>
           <span>/</span>
           <span>{formatTime(duration)}</span>

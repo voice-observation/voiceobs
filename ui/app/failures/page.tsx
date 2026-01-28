@@ -55,7 +55,7 @@ export default function FailuresPage() {
     return (
       <div className="space-y-6">
         <div>
-          <Skeleton className="h-9 w-48 mb-2" />
+          <Skeleton className="mb-2 h-9 w-48" />
           <Skeleton className="h-5 w-96" />
         </div>
         <Card>
@@ -221,7 +221,7 @@ export default function FailuresPage() {
               {Object.entries(groupedFailures).map(([groupName, groupFailures]) => (
                 <div key={groupName} className="space-y-2">
                   {groupBy !== "none" && (
-                    <h3 className="text-lg font-semibold mb-2">{groupName}</h3>
+                    <h3 className="mb-2 text-lg font-semibold">{groupName}</h3>
                   )}
                   <Table>
                     <TableHeader>
@@ -240,7 +240,9 @@ export default function FailuresPage() {
                         <TableRow key={failure.id}>
                           <TableCell>
                             <Badge variant="outline">
-                              {failure.type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+                              {failure.type
+                                .replace(/_/g, " ")
+                                .replace(/\b\w/g, (l) => l.toUpperCase())}
                             </Badge>
                           </TableCell>
                           <TableCell>
@@ -250,7 +252,7 @@ export default function FailuresPage() {
                           </TableCell>
                           <TableCell className="max-w-md">
                             <div className="flex items-start gap-2">
-                              <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+                              <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-destructive" />
                               <span className="text-sm">{failure.message}</span>
                             </div>
                           </TableCell>
@@ -258,19 +260,19 @@ export default function FailuresPage() {
                             {failure.conversation_id ? (
                               <Link
                                 href={`/conversations/${failure.conversation_id}`}
-                                className="text-primary hover:underline text-sm"
+                                className="text-sm text-primary hover:underline"
                               >
                                 {failure.conversation_id.slice(0, 8)}...
                               </Link>
                             ) : (
-                              <span className="text-muted-foreground text-sm">-</span>
+                              <span className="text-sm text-muted-foreground">-</span>
                             )}
                           </TableCell>
                           <TableCell>
                             {failure.turn_index !== null ? (
                               <span className="text-sm">Turn #{failure.turn_index}</span>
                             ) : (
-                              <span className="text-muted-foreground text-sm">-</span>
+                              <span className="text-sm text-muted-foreground">-</span>
                             )}
                           </TableCell>
                           <TableCell>
@@ -285,7 +287,7 @@ export default function FailuresPage() {
                                 </div>
                               </div>
                             ) : (
-                              <span className="text-muted-foreground text-sm">-</span>
+                              <span className="text-sm text-muted-foreground">-</span>
                             )}
                           </TableCell>
                           <TableCell className="text-right">
@@ -305,11 +307,11 @@ export default function FailuresPage() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-12 text-muted-foreground">
-              <AlertCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
+            <div className="py-12 text-center text-muted-foreground">
+              <AlertCircle className="mx-auto mb-2 h-12 w-12 opacity-50" />
               <p>No failures found</p>
               {(severityFilter !== "all" || typeFilter !== "all") && (
-                <p className="text-sm mt-2">Try adjusting your filters</p>
+                <p className="mt-2 text-sm">Try adjusting your filters</p>
               )}
             </div>
           )}

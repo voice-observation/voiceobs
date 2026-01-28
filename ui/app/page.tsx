@@ -6,8 +6,27 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { api, type AnalysisResponse, type ConversationsListResponse, type FailuresListResponse } from "@/lib/api";
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
+import {
+  api,
+  type AnalysisResponse,
+  type ConversationsListResponse,
+  type FailuresListResponse,
+} from "@/lib/api";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+} from "recharts";
 import { AlertCircle, TrendingUp, MessageSquare, AlertTriangle } from "lucide-react";
 
 const COLORS = {
@@ -50,7 +69,7 @@ export default function DashboardPage() {
     return (
       <div className="space-y-6">
         <div>
-          <Skeleton className="h-9 w-48 mb-2" />
+          <Skeleton className="mb-2 h-9 w-48" />
           <Skeleton className="h-5 w-96" />
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -60,7 +79,7 @@ export default function DashboardPage() {
                 <Skeleton className="h-4 w-32" />
               </CardHeader>
               <CardContent>
-                <Skeleton className="h-8 w-16 mb-2" />
+                <Skeleton className="mb-2 h-8 w-16" />
                 <Skeleton className="h-4 w-24" />
               </CardContent>
             </Card>
@@ -207,14 +226,17 @@ export default function DashboardPage() {
                     dataKey="value"
                   >
                     {failureBreakdown.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[Object.keys(COLORS)[index % 4] as keyof typeof COLORS]} />
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={COLORS[Object.keys(COLORS)[index % 4] as keyof typeof COLORS]}
+                      />
                     ))}
                   </Pie>
                   <Tooltip />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+              <div className="flex h-[300px] items-center justify-center text-muted-foreground">
                 No failures detected
               </div>
             )}
@@ -241,7 +263,7 @@ export default function DashboardPage() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+              <div className="flex h-[300px] items-center justify-center text-muted-foreground">
                 No latency data available
               </div>
             )}
@@ -268,10 +290,10 @@ export default function DashboardPage() {
               {recentConversations.map((conv) => (
                 <div
                   key={conv.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent transition-colors"
+                  className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-accent"
                 >
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="mb-1 flex items-center gap-2">
                       <Link
                         href={`/conversations/${conv.id}`}
                         className="font-medium hover:underline"
@@ -296,8 +318,8 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-50" />
+            <div className="py-8 text-center text-muted-foreground">
+              <MessageSquare className="mx-auto mb-2 h-12 w-12 opacity-50" />
               <p>No conversations yet</p>
             </div>
           )}

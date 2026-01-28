@@ -64,9 +64,7 @@ export default function PersonasPage() {
   const handleToggleEnabled = async (id: string, enabled: boolean) => {
     try {
       // Optimistically update UI
-      setPersonas((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, is_active: enabled } : p))
-      );
+      setPersonas((prev) => prev.map((p) => (p.id === id ? { ...p, is_active: enabled } : p)));
 
       // Call the API to update the persona's active status
       const updatedPersona = await api.personas.setPersonaActive(id, enabled);
@@ -78,7 +76,10 @@ export default function PersonasPage() {
 
       logger.info("Persona active status updated", { personaId: id, isActive: enabled });
     } catch (err) {
-      logger.error("Failed to update persona active status", err, { personaId: id, isActive: enabled });
+      logger.error("Failed to update persona active status", err, {
+        personaId: id,
+        isActive: enabled,
+      });
       // Revert on error by refreshing
       try {
         const response = await api.personas.listPersonas(null);
@@ -112,7 +113,10 @@ export default function PersonasPage() {
           audio.remove();
         });
         audio.addEventListener("error", () => {
-          logger.error("Audio playback error", undefined, { personaId: id, audioUrl: preview.audio_url });
+          logger.error("Audio playback error", undefined, {
+            personaId: id,
+            audioUrl: preview.audio_url,
+          });
           audio.remove();
         });
       } else {
@@ -123,15 +127,14 @@ export default function PersonasPage() {
     }
   };
 
-
   if (loading) {
     return (
       <div className="space-y-6">
         <div>
-          <Skeleton className="h-9 w-48 mb-2" />
+          <Skeleton className="mb-2 h-9 w-48" />
           <Skeleton className="h-5 w-96" />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <Skeleton key={i} className="h-64 w-full" />
           ))}
@@ -173,7 +176,7 @@ export default function PersonasPage() {
 
           <div className="flex items-center gap-2">
             <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
-              <Plus className="w-4 h-4 mr-2" />
+              <Plus className="mr-2 h-4 w-4" />
               Create Persona
             </Button>
           </div>
@@ -181,7 +184,7 @@ export default function PersonasPage() {
 
         <TabsContent value="active" className="mt-6">
           {activePersonas.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               {activePersonas.map((persona) => (
                 <PersonaCard
                   key={persona.id}
@@ -194,7 +197,7 @@ export default function PersonasPage() {
           ) : (
             <Card>
               <CardContent className="pt-6">
-                <div className="text-center py-12 text-muted-foreground">
+                <div className="py-12 text-center text-muted-foreground">
                   <p>No active personas found</p>
                 </div>
               </CardContent>
@@ -204,7 +207,7 @@ export default function PersonasPage() {
 
         <TabsContent value="inactive" className="mt-6">
           {inactivePersonas.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               {inactivePersonas.map((persona) => (
                 <PersonaCard
                   key={persona.id}
@@ -217,14 +220,14 @@ export default function PersonasPage() {
           ) : (
             <Card>
               <CardContent className="pt-6">
-                <div className="text-center py-12 text-muted-foreground">
+                <div className="py-12 text-center text-muted-foreground">
                   <p>No inactive personas found</p>
                   <Button
                     variant="outline"
                     className="mt-4"
                     onClick={() => setCreateDialogOpen(true)}
                   >
-                    <Plus className="h-4 w-4 mr-2" />
+                    <Plus className="mr-2 h-4 w-4" />
                     Create Your First Persona
                   </Button>
                 </div>

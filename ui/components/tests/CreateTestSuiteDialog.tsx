@@ -1,12 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,17 +41,13 @@ export function CreateTestSuiteDialog({
 
   const handleScopeToggle = (scope: string) => {
     setSelectedScopes((prev) =>
-      prev.includes(scope)
-        ? prev.filter((s) => s !== scope)
-        : [...prev, scope]
+      prev.includes(scope) ? prev.filter((s) => s !== scope) : [...prev, scope]
     );
   };
 
   const handleEdgeCaseToggle = (edgeCase: string) => {
     setSelectedEdgeCases((prev) =>
-      prev.includes(edgeCase)
-        ? prev.filter((e) => e !== edgeCase)
-        : [...prev, edgeCase]
+      prev.includes(edgeCase) ? prev.filter((e) => e !== edgeCase) : [...prev, edgeCase]
     );
   };
 
@@ -100,7 +91,7 @@ export function CreateTestSuiteDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl">Create New Test Suite</DialogTitle>
           <p className="text-sm text-muted-foreground">
@@ -151,7 +142,7 @@ export function CreateTestSuiteDialog({
           {/* Test Thoroughness */}
           <div className="space-y-3">
             <Label>Test Thoroughness</Label>
-            <div className="px-2 pt-2 pb-4">
+            <div className="px-2 pb-4 pt-2">
               <Slider
                 value={thoroughness}
                 onValueChange={setThoroughness}
@@ -159,11 +150,11 @@ export function CreateTestSuiteDialog({
                 step={1}
                 className="w-full"
               />
-              <div className="flex justify-between mt-2 text-sm text-muted-foreground">
+              <div className="mt-2 flex justify-between text-sm text-muted-foreground">
                 {thoroughnessLabels.map((label, index) => (
                   <span
                     key={label}
-                    className={thoroughness[0] === index ? "text-primary font-medium" : ""}
+                    className={thoroughness[0] === index ? "font-medium text-primary" : ""}
                   >
                     {label}
                   </span>
@@ -198,7 +189,7 @@ export function CreateTestSuiteDialog({
               {strictnessOptions.map((option) => (
                 <div key={option.value} className="flex items-center gap-2">
                   <RadioGroupItem value={option.value} id={option.value} />
-                  <Label htmlFor={option.value} className="cursor-pointer font-normal text-sm">
+                  <Label htmlFor={option.value} className="cursor-pointer text-sm font-normal">
                     {option.label}
                   </Label>
                 </div>
@@ -207,12 +198,12 @@ export function CreateTestSuiteDialog({
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 pt-4 border-t">
+        <div className="flex justify-end gap-3 border-t pt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button onClick={handleGenerate} disabled={!isValid || isSubmitting}>
-            <Zap className="w-4 h-4 mr-2" />
+            <Zap className="mr-2 h-4 w-4" />
             {isSubmitting ? "Creating..." : "Generate Tests"}
           </Button>
         </div>

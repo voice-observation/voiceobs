@@ -535,32 +535,18 @@ class TestAgents:
         assert "phone_number is required" in data["detail"]
 
     @patch("voiceobs.server.routes.agents.get_agent_repo")
-    def test_delete_agent_soft_delete(self, mock_get_agent_repo, client):
-        """Test soft deleting an agent."""
+    def test_delete_agent(self, mock_get_agent_repo, client):
+        """Test deleting an agent."""
         agent_id = uuid4()
 
         mock_repo = AsyncMock()
         mock_repo.delete.return_value = True
         mock_get_agent_repo.return_value = mock_repo
 
-        response = client.delete(f"/api/v1/agents/{agent_id}?soft=true")
+        response = client.delete(f"/api/v1/agents/{agent_id}")
 
         assert response.status_code == 204
-        mock_repo.delete.assert_called_once_with(agent_id, soft=True)
-
-    @patch("voiceobs.server.routes.agents.get_agent_repo")
-    def test_delete_agent_hard_delete(self, mock_get_agent_repo, client):
-        """Test hard deleting an agent."""
-        agent_id = uuid4()
-
-        mock_repo = AsyncMock()
-        mock_repo.delete.return_value = True
-        mock_get_agent_repo.return_value = mock_repo
-
-        response = client.delete(f"/api/v1/agents/{agent_id}?soft=false")
-
-        assert response.status_code == 204
-        mock_repo.delete.assert_called_once_with(agent_id, soft=False)
+        mock_repo.delete.assert_called_once_with(agent_id)
 
     @patch("voiceobs.server.routes.agents.get_agent_repo")
     def test_delete_agent_not_found(self, mock_get_agent_repo, client):

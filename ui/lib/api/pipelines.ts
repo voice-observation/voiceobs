@@ -73,7 +73,8 @@ export class PipelinesApi extends BaseApiClient {
       ...(data.name !== undefined && data.name !== null && { name: data.name }),
       ...(data.description !== undefined && { description: data.description }),
       ...(data.config !== undefined && { config: data.config || {} }),
-      ...(data.status !== undefined && data.status !== null && { status: data.status as Pipeline["status"] }),
+      ...(data.status !== undefined &&
+        data.status !== null && { status: data.status as Pipeline["status"] }),
       updated_at: new Date().toISOString(),
     };
     return inMemoryStore.pipelines[index];

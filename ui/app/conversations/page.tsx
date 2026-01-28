@@ -45,7 +45,7 @@ export default function ConversationsPage() {
     return (
       <div className="space-y-6">
         <div>
-          <Skeleton className="h-9 w-48 mb-2" />
+          <Skeleton className="mb-2 h-9 w-48" />
           <Skeleton className="h-5 w-96" />
         </div>
         <Card>
@@ -133,7 +133,7 @@ export default function ConversationsPage() {
                       <TableCell className="font-medium">
                         <Link
                           href={`/conversations/${conv.id}`}
-                          className="hover:underline text-primary"
+                          className="text-primary hover:underline"
                         >
                           {conv.id}
                         </Link>
@@ -159,7 +159,7 @@ export default function ConversationsPage() {
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
+                <div className="mt-4 flex items-center justify-between">
                   <div className="text-sm text-muted-foreground">
                     Showing {startIndex + 1} to {Math.min(endIndex, conversations.length)} of{" "}
                     {conversations.length} conversations
@@ -191,8 +191,8 @@ export default function ConversationsPage() {
               )}
             </>
           ) : (
-            <div className="text-center py-12 text-muted-foreground">
-              <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-50" />
+            <div className="py-12 text-center text-muted-foreground">
+              <MessageSquare className="mx-auto mb-2 h-12 w-12 opacity-50" />
               <p>No conversations found</p>
             </div>
           )}

@@ -3,9 +3,24 @@
 import * as React from "react";
 import type WaveSurfer from "wavesurfer.js";
 import WaveSurferLib from "wavesurfer.js";
-import { Play, Pause, Volume2, VolumeX, SkipBack, SkipForward, RotateCcw, RotateCw } from "lucide-react";
+import {
+  Play,
+  Pause,
+  Volume2,
+  VolumeX,
+  SkipBack,
+  SkipForward,
+  RotateCcw,
+  RotateCw,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { formatTime, type PlaybackSpeed, PLAYBACK_SPEEDS } from "@/lib/audio";
 
@@ -88,7 +103,8 @@ export function AudioPlayerSection({
       id: turn.id,
       start: turn.start,
       end: turn.end,
-      color: turn.color || (turn.actor === "user" ? "hsl(var(--blue-500))" : "hsl(var(--green-500))"),
+      color:
+        turn.color || (turn.actor === "user" ? "hsl(var(--blue-500))" : "hsl(var(--green-500))"),
       label: turn.label,
     }));
   }, [turnMarkers]);
@@ -297,7 +313,7 @@ export function AudioPlayerSection({
   if (error) {
     return (
       <div className={cn("space-y-4", className)}>
-        <div className="w-full rounded-md border border-border bg-card p-6 min-h-[100px] flex items-center justify-center">
+        <div className="flex min-h-[100px] w-full items-center justify-center rounded-md border border-border bg-card p-6">
           <p className="text-muted-foreground">{error}</p>
         </div>
       </div>
@@ -307,10 +323,10 @@ export function AudioPlayerSection({
   return (
     <div className={cn("space-y-4", className)}>
       {/* Waveform with turn markers */}
-      <div className="w-full rounded-md border border-border bg-card p-3 min-h-[100px] relative">
+      <div className="relative min-h-[100px] w-full rounded-md border border-border bg-card p-3">
         {/* Turn markers overlay */}
         {turnMarkers.length > 0 && (
-          <div className="absolute top-0 left-0 right-0 h-6 flex items-center gap-1 px-3 z-10">
+          <div className="absolute left-0 right-0 top-0 z-10 flex h-6 items-center gap-1 px-3">
             {turnMarkers.map((turn) => {
               const width = duration > 0 ? ((turn.end - turn.start) / duration) * 100 : 0;
               const left = duration > 0 ? (turn.start / duration) * 100 : 0;
@@ -344,11 +360,14 @@ export function AudioPlayerSection({
         )}
 
         {/* Waveform container */}
-        <div ref={containerRef} className="w-full mt-6" />
+        <div ref={containerRef} className="mt-6 w-full" />
 
         {/* Segment highlights overlay */}
         {segments.length > 0 && duration > 0 && (
-          <div className="absolute bottom-3 left-3 right-3 pointer-events-none" style={{ height: `${height - 60}px` }}>
+          <div
+            className="pointer-events-none absolute bottom-3 left-3 right-3"
+            style={{ height: `${height - 60}px` }}
+          >
             {segments.map((segment) => {
               const startPercent = (segment.start / duration) * 100;
               const widthPercent = ((segment.end - segment.start) / duration) * 100;
@@ -356,7 +375,7 @@ export function AudioPlayerSection({
               return (
                 <div
                   key={segment.id}
-                  className="absolute top-0 bottom-0 border-l border-r opacity-20 transition-opacity"
+                  className="absolute bottom-0 top-0 border-l border-r opacity-20 transition-opacity"
                   style={{
                     left: `${startPercent}%`,
                     width: `${widthPercent}%`,
@@ -370,7 +389,7 @@ export function AudioPlayerSection({
         )}
 
         {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-card/80 text-muted-foreground text-sm rounded-md">
+          <div className="absolute inset-0 flex items-center justify-center rounded-md bg-card/80 text-sm text-muted-foreground">
             Loading audio...
           </div>
         )}
@@ -378,7 +397,7 @@ export function AudioPlayerSection({
         {/* Loop region indicator */}
         {loopStart !== null && loopEnd !== null && (
           <div
-            className="absolute bottom-0 left-0 right-0 h-1 bg-primary/30 border-t-2 border-primary"
+            className="absolute bottom-0 left-0 right-0 h-1 border-t-2 border-primary bg-primary/30"
             style={{
               left: `${(loopStart / duration) * 100}%`,
               width: `${((loopEnd - loopStart) / duration) * 100}%`,
@@ -389,7 +408,7 @@ export function AudioPlayerSection({
 
       {/* Controls */}
       {showControls && (
-        <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex flex-wrap items-center gap-4">
           {/* Skip Backward */}
           {showSkipControls && (
             <Button
@@ -429,7 +448,7 @@ export function AudioPlayerSection({
 
           {/* Loop Controls */}
           {showLoopControls && (
-            <div className="flex items-center gap-1 border rounded-md p-1">
+            <div className="flex items-center gap-1 rounded-md border p-1">
               <Button
                 onClick={handleSetLoopStart}
                 variant="ghost"
@@ -437,7 +456,7 @@ export function AudioPlayerSection({
                 className="h-7 px-2 text-xs"
                 title="Set loop start"
               >
-                <RotateCcw className="h-3 w-3 mr-1" />
+                <RotateCcw className="mr-1 h-3 w-3" />
                 Start
               </Button>
               <Button
@@ -447,7 +466,7 @@ export function AudioPlayerSection({
                 className="h-7 px-2 text-xs"
                 title="Set loop end"
               >
-                <RotateCw className="h-3 w-3 mr-1" />
+                <RotateCw className="mr-1 h-3 w-3" />
                 End
               </Button>
               <Button
@@ -493,7 +512,7 @@ export function AudioPlayerSection({
                 step="0.01"
                 value={isMuted ? 0 : volume}
                 onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-                className="w-24 h-2 bg-muted rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-primary [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-pointer"
+                className="h-2 w-24 cursor-pointer appearance-none rounded-lg bg-muted [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-primary [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary"
                 style={{
                   background: `linear-gradient(to right, hsl(var(--primary)) 0%, hsl(var(--primary)) ${(isMuted ? 0 : volume) * 100}%, hsl(var(--muted)) ${(isMuted ? 0 : volume) * 100}%, hsl(var(--muted)) 100%)`,
                 }}
@@ -523,7 +542,7 @@ export function AudioPlayerSection({
 
           {/* Time Display */}
           {showTimeDisplay && (
-            <div className="flex items-center gap-1 text-sm text-muted-foreground ml-auto">
+            <div className="ml-auto flex items-center gap-1 text-sm text-muted-foreground">
               <span>{formatTime(currentTime)}</span>
               <span>/</span>
               <span>{formatTime(duration)}</span>

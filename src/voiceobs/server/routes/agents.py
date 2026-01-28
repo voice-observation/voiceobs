@@ -268,17 +268,22 @@ async def update_agent(
         if request.web_url is not None:
             contact_info_update["web_url"] = request.web_url
 
+    # Get only explicitly set fields (excludes None defaults)
+    update_kwargs = request.model_dump(exclude_unset=True)
+
+    # Remove convenience fields that aren't direct repo params
+    update_kwargs.pop("phone_number", None)
+    update_kwargs.pop("web_url", None)
+    update_kwargs.pop("contact_info", None)
+
+    # Add required ID and computed contact_info
+    update_kwargs["agent_id"] = agent_uuid
+    if contact_info_update is not None:
+        update_kwargs["contact_info"] = contact_info_update
+
     # Update agent
     try:
-        agent = await repo.update(
-            agent_id=agent_uuid,
-            name=request.name,
-            agent_type=request.agent_type,
-            contact_info=contact_info_update,
-            goal=request.goal,
-            supported_intents=request.supported_intents,
-            metadata=request.metadata,
-        )
+        agent = await repo.update(**update_kwargs)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -347,7 +352,7 @@ async def update_agent(
     "/{agent_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete agent",
-    description="Delete an agent (soft delete by default).",
+    description="Permanently delete an agent.",
     responses={
         404: {"model": ErrorResponse, "description": "Agent not found"},
         501: {
@@ -356,14 +361,11 @@ async def update_agent(
         },
     },
 )
-async def delete_agent(
-    agent_id: str,
-    soft: bool = Query(True, description="Soft delete (default) or hard delete"),
-) -> None:
+async def delete_agent(agent_id: str) -> None:
     """Delete an agent."""
     repo = get_agent_repo()
     agent_uuid = parse_uuid(agent_id, "agent")
-    deleted = await repo.delete(agent_uuid, soft=soft)
+    deleted = await repo.delete(agent_uuid)
 
     if not deleted:
         raise HTTPException(

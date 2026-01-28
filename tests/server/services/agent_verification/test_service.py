@@ -15,7 +15,7 @@ def mock_agent_repo():
     """Create a mock agent repository."""
     repo = MagicMock()
     repo.get = AsyncMock()
-    repo.update_status = AsyncMock()
+    repo.update = AsyncMock()
     return repo
 
 
@@ -61,7 +61,7 @@ class TestRetryLogic:
                 await service.verify_agent(agent_id)
 
         # Should update to pending_retry (not failed) since attempts < max
-        calls = mock_agent_repo.update_status.call_args_list
+        calls = mock_agent_repo.update.call_args_list
         # Find the final status update (after failure)
         final_call = calls[-1]
         assert final_call.kwargs.get("connection_status") == "pending_retry"
@@ -96,7 +96,7 @@ class TestRetryLogic:
                 await service.verify_agent(agent_id)
 
         # Should update to failed (max retries exceeded)
-        calls = mock_agent_repo.update_status.call_args_list
+        calls = mock_agent_repo.update.call_args_list
         final_call = calls[-1]
         assert final_call.kwargs.get("connection_status") == "failed"
 
@@ -130,7 +130,7 @@ class TestRetryLogic:
                 await service.verify_agent(agent_id)
 
         # Should update to verified
-        calls = mock_agent_repo.update_status.call_args_list
+        calls = mock_agent_repo.update.call_args_list
         final_call = calls[-1]
         assert final_call.kwargs.get("connection_status") == "verified"
 
@@ -164,7 +164,7 @@ class TestRetryLogic:
                 await service.verify_agent(agent_id)
 
         # Should set verification_reasoning
-        calls = mock_agent_repo.update_status.call_args_list
+        calls = mock_agent_repo.update.call_args_list
         final_call = calls[-1]
         expected_reasoning = "Agent answered and responded successfully"
         assert final_call.kwargs.get("verification_reasoning") == expected_reasoning
@@ -297,7 +297,7 @@ class TestRetryLogic:
                 await service.verify_agent(agent_id)
 
         # Should still schedule retry on exception (attempts < max)
-        calls = mock_agent_repo.update_status.call_args_list
+        calls = mock_agent_repo.update.call_args_list
         final_call = calls[-1]
         assert final_call.kwargs.get("connection_status") == "pending_retry"
 
@@ -316,7 +316,7 @@ class TestRetryLogic:
             await service.verify_agent(agent_id)
 
         # No status updates should be called
-        mock_agent_repo.update_status.assert_not_called()
+        mock_agent_repo.update.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_skips_already_verified_agent(self, mock_agent_repo, mock_settings):
@@ -341,7 +341,7 @@ class TestRetryLogic:
             await service.verify_agent(agent_id)
 
         # No status updates should be called
-        mock_agent_repo.update_status.assert_not_called()
+        mock_agent_repo.update.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_force_reverifies_verified_agent(self, mock_agent_repo, mock_settings):
@@ -373,7 +373,7 @@ class TestRetryLogic:
                 await service.verify_agent(agent_id, force=True)
 
         # Should have made status updates
-        assert mock_agent_repo.update_status.call_count >= 1
+        assert mock_agent_repo.update.call_count >= 1
 
     @pytest.mark.asyncio
     async def test_unsupported_agent_type_fails_immediately(self, mock_agent_repo, mock_settings):
@@ -403,7 +403,7 @@ class TestRetryLogic:
                 await service.verify_agent(agent_id)
 
         # Should fail immediately, not pending_retry
-        calls = mock_agent_repo.update_status.call_args_list
+        calls = mock_agent_repo.update.call_args_list
         final_call = calls[-1]
         assert final_call.kwargs.get("connection_status") == "failed"
 
@@ -485,7 +485,7 @@ class TestEdgeCases:
             await service.verify_agent(agent_id)
 
         # No status updates should be called since we crashed early
-        mock_agent_repo.update_status.assert_not_called()
+        mock_agent_repo.update.assert_not_called()
 
 
 class TestTranscriptStorage:
@@ -526,7 +526,7 @@ class TestTranscriptStorage:
                 await service.verify_agent(agent_id)
 
         # Should store transcript in update_status call
-        calls = mock_agent_repo.update_status.call_args_list
+        calls = mock_agent_repo.update.call_args_list
         final_call = calls[-1]
         assert final_call.kwargs.get("verification_transcript") == expected_transcript
 
@@ -566,7 +566,7 @@ class TestTranscriptStorage:
                 await service.verify_agent(agent_id)
 
         # Should store transcript even on failure
-        calls = mock_agent_repo.update_status.call_args_list
+        calls = mock_agent_repo.update.call_args_list
         final_call = calls[-1]
         assert final_call.kwargs.get("verification_transcript") == expected_transcript
 
@@ -600,7 +600,7 @@ class TestTranscriptStorage:
                 await service.verify_agent(agent_id)
 
         # Should store None transcript
-        calls = mock_agent_repo.update_status.call_args_list
+        calls = mock_agent_repo.update.call_args_list
         final_call = calls[-1]
         assert final_call.kwargs.get("verification_transcript") is None
 
@@ -640,7 +640,7 @@ class TestTranscriptStorage:
                 await service.verify_agent(agent_id)
 
         # Should store transcript in final failed status
-        calls = mock_agent_repo.update_status.call_args_list
+        calls = mock_agent_repo.update.call_args_list
         final_call = calls[-1]
         assert final_call.kwargs.get("connection_status") == "failed"
         assert final_call.kwargs.get("verification_transcript") == expected_transcript
@@ -713,4 +713,4 @@ class TestVerifyAgentBackground:
                 await asyncio.sleep(0.01)
 
                 # Should have made status updates since force=True
-                assert mock_agent_repo.update_status.call_count >= 1
+                assert mock_agent_repo.update.call_count >= 1

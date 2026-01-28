@@ -70,7 +70,8 @@ export class TestSuitesApi extends BaseApiClient {
       ...suite,
       ...(data.name !== undefined && data.name !== null && { name: data.name }),
       ...(data.description !== undefined && { description: data.description }),
-      ...(data.status !== undefined && data.status !== null && { status: data.status as TestSuite["status"] }),
+      ...(data.status !== undefined &&
+        data.status !== null && { status: data.status as TestSuite["status"] }),
     };
     return inMemoryStore.testSuites[index];
   }
