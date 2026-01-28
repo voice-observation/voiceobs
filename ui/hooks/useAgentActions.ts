@@ -19,8 +19,10 @@ interface UseAgentActionsOptions {
 }
 
 interface UseAgentActionsResult {
-  /** Trigger verification for an agent */
+  /** Trigger verification for an agent (calls /verify endpoint) */
   verifyAgent: (agentId: string) => Promise<void>;
+  /** Resume polling for an agent already being verified (does NOT call /verify) */
+  resumePolling: (agentId: string) => void;
   /** Delete an agent */
   deleteAgent: (agentId: string) => Promise<void>;
   /** Update an agent */
@@ -105,32 +107,69 @@ export function useAgentActions(options: UseAgentActionsOptions = {}): UseAgentA
     startPollingRef.current = startPolling;
   }, [startPolling]);
 
+  /**
+   * Resume polling for an agent that's already being verified.
+   * This does NOT call the /verify endpoint - it only polls for status.
+   * Use this when page loads and agent is in "connecting" state.
+   */
+  const resumePolling = useCallback((agentId: string) => {
+    // Don't start polling if already polling this agent
+    if (currentVerifyingAgentRef.current === agentId) {
+      return;
+    }
+
+    setVerifyingIds((prev) => new Set(prev).add(agentId));
+    currentVerifyingAgentRef.current = agentId;
+    startPollingRef.current?.(agentId);
+  }, []);
+
+  /**
+   * Start a new verification for an agent.
+   * This calls the /verify endpoint and then starts polling.
+   * Use this when user explicitly clicks "Verify" button.
+   */
   const verifyAgent = useCallback(
     async (agentId: string) => {
-      try {
-        setVerifyingIds((prev) => new Set(prev).add(agentId));
-        currentVerifyingAgentRef.current = agentId;
+      const maxRetries = 3;
+      let lastError: Error | null = null;
 
-        await api.agents.verifyAgent(agentId, true);
-        toast({
-          title: "Verification started",
-          description: "Verifying agent...",
-        });
-        startPollingRef.current?.(agentId);
-      } catch (err) {
-        logger.error("Failed to start verification", err);
-        setVerifyingIds((prev) => {
-          const next = new Set(prev);
-          next.delete(agentId);
-          return next;
-        });
-        currentVerifyingAgentRef.current = null;
-        toast({
-          title: "Failed to start verification",
-          description: err instanceof Error ? err.message : "Unknown error",
-          variant: "destructive",
-        });
+      setVerifyingIds((prev) => new Set(prev).add(agentId));
+      currentVerifyingAgentRef.current = agentId;
+
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          await api.agents.verifyAgent(agentId, true);
+          toast({
+            title: "Verification started",
+            description: "Verifying agent...",
+          });
+          startPollingRef.current?.(agentId);
+          return; // Success, exit the function
+        } catch (err) {
+          lastError = err instanceof Error ? err : new Error("Unknown error");
+          logger.error(`Failed to start verification (attempt ${attempt}/${maxRetries})`, err);
+
+          if (attempt < maxRetries) {
+            // Exponential backoff: 1s, 2s, 4s
+            const backoffDelay = 1000 * Math.pow(2, attempt - 1);
+            logger.info(`Retrying in ${backoffDelay}ms...`);
+            await new Promise((resolve) => setTimeout(resolve, backoffDelay));
+          }
+        }
       }
+
+      // All retries failed
+      setVerifyingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(agentId);
+        return next;
+      });
+      currentVerifyingAgentRef.current = null;
+      toast({
+        title: "Failed to start verification",
+        description: lastError?.message || "Unknown error",
+        variant: "destructive",
+      });
     },
     [toast]
   );
@@ -247,6 +286,7 @@ export function useAgentActions(options: UseAgentActionsOptions = {}): UseAgentA
 
   return {
     verifyAgent,
+    resumePolling,
     deleteAgent,
     updateAgent,
     toggleActive,
