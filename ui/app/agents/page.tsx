@@ -54,7 +54,7 @@ export default function AgentsPage() {
     }
   }, []);
 
-  const { verifyAgent, toggleActive, verifyingIds } = useAgentActions({
+  const { verifyAgent, resumePolling, toggleActive, verifyingIds } = useAgentActions({
     onVerified: refreshAgentList,
     onDeleted: () => {
       setAgents((prev) => prev.filter((a) => a.id !== deleteAgentId));
@@ -72,10 +72,14 @@ export default function AgentsPage() {
       const response = await api.agents.listAgents();
       setAgents(response.agents);
 
-      // Start polling for any agents currently verifying
-      const verifying = response.agents.filter((a) => a.connection_status === "connecting");
-      verifying.forEach((a) => {
-        verifyAgent(a.id);
+      // Resume polling for agents already in "connecting" state
+      // This does NOT call /verify - it only polls for status updates
+      // User must manually click "Verify" to start a new verification
+      const connecting = response.agents.filter(
+        (a) => a.connection_status === "connecting" && !verifyingIds.has(a.id)
+      );
+      connecting.forEach((a) => {
+        resumePolling(a.id);
       });
     } catch (err) {
       logger.error("Failed to fetch agents", err);
@@ -83,7 +87,7 @@ export default function AgentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [verifyAgent]);
+  }, [resumePolling, verifyingIds]);
 
   useEffect(() => {
     fetchAgents();
