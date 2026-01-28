@@ -287,75 +287,22 @@ class AgentRepository:
 
         return await self.get(agent_id)
 
-    async def update_status(
-        self,
-        agent_id: UUID,
-        connection_status: str | None = None,
-        verification_attempts: int | None = None,
-        last_verification_at: datetime | None = None,
-        verification_error: str | None = None,
-        verification_transcript: list[dict[str, str]] | None = None,
-        verification_reasoning: str | None = None,
-    ) -> AgentRow | None:
-        """Update agent connection status.
-
-        Args:
-            agent_id: Agent UUID
-            connection_status: New connection status
-            verification_attempts: Number of verification attempts
-            last_verification_at: Timestamp of last verification
-            verification_error: Optional error message
-            verification_transcript: Conversation transcript from verification
-            verification_reasoning: Explanation of verification result
-
-        Returns:
-            The updated agent row, or None if not found.
-        """
-        # Build kwargs, only including non-None values
-        kwargs = {}
-        if connection_status is not None:
-            kwargs["connection_status"] = connection_status
-        if verification_attempts is not None:
-            kwargs["verification_attempts"] = verification_attempts
-        if last_verification_at is not None:
-            kwargs["last_verification_at"] = last_verification_at
-        if verification_error is not None:
-            kwargs["verification_error"] = verification_error
-        if verification_transcript is not None:
-            kwargs["verification_transcript"] = verification_transcript
-        if verification_reasoning is not None:
-            kwargs["verification_reasoning"] = verification_reasoning
-
-        return await self.update(agent_id, **kwargs)
-
-    async def delete(self, agent_id: UUID, soft: bool = True) -> bool:
+    async def delete(self, agent_id: UUID) -> bool:
         """Delete an agent.
 
         Args:
             agent_id: The agent UUID.
-            soft: If True, soft delete (set is_active=False). If False, hard delete.
 
         Returns:
             True if deleted, False if not found.
         """
-        if soft:
-            result = await self._db.execute(
-                """
-                UPDATE agents
-                SET is_active = false, updated_at = NOW()
-                WHERE id = $1
-                """,
-                agent_id,
-            )
-            return result == "UPDATE 1"
-        else:
-            result = await self._db.execute(
-                """
-                DELETE FROM agents WHERE id = $1
-                """,
-                agent_id,
-            )
-            return result == "DELETE 1"
+        result = await self._db.execute(
+            """
+            DELETE FROM agents WHERE id = $1
+            """,
+            agent_id,
+        )
+        return result == "DELETE 1"
 
     async def count(self, is_active: bool | None = True) -> int:
         """Count agents.

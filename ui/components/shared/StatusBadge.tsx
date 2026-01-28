@@ -29,8 +29,7 @@ const statusBadgeVariants = cva(
 );
 
 export interface StatusBadgeProps
-  extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof statusBadgeVariants> {
+  extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof statusBadgeVariants> {
   showIcon?: boolean;
 }
 

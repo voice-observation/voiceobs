@@ -52,7 +52,11 @@ export default function TestSuitesPage() {
     fetchData();
   }, []);
 
-  const handleCreateSuite = async (suite: { id: string; name: string; description: string | null }) => {
+  const handleCreateSuite = async (suite: {
+    id: string;
+    name: string;
+    description: string | null;
+  }) => {
     try {
       // Refresh the list
       const response = await api.testSuites.listTestSuites();
@@ -88,7 +92,7 @@ export default function TestSuitesPage() {
     return (
       <div className="space-y-6">
         <div>
-          <Skeleton className="h-9 w-48 mb-2" />
+          <Skeleton className="mb-2 h-9 w-48" />
           <Skeleton className="h-5 w-96" />
         </div>
         <Card>
@@ -123,21 +127,19 @@ export default function TestSuitesPage() {
   }
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="space-y-6 p-8">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Test Suites</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage and configure your test scenarios
-          </p>
+          <p className="mt-1 text-muted-foreground">Manage and configure your test scenarios</p>
         </div>
         <div className="flex gap-3">
           <Button variant="outline">
-            <Filter className="w-4 h-4 mr-2" />
+            <Filter className="mr-2 h-4 w-4" />
             Filter
           </Button>
           <Button onClick={() => setCreateDialogOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
+            <Plus className="mr-2 h-4 w-4" />
             New Suite
           </Button>
         </div>
@@ -146,14 +148,10 @@ export default function TestSuitesPage() {
       {testSuites.length === 0 ? (
         <Card>
           <CardContent className="pt-6">
-            <div className="text-center py-12 text-muted-foreground">
+            <div className="py-12 text-center text-muted-foreground">
               <p>No test suites found</p>
-              <Button
-                variant="outline"
-                className="mt-4"
-                onClick={() => setCreateDialogOpen(true)}
-              >
-                <Plus className="h-4 w-4 mr-2" />
+              <Button variant="outline" className="mt-4" onClick={() => setCreateDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
                 Create Your First Test Suite
               </Button>
             </div>
@@ -190,15 +188,13 @@ export default function TestSuitesPage() {
                     <TableCell>{testsCount}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <div className="w-20 h-2 bg-muted rounded-full overflow-hidden">
+                        <div className="h-2 w-20 overflow-hidden rounded-full bg-muted">
                           <div
                             className={`h-full ${getPassRateColor(passRate)}`}
                             style={{ width: `${passRate}%` }}
                           />
                         </div>
-                        <span className="text-sm text-muted-foreground">
-                          {passRate}%
-                        </span>
+                        <span className="text-sm text-muted-foreground">{passRate}%</span>
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
@@ -215,7 +211,7 @@ export default function TestSuitesPage() {
                           className="h-8 w-8"
                           onClick={(e) => handleView(suite.id, e)}
                         >
-                          <Eye className="w-4 h-4 text-muted-foreground" />
+                          <Eye className="h-4 w-4 text-muted-foreground" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -223,7 +219,7 @@ export default function TestSuitesPage() {
                           className="h-8 w-8"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <Pencil className="w-4 h-4 text-muted-foreground" />
+                          <Pencil className="h-4 w-4 text-muted-foreground" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -231,7 +227,7 @@ export default function TestSuitesPage() {
                           className="h-8 w-8"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <Copy className="w-4 h-4 text-muted-foreground" />
+                          <Copy className="h-4 w-4 text-muted-foreground" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -239,7 +235,7 @@ export default function TestSuitesPage() {
                           className="h-8 w-8"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <Play className="w-4 h-4 text-muted-foreground" />
+                          <Play className="h-4 w-4 text-muted-foreground" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -247,7 +243,7 @@ export default function TestSuitesPage() {
                           className="h-8 w-8"
                           onClick={(e) => handleDelete(suite.id, e)}
                         >
-                          <Trash2 className="w-4 h-4 text-destructive" />
+                          <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
                     </TableCell>

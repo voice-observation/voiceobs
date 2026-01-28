@@ -287,52 +287,63 @@ export interface ReportHistoryFilters {
 }
 
 // Agent Types
+export type ConnectionStatus = "pending" | "saved" | "connecting" | "verified" | "failed";
+
 export interface Agent {
   id: string;
   name: string;
-  description: string | null;
+  description: string; // Maps to backend 'goal'
+  agent_type: string;
   phone_number: string | null;
-  status: "active" | "inactive" | "archived";
-  config: Record<string, unknown>;
+  connection_status: ConnectionStatus;
+  is_active: boolean;
+  supported_intents: string[];
+  verification_attempts: number;
+  last_verification_at: string | null;
+  verification_error: string | null;
+  verification_reasoning: string | null;
+  verification_transcript: Array<{ role: string; content: string }> | null;
+  metadata: Record<string, unknown>;
   created_at: string | null;
   updated_at: string | null;
-  // Optional metrics fields
-  calls?: number;
-  success_rate?: number;
-  latency?: number;
+  created_by: string | null;
 }
 
 export interface AgentListItem {
   id: string;
   name: string;
-  description: string | null;
+  agent_type: string;
   phone_number: string | null;
-  status: "active" | "inactive" | "archived";
+  description: string; // Maps to backend 'goal'
+  connection_status: ConnectionStatus;
+  is_active: boolean;
   created_at: string | null;
-  updated_at: string | null;
-  // Optional metrics fields
-  calls?: number;
-  success_rate?: number;
-  latency?: number;
 }
 
 export interface AgentCreateRequest {
   name: string;
-  description?: string | null;
-  phone_number?: string | null;
-  config?: Record<string, unknown>;
-  status?: "active" | "inactive";
+  description: string; // Sent as 'goal' to backend
+  phone_number: string;
+  supported_intents: string[];
 }
 
 export interface AgentUpdateRequest {
-  name?: string | null;
-  description?: string | null;
-  phone_number?: string | null;
-  config?: Record<string, unknown> | null;
-  status?: "active" | "inactive" | "archived" | null;
+  name?: string;
+  description?: string; // Sent as 'goal' to backend
+  phone_number?: string;
+  supported_intents?: string[];
+  is_active?: boolean;
 }
 
 export interface AgentsListResponse {
   count: number;
   agents: AgentListItem[];
+}
+
+export interface VerificationStatusResponse {
+  connection_status: ConnectionStatus;
+  verification_attempts: number;
+  last_verification_at: string | null;
+  verification_error: string | null;
+  verification_reasoning: string | null;
 }

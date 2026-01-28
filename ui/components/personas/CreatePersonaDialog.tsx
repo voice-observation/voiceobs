@@ -38,11 +38,7 @@ const DEFAULT_AGGRESSION = 0.5;
 const DEFAULT_PATIENCE = 0.6;
 const DEFAULT_VERBOSITY = 0.4;
 
-export function CreatePersonaDialog({
-  open,
-  onOpenChange,
-  onCreate,
-}: CreatePersonaDialogProps) {
+export function CreatePersonaDialog({ open, onOpenChange, onCreate }: CreatePersonaDialogProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [aggression, setAggression] = useState([DEFAULT_AGGRESSION]);
@@ -144,10 +140,7 @@ export function CreatePersonaDialog({
 
   // Validation: name and description are required
   // Advanced fields are optional, but if advanced is enabled, TTS fields are required
-  const isValid =
-    name.trim() &&
-    description.trim() &&
-    (!showAdvanced || (ttsProvider && ttsModel));
+  const isValid = name.trim() && description.trim() && (!showAdvanced || (ttsProvider && ttsModel));
 
   // Get available models for selected provider
   const availableModels = ttsProvider ? Object.keys(ttsModels[ttsProvider] || {}) : [];
@@ -174,12 +167,12 @@ export function CreatePersonaDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Create New Persona</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-4 overflow-y-auto overflow-x-hidden flex-1 px-4">
+        <div className="flex-1 space-y-4 overflow-y-auto overflow-x-hidden px-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="name">Name *</Label>
             <div className="w-full">
@@ -221,12 +214,12 @@ export function CreatePersonaDialog({
           </div>
 
           {/* Advanced Options Section */}
-          <div className="pt-2 mt-2">
+          <div className="mt-2 pt-2">
             <Button
               type="button"
               variant="ghost"
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className="w-full justify-between p-0 h-auto font-normal hover:bg-transparent hover:text-foreground"
+              className="h-auto w-full justify-between p-0 font-normal hover:bg-transparent hover:text-foreground"
             >
               <span className="text-sm font-medium">Advanced Options</span>
               {showAdvanced ? (
@@ -237,7 +230,7 @@ export function CreatePersonaDialog({
             </Button>
 
             {showAdvanced && (
-              <div className="space-y-4 mt-4">
+              <div className="mt-4 space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="tts-provider">TTS Provider</Label>
                   <Select
@@ -298,7 +291,7 @@ export function CreatePersonaDialog({
                       step={0.1}
                       className="w-full"
                     />
-                    <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+                    <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
                       <span>Passive</span>
                       <span>Assertive</span>
                     </div>
@@ -315,7 +308,7 @@ export function CreatePersonaDialog({
                       step={0.1}
                       className="w-full"
                     />
-                    <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+                    <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
                       <span>Impatient</span>
                       <span>Patient</span>
                     </div>
@@ -332,7 +325,7 @@ export function CreatePersonaDialog({
                       step={0.1}
                       className="w-full"
                     />
-                    <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+                    <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
                       <span>Concise</span>
                       <span>Verbose</span>
                     </div>

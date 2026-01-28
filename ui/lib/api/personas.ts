@@ -93,6 +93,8 @@ export class PersonasApi extends BaseApiClient {
    * Get available TTS provider models.
    */
   async getTTSModels(): Promise<Record<string, Record<string, Record<string, unknown>>>> {
-    return this.get<Record<string, Record<string, Record<string, unknown>>>>("/api/v1/personas/tts-models");
+    return this.get<Record<string, Record<string, Record<string, unknown>>>>(
+      "/api/v1/personas/tts-models"
+    );
   }
 }

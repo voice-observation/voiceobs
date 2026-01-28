@@ -40,14 +40,14 @@ export function PersonaCard({ persona, onToggleEnabled, onListenVoice }: Persona
 
   return (
     <Link href={`/personas/${persona.id}`} className="block">
-      <Card className="relative hover:border-primary transition-colors cursor-pointer">
+      <Card className="relative cursor-pointer transition-colors hover:border-primary">
         <CardContent className="p-5">
-          <div className="flex items-start justify-between mb-3">
+          <div className="mb-3 flex items-start justify-between">
             <div className="flex-1 pr-4">
-              <h3 className="font-semibold text-base mb-1 hover:text-primary transition-colors">
+              <h3 className="mb-1 text-base font-semibold transition-colors hover:text-primary">
                 {persona.name}
               </h3>
-              <p className="text-sm text-muted-foreground line-clamp-2">
+              <p className="line-clamp-2 text-sm text-muted-foreground">
                 {persona.description || ""}
               </p>
             </div>
@@ -59,68 +59,68 @@ export function PersonaCard({ persona, onToggleEnabled, onListenVoice }: Persona
             </div>
           </div>
 
-        <div className="space-y-2 mt-4">
-          {persona.traits.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {persona.traits.slice(0, 3).map((trait, idx) => (
-                <span
-                  key={idx}
-                  className="text-xs px-2 py-0.5 bg-muted rounded-md text-muted-foreground"
-                >
-                  {trait}
-                </span>
-              ))}
-              {persona.traits.length > 3 && (
-                <span className="text-xs px-2 py-0.5 text-muted-foreground">
-                  +{persona.traits.length - 3}
-                </span>
-              )}
-            </div>
-          )}
+          <div className="mt-4 space-y-2">
+            {persona.traits.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {persona.traits.slice(0, 3).map((trait, idx) => (
+                  <span
+                    key={idx}
+                    className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+                  >
+                    {trait}
+                  </span>
+                ))}
+                {persona.traits.length > 3 && (
+                  <span className="px-2 py-0.5 text-xs text-muted-foreground">
+                    +{persona.traits.length - 3}
+                  </span>
+                )}
+              </div>
+            )}
 
-          <div className="flex items-center justify-between pt-2">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <span>Aggression:</span>
-                <span className="font-medium">{persona.aggression.toFixed(1)}</span>
+            <div className="flex items-center justify-between pt-2">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <span>Aggression:</span>
+                  <span className="font-medium">{persona.aggression.toFixed(1)}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span>Patience:</span>
+                  <span className="font-medium">{persona.patience.toFixed(1)}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span>Verbosity:</span>
+                  <span className="font-medium">{persona.verbosity.toFixed(1)}</span>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
-                <span>Patience:</span>
-                <span className="font-medium">{persona.patience.toFixed(1)}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span>Verbosity:</span>
-                <span className="font-medium">{persona.verbosity.toFixed(1)}</span>
-              </div>
-            </div>
 
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handleListen();
-              }}
-              disabled={!hasPreviewAudio}
-              title={hasPreviewAudio ? "Play preview audio" : "No preview audio available"}
-            >
-              {isPlaying ? (
-                <>
-                  <Volume2 className="w-4 h-4 mr-1.5 animate-pulse" />
-                  Playing...
-                </>
-              ) : (
-                <>
-                  <Play className="w-4 h-4 mr-1.5" />
-                  Try Voice
-                </>
-              )}
-            </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleListen();
+                }}
+                disabled={!hasPreviewAudio}
+                title={hasPreviewAudio ? "Play preview audio" : "No preview audio available"}
+              >
+                {isPlaying ? (
+                  <>
+                    <Volume2 className="mr-1.5 h-4 w-4 animate-pulse" />
+                    Playing...
+                  </>
+                ) : (
+                  <>
+                    <Play className="mr-1.5 h-4 w-4" />
+                    Try Voice
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
     </Link>
   );
 }

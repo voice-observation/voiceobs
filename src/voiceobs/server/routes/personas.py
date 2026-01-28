@@ -377,22 +377,20 @@ async def update_persona(
         )
         preview_audio_text = DEFAULT_PREVIEW_TEXT
 
+    # Get only explicitly set fields (excludes None defaults)
+    update_kwargs = request.model_dump(exclude_unset=True)
+
+    # Add required ID
+    update_kwargs["persona_id"] = persona_uuid
+
+    # Handle TTS change regeneration
+    if tts_changed:
+        update_kwargs["preview_audio_url"] = preview_audio_url
+        update_kwargs["preview_audio_text"] = preview_audio_text
+
     # Update persona
     try:
-        persona = await repo.update(
-            persona_id=persona_uuid,
-            name=request.name,
-            description=request.description,
-            aggression=request.aggression,
-            patience=request.patience,
-            verbosity=request.verbosity,
-            traits=request.traits,
-            tts_provider=request.tts_provider,
-            tts_config=request.tts_config,
-            preview_audio_url=preview_audio_url if tts_changed else None,
-            preview_audio_text=preview_audio_text if tts_changed else None,
-            metadata=request.metadata,
-        )
+        persona = await repo.update(**update_kwargs)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -429,20 +427,17 @@ async def update_persona(
     "/{persona_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete persona",
-    description="Delete a persona (soft delete by default).",
+    description="Permanently delete a persona.",
     responses={
         404: {"model": ErrorResponse, "description": "Persona not found"},
         501: {"model": ErrorResponse, "description": "Persona API requires PostgreSQL database"},
     },
 )
-async def delete_persona(
-    persona_id: str,
-    soft: bool = Query(True, description="Soft delete (default) or hard delete"),
-) -> None:
+async def delete_persona(persona_id: str) -> None:
     """Delete a persona."""
     repo = get_persona_repo()
     persona_uuid = parse_uuid(persona_id, "persona")
-    deleted = await repo.delete(persona_uuid, soft=soft)
+    deleted = await repo.delete(persona_uuid)
 
     if not deleted:
         raise HTTPException(

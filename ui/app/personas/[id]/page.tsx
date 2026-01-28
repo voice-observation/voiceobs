@@ -136,7 +136,7 @@ export default function PersonaDetailPage({ params }: { params: { id: string } }
     return (
       <div className="space-y-6">
         <div>
-          <Skeleton className="h-9 w-48 mb-2" />
+          <Skeleton className="mb-2 h-9 w-48" />
           <Skeleton className="h-5 w-96" />
         </div>
         <Card>
@@ -158,7 +158,7 @@ export default function PersonaDetailPage({ params }: { params: { id: string } }
         <div>
           <Button variant="ghost" size="sm" asChild className="mb-4">
             <Link href="/personas">
-              <ArrowLeft className="h-4 w-4 mr-2" />
+              <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Personas
             </Link>
           </Button>
@@ -182,7 +182,7 @@ export default function PersonaDetailPage({ params }: { params: { id: string } }
         <div>
           <Button variant="ghost" size="sm" asChild className="mb-4">
             <Link href="/personas">
-              <ArrowLeft className="h-4 w-4 mr-2" />
+              <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Personas
             </Link>
           </Button>
@@ -203,7 +203,7 @@ export default function PersonaDetailPage({ params }: { params: { id: string } }
       <div>
         <Button variant="ghost" size="sm" asChild className="mb-4">
           <Link href="/personas">
-            <ArrowLeft className="h-4 w-4 mr-2" />
+            <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Personas
           </Link>
         </Button>
@@ -229,8 +229,7 @@ export default function PersonaDetailPage({ params }: { params: { id: string } }
       <div className="space-y-6">
         {/* Main Content */}
         <div className="space-y-6">
-
-        {/* Details */}
+          {/* Details */}
           <Card>
             <CardHeader>
               <CardTitle>Details</CardTitle>
@@ -238,17 +237,21 @@ export default function PersonaDetailPage({ params }: { params: { id: string } }
             <CardContent className="space-y-4">
               {persona.description && (
                 <div className="flex items-center gap-2">
-                  <Label className="text-xs text-muted-foreground w-28 flex-shrink-0">Description</Label>
+                  <Label className="w-28 flex-shrink-0 text-xs text-muted-foreground">
+                    Description
+                  </Label>
                   <p className="text-sm font-medium">{persona.description}</p>
                 </div>
               )}
               <div className="flex items-center gap-2">
-                <Label className="text-xs text-muted-foreground w-28 flex-shrink-0">Created</Label>
+                <Label className="w-28 flex-shrink-0 text-xs text-muted-foreground">Created</Label>
                 <p className="text-sm font-medium">{formatDate(persona.created_at)}</p>
               </div>
               {persona.created_by && (
                 <div className="flex items-center gap-2">
-                  <Label className="text-xs text-muted-foreground w-28 flex-shrink-0">Created By</Label>
+                  <Label className="w-28 flex-shrink-0 text-xs text-muted-foreground">
+                    Created By
+                  </Label>
                   <p className="text-sm font-medium">{toPascalCase(persona.created_by)}</p>
                 </div>
               )}
@@ -263,16 +266,7 @@ export default function PersonaDetailPage({ params }: { params: { id: string } }
             <CardContent>
               {persona.preview_audio_url ? (
                 <div className="space-y-4">
-                  {audioUrl && (
-                    <AudioPlayer
-                      audioUrl={audioUrl}
-                      height={100}
-                      showControls={true}
-                      showTimeDisplay={true}
-                      showSpeedControl={true}
-                      showVolumeControl={true}
-                    />
-                  )}
+                  {audioUrl && <AudioPlayer audioUrl={audioUrl} />}
                   <Button
                     onClick={handlePlayPreview}
                     disabled={isPlaying}
@@ -280,34 +274,34 @@ export default function PersonaDetailPage({ params }: { params: { id: string } }
                   >
                     {isPlaying ? (
                       <>
-                        <Volume2 className="w-4 h-4 mr-2 animate-pulse" />
+                        <Volume2 className="mr-2 h-4 w-4 animate-pulse" />
                         Playing...
                       </>
                     ) : (
                       <>
-                        <Play className="w-4 h-4 mr-2" />
+                        <Play className="mr-2 h-4 w-4" />
                         {audioUrl ? "Play Again" : "Play Preview"}
                       </>
                     )}
                   </Button>
                   {persona.preview_audio_text && (
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Preview text: "{persona.preview_audio_text}"
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Preview text: &quot;{persona.preview_audio_text}&quot;
                     </p>
                   )}
                 </div>
               ) : (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground mb-4">No preview audio available</p>
+                <div className="py-8 text-center">
+                  <p className="mb-4 text-muted-foreground">No preview audio available</p>
                   <Button onClick={handlePlayPreview} disabled={isPlaying}>
                     {isPlaying ? (
                       <>
-                        <Volume2 className="w-4 h-4 mr-2 animate-pulse" />
+                        <Volume2 className="mr-2 h-4 w-4 animate-pulse" />
                         Generating...
                       </>
                     ) : (
                       <>
-                        <Play className="w-4 h-4 mr-2" />
+                        <Play className="mr-2 h-4 w-4" />
                         Generate Preview Audio
                       </>
                     )}
@@ -335,8 +329,6 @@ export default function PersonaDetailPage({ params }: { params: { id: string } }
             </Card>
           )}
 
-
-
           {/* Personality Attributes */}
           <Card>
             <CardHeader>
@@ -359,7 +351,7 @@ export default function PersonaDetailPage({ params }: { params: { id: string } }
                   disabled
                   className="w-full"
                 />
-                <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+                <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
                   <span>Passive</span>
                   <span>Assertive</span>
                 </div>
@@ -378,7 +370,7 @@ export default function PersonaDetailPage({ params }: { params: { id: string } }
                   disabled
                   className="w-full"
                 />
-                <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+                <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
                   <span>Impatient</span>
                   <span>Patient</span>
                 </div>
@@ -397,15 +389,13 @@ export default function PersonaDetailPage({ params }: { params: { id: string } }
                   disabled
                   className="w-full"
                 />
-                <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+                <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
                   <span>Concise</span>
                   <span>Verbose</span>
                 </div>
               </div>
             </CardContent>
           </Card>
-
-
         </div>
       </div>
     </div>

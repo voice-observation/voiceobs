@@ -100,11 +100,7 @@ class Logger {
    * - Datadog
    * - Custom logging endpoint
    */
-  private sendToDebuggingService(
-    level: LogLevel,
-    message: string,
-    context?: LogContext
-  ): void {
+  private sendToDebuggingService(level: LogLevel, message: string, context?: LogContext): void {
     // Only send errors and warnings to debugging service in production
     // to avoid noise from debug/info logs
     if (level !== "error" && level !== "warn") {

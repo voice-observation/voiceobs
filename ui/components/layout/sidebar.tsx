@@ -34,15 +34,11 @@ interface NavigationSection {
 const navigationSections: NavigationSection[] = [
   {
     label: "Dashboard",
-    items: [
-      { name: "Dashboard", href: "/", icon: LayoutDashboard },
-    ],
+    items: [{ name: "Dashboard", href: "/", icon: LayoutDashboard }],
   },
   {
     label: "Observability",
-    items: [
-      { name: "Conversations", href: "/conversations", icon: MessageSquare },
-    ],
+    items: [{ name: "Conversations", href: "/conversations", icon: MessageSquare }],
   },
   {
     label: "Simulations",
@@ -56,9 +52,7 @@ const navigationSections: NavigationSection[] = [
   },
   {
     label: "Analysis",
-    items: [
-      { name: "Reports", href: "/reports", icon: FileText },
-    ],
+    items: [{ name: "Reports", href: "/reports", icon: FileText }],
   },
 ];
 
@@ -75,31 +69,31 @@ export function Sidebar() {
 
   const SidebarContent = () => (
     <>
-      <div className="p-6 border-b border-sidebar-border relative">
+      <div className="relative border-b border-sidebar-border p-6">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
-            <MessageSquare className="w-5 h-5 text-primary-foreground" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
+            <MessageSquare className="h-5 w-5 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="font-semibold text-sidebar-foreground text-lg">voiceobs</h1>
+            <h1 className="text-lg font-semibold text-sidebar-foreground">voiceobs</h1>
             <p className="text-xs text-sidebar-foreground/60">Voice Pipeline Testing</p>
           </div>
         </div>
         <Button
           variant="ghost"
           size="icon"
-          className="absolute top-4 right-4 md:hidden"
+          className="absolute right-4 top-4 md:hidden"
           onClick={() => setIsMobileOpen(false)}
           aria-label="Close sidebar"
         >
           <X className="h-5 w-5" />
         </Button>
       </div>
-      <nav className="flex-1 p-4 overflow-y-auto scrollbar-thin">
+      <nav className="scrollbar-thin flex-1 overflow-y-auto p-4">
         {navigationSections.map((section, sectionIndex) => (
           <div key={section.label} className={sectionIndex > 0 ? "mt-6" : ""}>
             {section.label && (
-              <p className="px-3 mb-2 text-xs font-medium text-sidebar-foreground/50 uppercase tracking-wider">
+              <p className="mb-2 px-3 text-xs font-medium uppercase tracking-wider text-sidebar-foreground/50">
                 {section.label}
               </p>
             )}
@@ -111,12 +105,9 @@ export function Sidebar() {
                     key={item.name}
                     href={item.href}
                     onClick={() => setIsMobileOpen(false)}
-                    className={cn(
-                      "nav-item",
-                      active && "nav-item-active"
-                    )}
+                    className={cn("nav-item", active && "nav-item-active")}
                   >
-                    <item.icon className="w-5 h-5" />
+                    <item.icon className="h-5 w-5" />
                     <span className="text-sm font-medium">{item.name}</span>
                   </Link>
                 );
@@ -125,7 +116,7 @@ export function Sidebar() {
           </div>
         ))}
       </nav>
-      <div className="p-4 border-t border-sidebar-border">
+      <div className="border-t border-sidebar-border p-4">
         <div className="flex items-center justify-center">
           <ThemeToggle />
         </div>
@@ -157,11 +148,11 @@ export function Sidebar() {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 z-40 w-64 bg-sidebar border-r border-sidebar-border flex flex-col h-screen transition-transform duration-300 md:relative md:z-auto md:translate-x-0",
+          "fixed left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-sidebar-border bg-sidebar transition-transform duration-300 md:relative md:z-auto md:translate-x-0",
           isMobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         )}
       >
-        <div className="flex h-full flex-col relative">
+        <div className="relative flex h-full flex-col">
           <SidebarContent />
         </div>
       </aside>

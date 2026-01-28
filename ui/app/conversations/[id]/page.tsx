@@ -25,9 +25,9 @@ export default function ConversationDetailPage({ params }: { params: { id: strin
         setError(null);
         const [convData, failuresData] = await Promise.all([
           api.conversations.getConversation(params.id),
-          api.conversations.listFailures().then((data) =>
-            data.failures.filter((f) => f.conversation_id === params.id)
-          ),
+          api.conversations
+            .listFailures()
+            .then((data) => data.failures.filter((f) => f.conversation_id === params.id)),
         ]);
         setConversation(convData);
         setFailures(failuresData);
@@ -44,7 +44,7 @@ export default function ConversationDetailPage({ params }: { params: { id: strin
     return (
       <div className="space-y-6">
         <div>
-          <Skeleton className="h-9 w-48 mb-2" />
+          <Skeleton className="mb-2 h-9 w-48" />
           <Skeleton className="h-5 w-96" />
         </div>
         <Card>
@@ -66,7 +66,7 @@ export default function ConversationDetailPage({ params }: { params: { id: strin
         <div>
           <Button variant="ghost" size="sm" asChild className="mb-4">
             <Link href="/conversations">
-              <ArrowLeft className="h-4 w-4 mr-2" />
+              <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Conversations
             </Link>
           </Button>
@@ -91,7 +91,7 @@ export default function ConversationDetailPage({ params }: { params: { id: strin
         <div>
           <Button variant="ghost" size="sm" asChild className="mb-4">
             <Link href="/conversations">
-              <ArrowLeft className="h-4 w-4 mr-2" />
+              <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Conversations
             </Link>
           </Button>
@@ -131,7 +131,7 @@ export default function ConversationDetailPage({ params }: { params: { id: strin
       <div>
         <Button variant="ghost" size="sm" asChild className="mb-4">
           <Link href="/conversations">
-            <ArrowLeft className="h-4 w-4 mr-2" />
+            <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Conversations
           </Link>
         </Button>
@@ -214,7 +214,7 @@ export default function ConversationDetailPage({ params }: { params: { id: strin
                   const isUser = turn.actor === "user";
 
                   return (
-                    <div key={turn.id} className="border-l-2 border-muted pl-4 space-y-2">
+                    <div key={turn.id} className="space-y-2 border-l-2 border-muted pl-4">
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-2">
                           {isUser ? (
@@ -229,12 +229,15 @@ export default function ConversationDetailPage({ params }: { params: { id: strin
                               </span>
                               {turnFailures.length > 0 && (
                                 <Badge variant="destructive" className="text-xs">
-                                  {turnFailures.length} {turnFailures.length === 1 ? "failure" : "failures"}
+                                  {turnFailures.length}{" "}
+                                  {turnFailures.length === 1 ? "failure" : "failures"}
                                 </Badge>
                               )}
                             </div>
                             {turn.transcript && (
-                              <p className="text-sm text-muted-foreground mt-1">{turn.transcript}</p>
+                              <p className="mt-1 text-sm text-muted-foreground">
+                                {turn.transcript}
+                              </p>
                             )}
                           </div>
                         </div>
@@ -248,12 +251,12 @@ export default function ConversationDetailPage({ params }: { params: { id: strin
 
                       {Boolean(
                         (stageMetrics.asr && typeof stageMetrics.asr === "number") ||
-                          (stageMetrics.llm && typeof stageMetrics.llm === "number") ||
-                          (stageMetrics.tts && typeof stageMetrics.tts === "number")
+                        (stageMetrics.llm && typeof stageMetrics.llm === "number") ||
+                        (stageMetrics.tts && typeof stageMetrics.tts === "number")
                       ) && (
                         <div className="ml-7 grid grid-cols-3 gap-2 text-xs">
                           {typeof stageMetrics.asr === "number" && (
-                            <div className="p-2 bg-blue-50 dark:bg-blue-950 rounded">
+                            <div className="rounded bg-blue-50 p-2 dark:bg-blue-950">
                               <div className="font-medium">ASR</div>
                               <div className="text-muted-foreground">
                                 {formatDuration(stageMetrics.asr)}
@@ -261,7 +264,7 @@ export default function ConversationDetailPage({ params }: { params: { id: strin
                             </div>
                           )}
                           {typeof stageMetrics.llm === "number" && (
-                            <div className="p-2 bg-purple-50 dark:bg-purple-950 rounded">
+                            <div className="rounded bg-purple-50 p-2 dark:bg-purple-950">
                               <div className="font-medium">LLM</div>
                               <div className="text-muted-foreground">
                                 {formatDuration(stageMetrics.llm)}
@@ -269,7 +272,7 @@ export default function ConversationDetailPage({ params }: { params: { id: strin
                             </div>
                           )}
                           {typeof stageMetrics.tts === "number" && (
-                            <div className="p-2 bg-green-50 dark:bg-green-950 rounded">
+                            <div className="rounded bg-green-50 p-2 dark:bg-green-950">
                               <div className="font-medium">TTS</div>
                               <div className="text-muted-foreground">
                                 {formatDuration(stageMetrics.tts)}
@@ -285,7 +288,7 @@ export default function ConversationDetailPage({ params }: { params: { id: strin
                           {turnFailures.map((failure) => (
                             <div
                               key={failure.id}
-                              className="p-2 bg-destructive/10 border border-destructive/20 rounded text-sm"
+                              className="rounded border border-destructive/20 bg-destructive/10 p-2 text-sm"
                             >
                               <div className="flex items-center gap-2">
                                 <AlertCircle className="h-4 w-4 text-destructive" />
@@ -294,9 +297,9 @@ export default function ConversationDetailPage({ params }: { params: { id: strin
                                 </Badge>
                                 <span className="font-medium">{failure.type}</span>
                               </div>
-                              <p className="text-muted-foreground mt-1">{failure.message}</p>
+                              <p className="mt-1 text-muted-foreground">{failure.message}</p>
                               {failure.signal_value !== null && failure.threshold !== null && (
-                                <p className="text-xs text-muted-foreground mt-1">
+                                <p className="mt-1 text-xs text-muted-foreground">
                                   Signal: {failure.signal_value} (threshold: {failure.threshold})
                                 </p>
                               )}
@@ -328,7 +331,7 @@ export default function ConversationDetailPage({ params }: { params: { id: strin
                       className={`flex gap-3 ${isUser ? "flex-row" : "flex-row-reverse"}`}
                     >
                       <div
-                        className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                        className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${
                           isUser ? "bg-blue-100 dark:bg-blue-900" : "bg-green-100 dark:bg-green-900"
                         }`}
                       >
@@ -340,19 +343,17 @@ export default function ConversationDetailPage({ params }: { params: { id: strin
                       </div>
                       <div
                         className={`flex-1 rounded-lg p-3 ${
-                          isUser
-                            ? "bg-blue-50 dark:bg-blue-950"
-                            : "bg-green-50 dark:bg-green-950"
+                          isUser ? "bg-blue-50 dark:bg-blue-950" : "bg-green-50 dark:bg-green-950"
                         }`}
                       >
-                        <div className="text-sm font-medium mb-1">
-                          {isUser ? "User" : "Agent"}
-                        </div>
+                        <div className="mb-1 text-sm font-medium">{isUser ? "User" : "Agent"}</div>
                         <div className="text-sm">
-                          {turn.transcript || <span className="text-muted-foreground italic">No transcript</span>}
+                          {turn.transcript || (
+                            <span className="italic text-muted-foreground">No transcript</span>
+                          )}
                         </div>
                         {turn.duration_ms !== null && (
-                          <div className="text-xs text-muted-foreground mt-2">
+                          <div className="mt-2 text-xs text-muted-foreground">
                             Duration: {formatDuration(turn.duration_ms)}
                           </div>
                         )}
@@ -375,7 +376,7 @@ export default function ConversationDetailPage({ params }: { params: { id: strin
               {conversation.analysis ? (
                 <div className="space-y-6">
                   <div>
-                    <h3 className="text-lg font-semibold mb-3">Stage Metrics</h3>
+                    <h3 className="mb-3 text-lg font-semibold">Stage Metrics</h3>
                     <div className="grid gap-4 md:grid-cols-3">
                       <Card>
                         <CardHeader className="pb-2">
@@ -419,7 +420,7 @@ export default function ConversationDetailPage({ params }: { params: { id: strin
                     </div>
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold mb-3">Turn Metrics</h3>
+                    <h3 className="mb-3 text-lg font-semibold">Turn Metrics</h3>
                     <div className="grid gap-4 md:grid-cols-2">
                       <Card>
                         <CardHeader className="pb-2">

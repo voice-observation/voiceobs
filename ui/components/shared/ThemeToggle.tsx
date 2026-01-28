@@ -10,7 +10,12 @@ export interface ThemeToggleProps extends React.HTMLAttributes<HTMLButtonElement
   size?: "default" | "sm" | "lg" | "icon";
 }
 
-export function ThemeToggle({ className, variant = "ghost", size = "icon", ...props }: ThemeToggleProps) {
+export function ThemeToggle({
+  className,
+  variant = "ghost",
+  size = "icon",
+  ...props
+}: ThemeToggleProps) {
   const [theme, setTheme] = React.useState<"light" | "dark">("light");
   const [mounted, setMounted] = React.useState(false);
 

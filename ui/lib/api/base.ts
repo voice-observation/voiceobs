@@ -16,7 +16,9 @@ export const getApiBaseUrl = (): string => {
   }
   // Server-side: use direct URL
   // Next.js provides process.env in server-side context
-  return (process.env as { NEXT_PUBLIC_API_URL?: string }).NEXT_PUBLIC_API_URL || "http://localhost:8765";
+  return (
+    (process.env as { NEXT_PUBLIC_API_URL?: string }).NEXT_PUBLIC_API_URL || "http://localhost:8765"
+  );
 };
 
 // Simulate network delay (optional, for realism)
@@ -39,9 +41,10 @@ export class BaseApiClient {
   ): Promise<Response> {
     const baseUrl = this.getBaseUrl();
     // If endpoint already starts with /api, don't prepend base URL on client-side
-    const url = endpoint.startsWith("/api") && typeof window !== "undefined"
-      ? endpoint
-      : `${baseUrl}${endpoint}`;
+    const url =
+      endpoint.startsWith("/api") && typeof window !== "undefined"
+        ? endpoint
+        : `${baseUrl}${endpoint}`;
 
     try {
       const response = await fetch(url, {

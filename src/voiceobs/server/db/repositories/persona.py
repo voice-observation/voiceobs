@@ -319,34 +319,22 @@ class PersonaRepository:
 
         return await self.get(persona_id)
 
-    async def delete(self, persona_id: UUID, soft: bool = True) -> bool:
+    async def delete(self, persona_id: UUID) -> bool:
         """Delete a persona.
 
         Args:
             persona_id: The persona UUID.
-            soft: If True, soft delete (set is_active=False). If False, hard delete.
 
         Returns:
             True if deleted, False if not found.
         """
-        if soft:
-            result = await self._db.execute(
-                """
-                UPDATE personas
-                SET is_active = false, updated_at = NOW()
-                WHERE id = $1
-                """,
-                persona_id,
-            )
-            return result == "UPDATE 1"
-        else:
-            result = await self._db.execute(
-                """
-                DELETE FROM personas WHERE id = $1
-                """,
-                persona_id,
-            )
-            return result == "DELETE 1"
+        result = await self._db.execute(
+            """
+            DELETE FROM personas WHERE id = $1
+            """,
+            persona_id,
+        )
+        return result == "DELETE 1"
 
     async def count(self, is_active: bool | None = True) -> int:
         """Count personas.

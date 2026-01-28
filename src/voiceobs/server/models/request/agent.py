@@ -109,6 +109,7 @@ class AgentUpdateRequest(BaseModel):
     goal: str | None = Field(None, min_length=1, description="Agent goal")
     supported_intents: list[str] | None = Field(None, description="Supported intents")
     metadata: dict[str, Any] | None = Field(None, description="Additional metadata")
+    is_active: bool | None = Field(None, description="Whether agent is active")
 
     @model_validator(mode="after")
     def validate_contact_method(self) -> AgentUpdateRequest:
