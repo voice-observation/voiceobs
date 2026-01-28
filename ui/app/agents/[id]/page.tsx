@@ -52,7 +52,7 @@ export default function AgentDetailPage() {
     }
   }, [agentId]);
 
-  const { verifyAgent, toggleActive, verifyingIds, updatingIds } = useAgentActions({
+  const { verifyAgent, resumePolling, toggleActive, verifyingIds, updatingIds } = useAgentActions({
     onVerified: fetchAgent,
     onDeleted: () => router.push("/agents"),
     onUpdated: fetchAgent,
@@ -65,12 +65,12 @@ export default function AgentDetailPage() {
     fetchAgent();
   }, [fetchAgent]);
 
-  // Start polling if agent is currently verifying
+  // Resume polling if agent is currently verifying (does NOT call /verify)
   useEffect(() => {
     if (agent?.connection_status === "connecting" && !verifyingIds.has(agentId)) {
-      verifyAgent(agentId);
+      resumePolling(agentId);
     }
-  }, [agent?.connection_status, agentId, verifyAgent, verifyingIds]);
+  }, [agent?.connection_status, agentId, resumePolling, verifyingIds]);
 
   const handleToggleActive = async () => {
     if (!agent) return;
