@@ -221,9 +221,7 @@ def _apply_in_memory_sorting(
     """
     if sort == "start_time":
         summaries_data.sort(
-            key=lambda x: (
-                x["min_start_time"] if x["min_start_time"] is not None else datetime.min
-            ),
+            key=lambda x: x["min_start_time"] if x["min_start_time"] is not None else datetime.min,
             reverse=(sort_order.lower() == "desc"),
         )
     elif sort == "latency":
