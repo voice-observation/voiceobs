@@ -73,6 +73,5 @@ class OpenAILLMService(LLMService):
             Exception: Provider-specific errors during generation
         """
         structured_llm = self._get_structured_llm(output_schema, temperature)
-        # Note: langchain's invoke is synchronous, but we wrap it in async for consistency
-        output: T = structured_llm.invoke(prompt)
+        output: T = await structured_llm.ainvoke(prompt)
         return output

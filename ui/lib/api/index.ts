@@ -16,6 +16,8 @@ import { TestExecutionsApi } from "./testExecutions";
 import { PipelinesApi } from "./pipelines";
 import { ReportsApi } from "./reports";
 import { AgentsApi } from "./agents";
+import { TraitsApi } from "./traits";
+import { AuthApi } from "./auth";
 
 /**
  * Main API client class that provides access to all entity-specific APIs.
@@ -29,6 +31,8 @@ class ApiClient extends BaseApiClient {
   public readonly pipelines: PipelinesApi;
   public readonly reports: ReportsApi;
   public readonly agents: AgentsApi;
+  public readonly traits: TraitsApi;
+  public readonly auth: AuthApi;
 
   constructor() {
     super();
@@ -40,6 +44,8 @@ class ApiClient extends BaseApiClient {
     this.pipelines = new PipelinesApi();
     this.reports = new ReportsApi();
     this.agents = new AgentsApi();
+    this.traits = new TraitsApi();
+    this.auth = new AuthApi();
   }
 
   /**
@@ -62,6 +68,9 @@ export { TestExecutionsApi } from "./testExecutions";
 export { PipelinesApi } from "./pipelines";
 export { ReportsApi } from "./reports";
 export { AgentsApi } from "./agents";
+export { TraitsApi } from "./traits";
+export { AuthApi } from "./auth";
+export type { AuthMeResponse, UserResponse, OrgSummary, ActiveOrgResponse } from "./auth";
 
 // Export types
 export type { ApiError } from "./base";
@@ -107,4 +116,5 @@ export type {
   AgentCreateRequest,
   AgentUpdateRequest,
   AgentsListResponse,
+  TraitVocabularyResponse,
 } from "../types";

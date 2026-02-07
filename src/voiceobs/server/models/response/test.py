@@ -12,8 +12,25 @@ class TestSuiteResponse(BaseModel):
     id: str = Field(..., description="Test suite UUID")
     name: str = Field(..., description="Test suite name")
     description: str | None = Field(None, description="Test suite description")
-    status: str = Field(..., description="Test suite status (pending, running, completed)")
+    status: str = Field(
+        ...,
+        description=(
+            "Test suite status (pending, generating, ready, generation_failed, running, completed)"
+        ),
+    )
+    agent_id: str | None = Field(None, description="Agent UUID")
+    test_scopes: list[str] = Field(
+        default_factory=lambda: ["core_flows", "common_mistakes"],
+        description="Test scopes",
+    )
+    thoroughness: int = Field(
+        1, description="Test thoroughness (0: Light, 1: Standard, 2: Exhaustive)"
+    )
+    edge_cases: list[str] = Field(default_factory=list, description="Edge cases to include")
+    evaluation_strictness: str = Field("balanced", description="Evaluation strictness")
     created_at: datetime | None = Field(None, description="Creation timestamp")
+    generation_error: str | None = Field(None, description="Error message if generation failed")
+    scenario_count: int | None = Field(None, description="Number of scenarios in this suite")
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -22,6 +39,11 @@ class TestSuiteResponse(BaseModel):
                 "name": "Regression Suite",
                 "description": "Daily regression tests",
                 "status": "pending",
+                "agent_id": "550e8400-e29b-41d4-a716-446655440001",
+                "test_scopes": ["core_flows", "common_mistakes"],
+                "thoroughness": 1,
+                "edge_cases": ["hesitations", "interrupts"],
+                "evaluation_strictness": "balanced",
                 "created_at": "2024-01-15T10:00:00Z",
             }
         }
@@ -69,6 +91,22 @@ class TestScenarioResponse(BaseModel):
     persona_id: str = Field(..., description="Persona UUID reference")
     max_turns: int | None = Field(None, description="Maximum number of turns")
     timeout: int | None = Field(None, description="Timeout in seconds")
+    intent: str | None = Field(None, description="LLM-identified intent for this scenario")
+    persona_traits: list[str] | None = Field(
+        None, description="Desired persona traits for this scenario"
+    )
+    persona_match_score: float | None = Field(
+        None,
+        ge=0.0,
+        le=1.0,
+        description="How well the assigned persona matches desired traits (0-1)",
+    )
+    caller_behaviors: list[str] | None = Field(None, description="Test steps for caller behavior")
+    tags: list[str] | None = Field(None, description="Tags for categorization")
+    status: str = Field("draft", description="Status: ready or draft")
+    is_manual: bool = Field(
+        False, description="True for manually created scenarios, False for AI-generated"
+    )
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -80,6 +118,14 @@ class TestScenarioResponse(BaseModel):
                 "persona_id": "550e8400-e29b-41d4-a716-446655440002",
                 "max_turns": 10,
                 "timeout": 300,
+                "intent": "check_order_status",
+                "persona_traits": ["impatient", "direct"],
+                "persona_match_score": 0.85,
+                "caller_behaviors": ["Ask for order status", "Provide order number"],
+                "success_criteria": "Agent provides order status",
+                "must_mention": ["order number", "delivery date"],
+                "tags": ["happy-path", "order"],
+                "status": "ready",
             }
         }
     )
@@ -88,13 +134,15 @@ class TestScenarioResponse(BaseModel):
 class TestScenariosListResponse(BaseModel):
     """Response model for listing test scenarios."""
 
-    count: int = Field(..., description="Number of test scenarios")
+    count: int = Field(..., description="Total number of test scenarios matching filters")
     scenarios: list[TestScenarioResponse] = Field(..., description="List of test scenarios")
+    limit: int = Field(..., description="Maximum number of results per page")
+    offset: int = Field(..., description="Number of results skipped")
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "count": 2,
+                "count": 50,
                 "scenarios": [
                     {
                         "id": "550e8400-e29b-41d4-a716-446655440000",
@@ -115,6 +163,8 @@ class TestScenariosListResponse(BaseModel):
                         "timeout": 600,
                     },
                 ],
+                "limit": 20,
+                "offset": 0,
             }
         }
     )

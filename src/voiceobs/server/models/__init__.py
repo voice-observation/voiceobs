@@ -12,6 +12,7 @@ from voiceobs.server.models.request import (
     AgentCreateRequest,
     AgentUpdateRequest,
     AgentVerificationRequest,
+    GenerateScenariosRequest,
     PersonaCreateRequest,
     PersonaUpdateRequest,
     SpanBatchInput,
@@ -42,6 +43,7 @@ from voiceobs.server.models.response import (
     FailureBreakdownResponse,
     FailureResponse,
     FailuresListResponse,
+    GenerationStatusResponse,
     HealthResponse,
     IngestResponse,
     LatencyBreakdownItem,
@@ -51,6 +53,7 @@ from voiceobs.server.models.response import (
     PersonaListItem,
     PersonaResponse,
     PersonasListResponse,
+    PreviewAudioStatusResponse,
     SpanDetailResponse,
     SpanListItem,
     SpanResponse,
@@ -81,6 +84,7 @@ __all__ = [
     "TestScenarioCreateRequest",
     "TestScenarioUpdateRequest",
     "TestRunRequest",
+    "GenerateScenariosRequest",
     "PersonaCreateRequest",
     "PersonaUpdateRequest",
     "AgentCreateRequest",
@@ -89,6 +93,8 @@ __all__ = [
     # Responses - Common
     "HealthResponse",
     "ErrorResponse",
+    # Responses - Generation Status
+    "GenerationStatusResponse",
     # Responses - Span
     "SpanResponse",
     "IngestResponse",
@@ -134,6 +140,7 @@ __all__ = [
     "PersonaListItem",
     "PersonasListResponse",
     "PersonaAudioPreviewResponse",
+    "PreviewAudioStatusResponse",
     # Responses - Agent
     "AgentResponse",
     "AgentListItem",

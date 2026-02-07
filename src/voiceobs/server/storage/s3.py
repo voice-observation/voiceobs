@@ -311,3 +311,39 @@ class S3Storage:
 
         # Return S3 URL
         return f"s3://{self.bucket_name}/{s3_key}"
+
+    async def delete_by_url(self, url: str) -> bool:
+        """Delete audio file by its S3 URL.
+
+        Args:
+            url: The S3 URL returned from store_audio (e.g., "s3://bucket/key").
+
+        Returns:
+            True if deleted, False if not found or invalid URL.
+        """
+        import asyncio
+
+        # Parse S3 URL format: s3://bucket/key
+        if not url.startswith("s3://"):
+            return False
+
+        # Extract bucket and key
+        url_parts = url[5:].split("/", 1)  # Remove "s3://"
+        if len(url_parts) != 2:
+            return False
+
+        bucket_name, s3_key = url_parts
+
+        # Verify bucket matches
+        if bucket_name != self.bucket_name:
+            return False
+
+        try:
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                None,
+                lambda: self.s3_client.delete_object(Bucket=self.bucket_name, Key=s3_key),
+            )
+            return True
+        except Exception:
+            return False

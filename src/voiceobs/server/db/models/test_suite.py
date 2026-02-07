@@ -14,5 +14,11 @@ class TestSuiteRow:
     id: UUID
     name: str
     description: str | None = None
-    status: str = "pending"  # pending, running, completed
+    status: str = "pending"  # pending, generating, ready, generation_failed, running, completed
+    generation_error: str | None = None  # Error message if generation failed
+    agent_id: UUID | None = None
+    test_scopes: list[str] | None = None
+    thoroughness: int = 1  # 0: Light, 1: Standard, 2: Exhaustive
+    edge_cases: list[str] | None = None
+    evaluation_strictness: str = "balanced"  # strict, balanced, flexible
     created_at: datetime | None = None

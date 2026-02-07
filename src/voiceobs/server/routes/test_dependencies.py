@@ -38,18 +38,9 @@ def get_test_suite_repo() -> TestSuiteRepository:
 
     Returns:
         Test suite repository.
-
-    Raises:
-        HTTPException: If repository is not available.
     """
     require_postgres()
-    repo = get_test_suite_repository()
-    if repo is None:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Test suite repository not available",
-        )
-    return repo
+    return get_test_suite_repository()
 
 
 # Make these functions easily mockable by exposing them at module level
@@ -76,18 +67,9 @@ def get_test_scenario_repo() -> TestScenarioRepository:
 
     Returns:
         Test scenario repository.
-
-    Raises:
-        HTTPException: If repository is not available.
     """
     require_postgres()
-    repo = get_test_scenario_repository()
-    if repo is None:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Test scenario repository not available",
-        )
-    return repo
+    return get_test_scenario_repository()
 
 
 def get_test_execution_repo() -> TestExecutionRepository:
@@ -95,18 +77,9 @@ def get_test_execution_repo() -> TestExecutionRepository:
 
     Returns:
         Test execution repository.
-
-    Raises:
-        HTTPException: If repository is not available.
     """
     require_postgres()
-    repo = get_test_execution_repository()
-    if repo is None:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Test execution repository not available",
-        )
-    return repo
+    return get_test_execution_repository()
 
 
 def get_persona_repo() -> PersonaRepository:
@@ -114,18 +87,9 @@ def get_persona_repo() -> PersonaRepository:
 
     Returns:
         Persona repository.
-
-    Raises:
-        HTTPException: If repository is not available.
     """
     require_postgres()
-    repo = get_persona_repository()
-    if repo is None:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Persona repository not available",
-        )
-    return repo
+    return get_persona_repository()
 
 
 def get_test_repos() -> tuple[TestSuiteRepository, TestScenarioRepository, TestExecutionRepository]:
@@ -141,12 +105,6 @@ def get_test_repos() -> tuple[TestSuiteRepository, TestScenarioRepository, TestE
     suite_repo = get_test_suite_repository()
     scenario_repo = get_test_scenario_repository()
     execution_repo = get_test_execution_repository()
-
-    if suite_repo is None or scenario_repo is None or execution_repo is None:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Test repository not available",
-        )
 
     return suite_repo, scenario_repo, execution_repo
 

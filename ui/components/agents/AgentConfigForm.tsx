@@ -1,13 +1,18 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/primitives/button";
+import { Input } from "@/components/primitives/input";
+import { Label } from "@/components/primitives/label";
+import { Textarea } from "@/components/primitives/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/primitives/card";
 import { CheckboxCard } from "@/components/shared/CheckboxCard";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/primitives/tooltip";
 import { Loader2, Phone, HelpCircle, Plus, Save } from "lucide-react";
 import type { Agent, AgentCreateRequest, AgentUpdateRequest } from "@/lib/types";
 
@@ -35,6 +40,7 @@ export function AgentConfigForm({ agent, onSubmit, onCancel, submitLabel }: Agen
 
   const [name, setName] = useState(agent?.name || "");
   const [description, setDescription] = useState(agent?.description || "");
+  const [context, setContext] = useState(agent?.context || "");
   const [phoneNumber, setPhoneNumber] = useState(agent?.phone_number || "");
   const [selectedIntents, setSelectedIntents] = useState<string[]>(() => {
     if (agent?.supported_intents) {
@@ -132,6 +138,7 @@ export function AgentConfigForm({ agent, onSubmit, onCancel, submitLabel }: Agen
         if (name !== agent.name) updates.name = name;
         if (description !== agent.description) updates.description = description;
         if (cleanPhoneNumber !== agent.phone_number) updates.phone_number = cleanPhoneNumber;
+        if (context !== (agent.context || "")) updates.context = context.trim() || undefined;
 
         // Compare intents arrays
         const currentIntents = agent.supported_intents || [];
@@ -148,6 +155,7 @@ export function AgentConfigForm({ agent, onSubmit, onCancel, submitLabel }: Agen
           description: description.trim(),
           phone_number: cleanPhoneNumber,
           supported_intents: allIntents,
+          context: context.trim() || undefined,
         };
         await onSubmit(data);
       }
@@ -195,6 +203,21 @@ export function AgentConfigForm({ agent, onSubmit, onCancel, submitLabel }: Agen
               rows={3}
             />
             {errors.description && <p className="text-sm text-destructive">{errors.description}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="context">Additional Context (Optional)</Label>
+            <p className="text-sm text-muted-foreground">
+              Provide any additional context about this agent that helps with test scenario
+              generation.
+            </p>
+            <Textarea
+              id="context"
+              placeholder="e.g., This agent handles appointments for a dental clinic. It should verify insurance information and remind patients about pre-visit requirements."
+              value={context}
+              onChange={(e) => setContext(e.target.value)}
+              rows={4}
+            />
           </div>
 
           <div className="space-y-3">

@@ -30,6 +30,9 @@ class AgentCreateRequest(BaseModel):
     supported_intents: list[str] = Field(
         ..., min_length=1, description="List of supported agent intents"
     )
+    context: str | None = Field(
+        None, description="Domain-specific context about what the agent does"
+    )
     metadata: dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
     created_by: str | None = Field(None, description="User creating the agent")
 
@@ -108,6 +111,7 @@ class AgentUpdateRequest(BaseModel):
     )
     goal: str | None = Field(None, min_length=1, description="Agent goal")
     supported_intents: list[str] | None = Field(None, description="Supported intents")
+    context: str | None = Field(None, description="Domain-specific agent context")
     metadata: dict[str, Any] | None = Field(None, description="Additional metadata")
     is_active: bool | None = Field(None, description="Whether agent is active")
 

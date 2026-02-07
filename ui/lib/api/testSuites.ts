@@ -1,90 +1,80 @@
 /**
- * Test Suites API client (mock data implementation).
+ * Test Suites API client - integrates with backend /api/v1/tests/suites endpoints.
  */
 
-import { BaseApiClient, simulateDelay } from "./base";
+import { BaseApiClient } from "./base";
 import type {
   TestSuite,
   TestSuiteCreateRequest,
   TestSuiteUpdateRequest,
   TestSuitesListResponse,
+  GenerationStatusResponse,
+  GenerateScenariosRequest,
 } from "../types";
-import { mockTestSuites } from "../mockData";
 
-// In-memory storage for test suites
-const inMemoryStore = {
-  testSuites: [...mockTestSuites],
-};
+const API_BASE = "/api/v1/tests/suites";
 
 export class TestSuitesApi extends BaseApiClient {
   /**
    * List all test suites.
+   * GET /api/v1/tests/suites
    */
   async listTestSuites(): Promise<TestSuitesListResponse> {
-    await simulateDelay();
-    return {
-      count: inMemoryStore.testSuites.length,
-      suites: inMemoryStore.testSuites,
-    };
+    return this.get<TestSuitesListResponse>(API_BASE);
   }
 
   /**
    * Get a test suite by ID.
+   * GET /api/v1/tests/suites/{suite_id}
    */
   async getTestSuite(id: string): Promise<TestSuite> {
-    await simulateDelay();
-    const suite = inMemoryStore.testSuites.find((s) => s.id === id);
-    if (!suite) {
-      throw new Error(`Test suite '${id}' not found`);
-    }
-    return suite;
+    return this.get<TestSuite>(`${API_BASE}/${id}`);
   }
 
   /**
    * Create a new test suite.
+   * POST /api/v1/tests/suites
    */
   async createTestSuite(data: TestSuiteCreateRequest): Promise<TestSuite> {
-    await simulateDelay(500);
-    const newSuite: TestSuite = {
-      id: `suite-${Date.now()}`,
-      name: data.name,
-      description: data.description || null,
-      status: "pending",
-      created_at: new Date().toISOString(),
-    };
-    inMemoryStore.testSuites.push(newSuite);
-    return newSuite;
+    return this.post<TestSuite>(API_BASE, data);
   }
 
   /**
    * Update a test suite.
+   * PUT /api/v1/tests/suites/{suite_id}
    */
   async updateTestSuite(id: string, data: TestSuiteUpdateRequest): Promise<TestSuite> {
-    await simulateDelay(400);
-    const index = inMemoryStore.testSuites.findIndex((s) => s.id === id);
-    if (index === -1) {
-      throw new Error(`Test suite '${id}' not found`);
-    }
-    const suite = inMemoryStore.testSuites[index];
-    inMemoryStore.testSuites[index] = {
-      ...suite,
-      ...(data.name !== undefined && data.name !== null && { name: data.name }),
-      ...(data.description !== undefined && { description: data.description }),
-      ...(data.status !== undefined &&
-        data.status !== null && { status: data.status as TestSuite["status"] }),
-    };
-    return inMemoryStore.testSuites[index];
+    return this.put<TestSuite>(`${API_BASE}/${id}`, data);
   }
 
   /**
    * Delete a test suite.
+   * DELETE /api/v1/tests/suites/{suite_id}
    */
   async deleteTestSuite(id: string): Promise<void> {
-    await simulateDelay(300);
-    const index = inMemoryStore.testSuites.findIndex((s) => s.id === id);
-    if (index === -1) {
-      throw new Error(`Test suite '${id}' not found`);
-    }
-    inMemoryStore.testSuites.splice(index, 1);
+    return this.delete(`${API_BASE}/${id}`);
+  }
+
+  /**
+   * Get the generation status for a test suite.
+   * GET /api/v1/tests/suites/{suite_id}/generation-status
+   */
+  async getGenerationStatus(id: string): Promise<GenerationStatusResponse> {
+    return this.get<GenerationStatusResponse>(`${API_BASE}/${id}/generation-status`);
+  }
+
+  /**
+   * Generate more scenarios for a test suite.
+   * Returns 400 if generation is already in progress.
+   * POST /api/v1/tests/suites/{suite_id}/generate-scenarios
+   */
+  async generateMoreScenarios(
+    id: string,
+    request?: GenerateScenariosRequest
+  ): Promise<GenerationStatusResponse> {
+    return this.post<GenerationStatusResponse>(
+      `${API_BASE}/${id}/generate-scenarios`,
+      request || {}
+    );
   }
 }

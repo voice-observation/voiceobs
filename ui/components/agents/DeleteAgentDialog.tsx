@@ -9,7 +9,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+} from "@/components/primitives/alert-dialog";
 import { useAgentActions } from "@/hooks/useAgentActions";
 import { Loader2 } from "lucide-react";
 

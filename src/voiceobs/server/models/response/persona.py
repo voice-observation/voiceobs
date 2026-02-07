@@ -24,11 +24,18 @@ class PersonaResponse(BaseModel):
     preview_audio_text: str | None = Field(
         None, description="Text used for preview audio generation"
     )
+    preview_audio_status: str | None = Field(
+        None, description="Preview audio generation status (null, generating, ready, failed)"
+    )
+    preview_audio_error: str | None = Field(
+        None, description="Error message if preview audio generation failed"
+    )
     metadata: dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
     created_at: datetime | None = Field(None, description="Creation timestamp")
     updated_at: datetime | None = Field(None, description="Last update timestamp")
     created_by: str | None = Field(None, description="User who created the persona")
     is_active: bool = Field(True, description="Whether the persona is active")
+    is_default: bool = Field(False, description="Whether this is the default fallback persona")
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -49,6 +56,7 @@ class PersonaResponse(BaseModel):
                 "updated_at": "2024-01-15T11:00:00Z",
                 "created_by": "user@example.com",
                 "is_active": True,
+                "is_default": False,
             }
         }
     )
@@ -68,7 +76,11 @@ class PersonaListItem(BaseModel):
     preview_audio_text: str | None = Field(
         None, description="Text used for preview audio generation"
     )
+    preview_audio_status: str | None = Field(
+        None, description="Preview audio generation status (null, generating, ready, failed)"
+    )
     is_active: bool = Field(True, description="Whether the persona is active")
+    is_default: bool = Field(False, description="Whether this is the default fallback persona")
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -82,7 +94,9 @@ class PersonaListItem(BaseModel):
                 "traits": ["impatient", "demanding"],
                 "preview_audio_url": "https://storage.example.com/preview1.mp3",
                 "preview_audio_text": "Hello, this is how I sound.",
+                "preview_audio_status": "ready",
                 "is_active": True,
+                "is_default": False,
             }
         }
     )
@@ -110,6 +124,7 @@ class PersonasListResponse(BaseModel):
                         "preview_audio_url": "https://storage.example.com/preview1.mp3",
                         "preview_audio_text": "Hello, this is how I sound.",
                         "is_active": True,
+                        "is_default": True,
                     },
                     {
                         "id": "550e8400-e29b-41d4-a716-446655440001",
@@ -122,6 +137,7 @@ class PersonasListResponse(BaseModel):
                         "preview_audio_url": "https://storage.example.com/preview2.mp3",
                         "preview_audio_text": "Hello, this is how I sound.",
                         "is_active": True,
+                        "is_default": False,
                     },
                 ],
             }
@@ -142,6 +158,26 @@ class PersonaAudioPreviewResponse(BaseModel):
                 "audio_url": "https://storage.example.com/audio/personas/preview/abc123.mp3",
                 "text": "Hello, this is how I sound.",
                 "format": "audio/mpeg",
+            }
+        }
+    )
+
+
+class PreviewAudioStatusResponse(BaseModel):
+    """Response model for preview audio generation status."""
+
+    status: str | None = Field(
+        None, description="Generation status: null, generating, ready, or failed"
+    )
+    audio_url: str | None = Field(None, description="URL to preview audio when ready")
+    error_message: str | None = Field(None, description="Error message if generation failed")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "status": "ready",
+                "audio_url": "https://storage.example.com/audio/personas/preview/abc123.mp3",
+                "error_message": None,
             }
         }
     )

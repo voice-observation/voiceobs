@@ -18,6 +18,7 @@ class AgentRow:
     agent_type: str = "phone"  # "phone", "web", "email", etc.
     contact_info: dict[str, Any] = field(default_factory=dict)  # JSONB contact information
     supported_intents: list[str] = field(default_factory=list)
+    context: str | None = None  # Domain-specific context about what the agent does
     connection_status: str = "pending"  # pending, saved, connecting, verified, failed
     verification_attempts: int = 0
     last_verification_at: datetime | None = None

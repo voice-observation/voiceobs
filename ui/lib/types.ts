@@ -4,23 +4,48 @@
  */
 
 // Test Suite Types
+export type TestSuiteStatus =
+  | "pending"
+  | "generating"
+  | "ready"
+  | "generation_failed"
+  | "running"
+  | "completed"
+  | "failed";
+
 export interface TestSuite {
   id: string;
   name: string;
   description: string | null;
-  status: "pending" | "running" | "completed" | "failed";
+  status: TestSuiteStatus;
+  test_scopes: string[];
+  thoroughness: number; // 0: Light, 1: Standard, 2: Exhaustive
+  edge_cases: string[];
+  evaluation_strictness: string; // "strict" | "balanced" | "flexible"
   created_at: string | null;
+  agent_id?: string;
+  generation_error?: string;
+  scenario_count?: number;
 }
 
 export interface TestSuiteCreateRequest {
   name: string;
   description?: string | null;
+  agent_id: string;
+  test_scopes?: string[];
+  thoroughness?: number;
+  edge_cases?: string[];
+  evaluation_strictness?: string;
 }
 
 export interface TestSuiteUpdateRequest {
   name?: string | null;
   description?: string | null;
   status?: string | null;
+  test_scopes?: string[] | null;
+  thoroughness?: number | null;
+  edge_cases?: string[] | null;
+  evaluation_strictness?: string | null;
 }
 
 export interface TestSuitesListResponse {
@@ -28,41 +53,76 @@ export interface TestSuitesListResponse {
   suites: TestSuite[];
 }
 
+export interface GenerationStatusResponse {
+  suite_id: string;
+  status: "pending" | "generating" | "ready" | "generation_failed";
+  scenario_count: number;
+  error?: string;
+}
+
+export interface GenerateScenariosRequest {
+  prompt?: string;
+}
+
 // Test Scenario Types
+export type TestScenarioStatus = "ready" | "draft";
+
 export interface TestScenario {
   id: string;
   suite_id: string;
   name: string;
   goal: string;
-  persona_json: Record<string, unknown>;
+  persona_id: string;
   max_turns: number | null;
   timeout: number | null;
+  intent?: string;
+  persona_traits?: string[];
+  persona_match_score?: number; // 0.0-1.0
+  // New CRUD fields
+  caller_behaviors?: string[];
+  tags?: string[];
+  status: TestScenarioStatus;
+  is_manual: boolean; // True for manually created scenarios, False for AI-generated
 }
 
 export interface TestScenarioCreateRequest {
   suite_id: string;
   name: string;
   goal: string;
-  persona_json?: Record<string, unknown>;
+  persona_id: string;
   max_turns?: number | null;
   timeout?: number | null;
+  caller_behaviors?: string[];
+  tags?: string[];
 }
 
 export interface TestScenarioUpdateRequest {
+  suite_id?: string | null;
   name?: string | null;
   goal?: string | null;
-  persona_json?: Record<string, unknown> | null;
+  persona_id?: string | null;
   max_turns?: number | null;
   timeout?: number | null;
+  caller_behaviors?: string[];
+  tags?: string[];
 }
 
 export interface TestScenariosListResponse {
   count: number;
   scenarios: TestScenario[];
+  limit: number;
+  offset: number;
 }
 
 export interface TestScenarioFilters {
   suite_id?: string;
+  persona_id?: string;
+  status?: TestScenarioStatus;
+  intent?: string;
+  tag?: string;
+  search?: string;
+  limit?: number;
+  offset?: number;
 }
 
 // Test Execution Types
@@ -151,10 +211,12 @@ export interface PersonaListItem {
   traits: string[];
   preview_audio_url: string | null;
   preview_audio_text: string | null;
+  preview_audio_status: "generating" | "ready" | "failed" | null;
   is_active: boolean;
+  is_default?: boolean;
 }
 
-// PersonaResponse - full persona model with all fields (UI-facing, excludes backend config)
+// PersonaResponse - full persona model with all fields
 export interface Persona {
   id: string;
   name: string;
@@ -163,13 +225,18 @@ export interface Persona {
   patience: number; // 0-1
   verbosity: number; // 0-1
   traits: string[];
+  tts_provider: string;
+  tts_config: Record<string, unknown>;
   preview_audio_url: string | null;
   preview_audio_text: string | null;
+  preview_audio_status: "generating" | "ready" | "failed" | null;
+  preview_audio_error: string | null;
   metadata: Record<string, unknown>;
   created_at: string | null;
   updated_at: string | null;
   created_by: string | null;
   is_active: boolean;
+  is_default?: boolean;
 }
 
 export interface PersonaCreateRequest {
@@ -193,6 +260,8 @@ export interface PersonaUpdateRequest {
   verbosity?: number | null; // 0-1
   traits?: string[] | null;
   metadata?: Record<string, unknown> | null;
+  tts_provider?: string | null;
+  tts_config?: Record<string, unknown> | null;
 }
 
 export interface PersonasListResponse {
@@ -204,6 +273,12 @@ export interface PersonaAudioPreviewResponse {
   audio_url: string;
   text: string;
   format: string;
+}
+
+export interface PreviewAudioStatusResponse {
+  status: "generating" | "ready" | "failed" | null;
+  audio_url: string | null;
+  error_message: string | null;
 }
 
 // Report Types
@@ -307,6 +382,7 @@ export interface Agent {
   created_at: string | null;
   updated_at: string | null;
   created_by: string | null;
+  context?: string;
 }
 
 export interface AgentListItem {
@@ -325,6 +401,7 @@ export interface AgentCreateRequest {
   description: string; // Sent as 'goal' to backend
   phone_number: string;
   supported_intents: string[];
+  context?: string;
 }
 
 export interface AgentUpdateRequest {
@@ -333,6 +410,7 @@ export interface AgentUpdateRequest {
   phone_number?: string;
   supported_intents?: string[];
   is_active?: boolean;
+  context?: string;
 }
 
 export interface AgentsListResponse {
@@ -346,4 +424,9 @@ export interface VerificationStatusResponse {
   last_verification_at: string | null;
   verification_error: string | null;
   verification_reasoning: string | null;
+}
+
+// Trait vocabulary types
+export interface TraitVocabularyResponse {
+  vocabulary: Record<string, string[]>;
 }

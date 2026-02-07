@@ -164,3 +164,44 @@ class LocalFileStorage:
         # Return URL path
         # Format: /audio/prefix/filename
         return f"/audio/{prefix}/{filename}"
+
+    async def delete_by_url(self, url: str) -> bool:
+        """Delete audio file by its URL.
+
+        Args:
+            url: The URL returned from store_audio (e.g., "/audio/prefix/file.mp3").
+
+        Returns:
+            True if deleted, False if not found or invalid URL.
+        """
+        import asyncio
+
+        # Parse URL format: /audio/prefix/filename
+        if not url.startswith("/audio/"):
+            return False
+
+        # Extract path after /audio/
+        relative_path = url[7:]  # Remove "/audio/"
+        if not relative_path:
+            return False
+
+        file_path = self.base_path / relative_path
+
+        # Security: Ensure the resolved path is within base_path (prevent path traversal)
+        try:
+            resolved_path = file_path.resolve()
+            base_resolved = self.base_path.resolve()
+            if not str(resolved_path).startswith(str(base_resolved)):
+                return False
+        except (ValueError, OSError):
+            return False
+
+        if not file_path.exists():
+            return False
+
+        try:
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, file_path.unlink)
+            return True
+        except Exception:
+            return False

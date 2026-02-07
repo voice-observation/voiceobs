@@ -5,7 +5,15 @@ from voiceobs.server.models.request.agent import (
     AgentUpdateRequest,
     AgentVerificationRequest,
 )
+from voiceobs.server.models.request.auth import UserUpdateRequest
+from voiceobs.server.models.request.generate_scenarios import GenerateScenariosRequest
+from voiceobs.server.models.request.organization import (
+    CreateOrgRequest,
+    SendInviteRequest,
+    UpdateOrgRequest,
+)
 from voiceobs.server.models.request.persona import (
+    PersonaActiveRequest,
     PersonaCreateRequest,
     PersonaUpdateRequest,
 )
@@ -19,6 +27,8 @@ from voiceobs.server.models.request.test import (
 )
 
 __all__ = [
+    # Auth requests
+    "UserUpdateRequest",
     # Span requests
     "SpanInput",
     "SpanBatchInput",
@@ -28,11 +38,17 @@ __all__ = [
     "TestScenarioCreateRequest",
     "TestScenarioUpdateRequest",
     "TestRunRequest",
+    "GenerateScenariosRequest",
     # Persona requests
     "PersonaCreateRequest",
     "PersonaUpdateRequest",
+    "PersonaActiveRequest",
     # Agent requests
     "AgentCreateRequest",
     "AgentUpdateRequest",
     "AgentVerificationRequest",
+    # Organization requests
+    "CreateOrgRequest",
+    "UpdateOrgRequest",
+    "SendInviteRequest",
 ]

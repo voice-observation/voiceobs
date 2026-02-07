@@ -38,6 +38,8 @@ class PersonaRepository:
         created_by: str | None = None,
         preview_audio_url: str | None = None,
         preview_audio_text: str | None = None,
+        preview_audio_status: str | None = None,
+        preview_audio_error: str | None = None,
     ) -> PersonaRow:
         """Create a new persona.
 
@@ -54,6 +56,8 @@ class PersonaRepository:
             created_by: User identifier who created the persona.
             preview_audio_url: URL to pregenerated preview audio.
             preview_audio_text: Text used for preview audio generation.
+            preview_audio_status: Status of preview audio generation.
+            preview_audio_error: Error message if preview audio generation failed.
 
         Returns:
             The created persona row.
@@ -79,11 +83,12 @@ class PersonaRepository:
             INSERT INTO personas (
                 id, name, description, aggression, patience, verbosity,
                 traits, tts_provider, tts_config, preview_audio_url,
-                preview_audio_text, metadata, created_by, is_active
+                preview_audio_text, preview_audio_status, preview_audio_error,
+                metadata, created_by, is_active, is_default
             )
             VALUES (
                 $1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9::jsonb,
-                $10, $11, $12::jsonb, $13, true
+                $10, $11, $12, $13, $14::jsonb, $15, true, false
             )
             """,
             persona_id,
@@ -97,6 +102,8 @@ class PersonaRepository:
             json.dumps(tts_config),  # Convert dict to JSON string for JSONB column
             preview_audio_url,
             preview_audio_text,
+            preview_audio_status,
+            preview_audio_error,
             json.dumps(metadata),  # Convert dict to JSON string for JSONB column
             created_by,
         )
@@ -105,8 +112,8 @@ class PersonaRepository:
             """
             SELECT id, name, description, aggression, patience, verbosity,
                    traits, tts_provider, tts_config, preview_audio_url,
-                   preview_audio_text, metadata, created_at, updated_at,
-                   created_by, is_active
+                   preview_audio_text, preview_audio_status, preview_audio_error,
+                   metadata, created_at, updated_at, created_by, is_active, is_default
             FROM personas WHERE id = $1
             """,
             persona_id,
@@ -130,8 +137,8 @@ class PersonaRepository:
             """
             SELECT id, name, description, aggression, patience, verbosity,
                    traits, tts_provider, tts_config, preview_audio_url,
-                   preview_audio_text, metadata, created_at, updated_at,
-                   created_by, is_active
+                   preview_audio_text, preview_audio_status, preview_audio_error,
+                   metadata, created_at, updated_at, created_by, is_active, is_default
             FROM personas WHERE id = $1
             """,
             persona_id,
@@ -155,8 +162,8 @@ class PersonaRepository:
             """
             SELECT id, name, description, aggression, patience, verbosity,
                    traits, tts_provider, tts_config, preview_audio_url,
-                   preview_audio_text, metadata, created_at, updated_at,
-                   created_by, is_active
+                   preview_audio_text, preview_audio_status, preview_audio_error,
+                   metadata, created_at, updated_at, created_by, is_active, is_default
             FROM personas WHERE name = $1 AND is_active = true
             """,
             name,
@@ -209,8 +216,8 @@ class PersonaRepository:
             f"""
             SELECT id, name, description, aggression, patience, verbosity,
                    traits, tts_provider, tts_config, preview_audio_url,
-                   preview_audio_text, metadata, created_at, updated_at,
-                   created_by, is_active
+                   preview_audio_text, preview_audio_status, preview_audio_error,
+                   metadata, created_at, updated_at, created_by, is_active, is_default
             FROM personas
             {where_clause}
             ORDER BY created_at DESC
@@ -234,6 +241,8 @@ class PersonaRepository:
         tts_config: dict[str, Any] | None = None,
         preview_audio_url: str | None = None,
         preview_audio_text: str | None = None,
+        preview_audio_status: str | None = None,
+        preview_audio_error: str | None = None,
         metadata: dict[str, Any] | None = None,
         is_active: bool | None = None,
     ) -> PersonaRow | None:
@@ -251,6 +260,8 @@ class PersonaRepository:
             tts_config: New TTS configuration (optional).
             preview_audio_url: New preview audio URL (optional).
             preview_audio_text: New preview audio text (optional).
+            preview_audio_status: New preview audio status (optional).
+            preview_audio_error: New preview audio error (optional).
             metadata: New metadata (optional).
 
         Returns:
@@ -278,6 +289,8 @@ class PersonaRepository:
             "tts_config": tts_config,
             "preview_audio_url": preview_audio_url,
             "preview_audio_text": preview_audio_text,
+            "preview_audio_status": preview_audio_status,
+            "preview_audio_error": preview_audio_error,
             "metadata": metadata,
             "is_active": is_active,
         }
@@ -361,6 +374,54 @@ class PersonaRepository:
 
         return count or 0
 
+    async def get_default(self) -> PersonaRow | None:
+        """Get the default persona.
+
+        Returns:
+            The persona row with is_default=True, or None if no default exists.
+        """
+        row = await self._db.fetchrow(
+            """
+            SELECT id, name, description, aggression, patience, verbosity,
+                   traits, tts_provider, tts_config, preview_audio_url,
+                   preview_audio_text, preview_audio_status, preview_audio_error,
+                   metadata, created_at, updated_at, created_by, is_active, is_default
+            FROM personas WHERE is_default = true
+            """
+        )
+
+        if row is None:
+            return None
+
+        return self._row_to_persona(row)
+
+    async def set_default(self, persona_id: UUID) -> PersonaRow | None:
+        """Set a persona as the default, atomically unsetting any previous default.
+
+        This method performs two operations atomically within a transaction:
+        1. Unset is_default on all personas
+        2. Set is_default on the specified persona
+
+        Args:
+            persona_id: The UUID of the persona to set as default.
+
+        Returns:
+            The updated persona row, or None if not found.
+        """
+        async with self._db.transaction() as conn:
+            # Unset any existing default
+            await conn.execute(
+                "UPDATE personas SET is_default = false, updated_at = NOW() WHERE is_default = true"
+            )
+
+            # Set the new default
+            await conn.execute(
+                "UPDATE personas SET is_default = true, updated_at = NOW() WHERE id = $1",
+                persona_id,
+            )
+
+        return await self.get(persona_id)
+
     def _row_to_persona(self, row: Any) -> PersonaRow:
         """Convert a database row to a PersonaRow.
 
@@ -410,6 +471,9 @@ class PersonaRepository:
         elif metadata is None:
             metadata = {}
 
+        preview_audio_status = row.get("preview_audio_status")
+        preview_audio_error = row.get("preview_audio_error")
+
         return PersonaRow(
             id=row["id"],
             name=row["name"],
@@ -422,9 +486,12 @@ class PersonaRepository:
             tts_config=tts_config,
             preview_audio_url=row["preview_audio_url"],
             preview_audio_text=row["preview_audio_text"],
+            preview_audio_status=preview_audio_status,
+            preview_audio_error=preview_audio_error,
             metadata=metadata,
             created_at=row["created_at"],
             updated_at=row["updated_at"],
             created_by=row["created_by"],
             is_active=row["is_active"],
+            is_default=row.get("is_default", False),
         )

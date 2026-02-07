@@ -1,32 +1,30 @@
 """FastAPI dependencies for voiceobs server.
 
-This module provides dependency injection for database connections
-and repositories, supporting both in-memory and PostgreSQL storage.
+This module provides dependency injection for database connections and repositories.
+PostgreSQL is required for the application to function.
+
+Database Initialization
+-----------------------
+The application requires PostgreSQL to be configured via:
+- VOICEOBS_DATABASE_URL environment variable, or
+- server.database_url in voiceobs.yaml configuration file
+
+The application will fail to start if no database is configured.
 
 Storage Adapters
 ----------------
-The API routes need an async interface for storage operations because FastAPI
-is async-first. However, we support two storage backends:
+The API routes use an async interface for storage operations. The PostgresSpanStoreAdapter
+wraps the async SpanRepository and adds conversation linking logic.
 
-1. **In-memory storage** (`SpanStore`): Synchronous, used for development/testing
-2. **PostgreSQL storage** (via repositories): Natively async
+Spans are the primary ingestion point for the API. All routes that ingest or query data
+work with spans. Conversations, turns, and failures are stored separately but populated
+from span data.
 
-To provide a uniform async interface to the routes, we use the Adapter pattern:
-
-- `InMemorySpanStoreAdapter`: Wraps the sync `SpanStore` with async methods
-- `PostgresSpanStoreAdapter`: Wraps the async `SpanRepository` and adds
-  conversation linking logic
-
-Why only span adapters?
------------------------
-Spans are the **primary ingestion point** for the API. All routes that ingest
-or query data work with spans. Conversations, turns, and failures are either:
-- Derived from span attributes at query time (in-memory mode)
-- Stored separately but populated from spans (PostgreSQL mode)
-
-The individual repositories (ConversationRepository, TurnRepository,
-FailureRepository) are exposed directly for PostgreSQL mode when needed
-for advanced queries, but are not required for basic API operations.
+Repositories
+------------
+All repositories (ConversationRepository, TurnRepository, FailureRepository, etc.)
+are exposed as singletons initialized at startup. They will raise RuntimeError
+if accessed before database initialization.
 """
 
 from __future__ import annotations
@@ -41,15 +39,20 @@ from voiceobs.server.db.repositories import (
     ConversationRepository,
     FailureRepository,
     MetricsRepository,
+    OrganizationInviteRepository,
+    OrganizationMemberRepository,
+    OrganizationRepository,
     PersonaRepository,
     SpanRepository,
     TestExecutionRepository,
     TestScenarioRepository,
     TestSuiteRepository,
     TurnRepository,
+    UserRepository,
 )
 from voiceobs.server.services.agent_verification.service import AgentVerificationService
-from voiceobs.server.store import SpanStore, get_span_store
+from voiceobs.server.services.organization_service import OrganizationService
+from voiceobs.server.services.scenario_generation.service import ScenarioGenerationService
 
 logger = logging.getLogger(__name__)
 
@@ -57,8 +60,8 @@ logger = logging.getLogger(__name__)
 class SpanStorageProtocol(Protocol):
     """Protocol defining the async interface for span storage.
 
-    This protocol allows API routes to work with either in-memory or
-    PostgreSQL storage without knowing which backend is being used.
+    This protocol defines the interface that span storage adapters must implement.
+    In production, PostgresSpanStoreAdapter is used.
     """
 
     async def add_span(
@@ -94,74 +97,14 @@ class SpanStorageProtocol(Protocol):
     async def count(self) -> int:
         """Count all spans."""
         ...
-
-
-class InMemorySpanStoreAdapter:
-    """Adapter that wraps the synchronous SpanStore with async methods.
-
-    This allows the in-memory store to be used with async API routes.
-    The underlying operations are still synchronous but wrapped in async
-    methods for interface compatibility.
-    """
-
-    def __init__(self, store: SpanStore) -> None:
-        """Initialize the adapter.
-
-        Args:
-            store: The underlying synchronous SpanStore.
-        """
-        self._store = store
-
-    async def add_span(
-        self,
-        name: str,
-        start_time: str | None = None,
-        end_time: str | None = None,
-        duration_ms: float | None = None,
-        attributes: dict[str, Any] | None = None,
-        trace_id: str | None = None,
-        span_id: str | None = None,
-        parent_span_id: str | None = None,
-    ) -> Any:
-        """Add a span to storage."""
-        return self._store.add_span(
-            name=name,
-            start_time=start_time,
-            end_time=end_time,
-            duration_ms=duration_ms,
-            attributes=attributes,
-            trace_id=trace_id,
-            span_id=span_id,
-            parent_span_id=parent_span_id,
-        )
-
-    async def get_span(self, span_id: Any) -> Any:
-        """Get a span by ID."""
-        return self._store.get_span(span_id)
-
-    async def get_all_spans(self) -> list[Any]:
-        """Get all spans."""
-        return self._store.get_all_spans()
-
-    async def get_spans_as_dicts(self) -> list[dict[str, Any]]:
-        """Get spans as dictionaries for analysis."""
-        return self._store.get_spans_as_dicts()
-
-    async def clear(self) -> int:
-        """Clear all spans."""
-        return self._store.clear()
-
-    async def count(self) -> int:
-        """Count all spans."""
-        return self._store.count()
 
 
 class PostgresSpanStoreAdapter:
     """Adapter that wraps PostgreSQL repositories with conversation linking.
 
-    This adapter provides the same interface as InMemorySpanStoreAdapter but
-    uses PostgreSQL repositories. It also handles automatic conversation
-    creation when spans contain a `voice.conversation.id` attribute.
+    This adapter implements the SpanStorageProtocol using PostgreSQL repositories.
+    It handles automatic conversation creation when spans contain a
+    `voice.conversation.id` attribute.
     """
 
     def __init__(
@@ -251,7 +194,13 @@ _test_scenario_repo: TestScenarioRepository | None = None
 _test_execution_repo: TestExecutionRepository | None = None
 _persona_repo: PersonaRepository | None = None
 _agent_repo: AgentRepository | None = None
+_user_repo: UserRepository | None = None
+_organization_repo: OrganizationRepository | None = None
+_organization_member_repo: OrganizationMemberRepository | None = None
+_organization_invite_repo: OrganizationInviteRepository | None = None
 _agent_verification_service: AgentVerificationService | None = None
+_organization_service: OrganizationService | None = None
+_scenario_generation_service: ScenarioGenerationService | None = None
 _use_postgres: bool = False
 _audio_storage: Any | None = None
 
@@ -291,60 +240,65 @@ def _get_database_url() -> str | None:
 
 
 async def init_database() -> None:
-    """Initialize database connection if configured.
+    """Initialize database connection.
 
-    Call this on application startup. If a database URL is configured,
-    connects to PostgreSQL and initializes the schema. Otherwise,
-    uses in-memory storage.
+    Call this on application startup. Connects to PostgreSQL and initializes
+    the schema. Raises RuntimeError if database URL is not configured.
+
+    Raises:
+        RuntimeError: If database URL is not configured.
     """
     global _database, _span_storage
     global _conversation_repo, _turn_repo, _failure_repo, _metrics_repo
     global _test_suite_repo, _test_scenario_repo, _test_execution_repo, _persona_repo, _agent_repo
-    global _agent_verification_service, _use_postgres
+    global _user_repo, _organization_repo, _organization_member_repo, _organization_invite_repo
+    global _agent_verification_service, _organization_service, _use_postgres
 
     database_url = _get_database_url()
     logger.info(f"Database URL retrieved: {'configured' if database_url else 'not configured'}")
 
-    if database_url:
-        # Use PostgreSQL
-        logger.info("Initializing PostgreSQL database connection")
-        _use_postgres = True
-        _database = Database(database_url=database_url)
-        await _database.connect()
-        await _database.init_schema()
-
-        # Initialize repositories
-        _conversation_repo = ConversationRepository(_database)
-        _turn_repo = TurnRepository(_database)
-        _failure_repo = FailureRepository(_database)
-        _metrics_repo = MetricsRepository(_database)
-        _persona_repo = PersonaRepository(_database)
-        _agent_repo = AgentRepository(_database)
-        _agent_verification_service = AgentVerificationService(_agent_repo)
-        _test_suite_repo = TestSuiteRepository(_database)
-        _test_scenario_repo = TestScenarioRepository(_database, _persona_repo)
-        _test_execution_repo = TestExecutionRepository(_database)
-
-        # Create span storage adapter
-        _span_storage = PostgresSpanStoreAdapter(
-            span_repo=SpanRepository(_database),
-            conversation_repo=_conversation_repo,
+    if not database_url:
+        error_msg = (
+            "PostgreSQL database is required but not configured. "
+            "Please set VOICEOBS_DATABASE_URL environment variable or configure "
+            "server.database_url in voiceobs.yaml"
         )
-    else:
-        # Use in-memory store
-        logger.info("Using in-memory storage (PostgreSQL not configured)")
-        _use_postgres = False
-        _span_storage = InMemorySpanStoreAdapter(get_span_store())
-        _conversation_repo = None
-        _turn_repo = None
-        _failure_repo = None
-        _metrics_repo = None
-        _test_suite_repo = None
-        _test_scenario_repo = None
-        _test_execution_repo = None
-        _persona_repo = None
-        _agent_repo = None
-        _agent_verification_service = None
+        logger.error(error_msg)
+        raise RuntimeError(error_msg)
+
+    # Initialize PostgreSQL
+    logger.info("Initializing PostgreSQL database connection")
+    _use_postgres = True
+    _database = Database(database_url=database_url)
+    await _database.connect()
+    await _database.init_schema()
+
+    # Initialize repositories
+    _conversation_repo = ConversationRepository(_database)
+    _turn_repo = TurnRepository(_database)
+    _failure_repo = FailureRepository(_database)
+    _metrics_repo = MetricsRepository(_database)
+    _persona_repo = PersonaRepository(_database)
+    _agent_repo = AgentRepository(_database)
+    _user_repo = UserRepository(_database)
+    _organization_repo = OrganizationRepository(_database)
+    _organization_member_repo = OrganizationMemberRepository(_database)
+    _organization_invite_repo = OrganizationInviteRepository(_database)
+    _agent_verification_service = AgentVerificationService(_agent_repo)
+    _organization_service = OrganizationService(
+        org_repo=_organization_repo,
+        member_repo=_organization_member_repo,
+        user_repo=_user_repo,
+    )
+    _test_suite_repo = TestSuiteRepository(_database)
+    _test_scenario_repo = TestScenarioRepository(_database, _persona_repo)
+    _test_execution_repo = TestExecutionRepository(_database)
+
+    # Create span storage adapter
+    _span_storage = PostgresSpanStoreAdapter(
+        span_repo=SpanRepository(_database),
+        conversation_repo=_conversation_repo,
+    )
 
 
 async def shutdown_database() -> None:
@@ -355,7 +309,9 @@ async def shutdown_database() -> None:
     global _database, _span_storage
     global _conversation_repo, _turn_repo, _failure_repo, _metrics_repo
     global _test_suite_repo, _test_scenario_repo, _test_execution_repo, _persona_repo, _agent_repo
-    global _agent_verification_service, _use_postgres
+    global _user_repo, _organization_repo, _organization_member_repo, _organization_invite_repo
+    global _agent_verification_service, _organization_service, _scenario_generation_service
+    global _use_postgres
 
     if _database is not None:
         await _database.disconnect()
@@ -371,123 +327,273 @@ async def shutdown_database() -> None:
     _test_execution_repo = None
     _persona_repo = None
     _agent_repo = None
+    _user_repo = None
+    _organization_repo = None
+    _organization_member_repo = None
+    _organization_invite_repo = None
     _agent_verification_service = None
+    _organization_service = None
+    _scenario_generation_service = None
     _use_postgres = False
+
+
+def _ensure_initialized(component: Any | None, component_name: str) -> Any:
+    """Ensure a database component is initialized.
+
+    Args:
+        component: The component to check (repository, service, etc.).
+        component_name: Human-readable name for error messages.
+
+    Returns:
+        The component if initialized.
+
+    Raises:
+        RuntimeError: If component is None (database not initialized).
+    """
+    if component is None:
+        raise RuntimeError(
+            f"{component_name} is not available. "
+            "Database not initialized. Call init_database() first."
+        )
+    return component
 
 
 def get_storage() -> SpanStorageProtocol:
     """Get the span storage adapter.
 
     Returns:
-        Span storage adapter (either in-memory or PostgreSQL).
-        Falls back to in-memory if not initialized.
+        PostgreSQL span storage adapter.
+
+    Raises:
+        RuntimeError: If database is not initialized.
     """
-    if _span_storage is None:
-        # Fall back to in-memory if not initialized
-        return InMemorySpanStoreAdapter(get_span_store())
-    return _span_storage
+    return _ensure_initialized(_span_storage, "Span storage")
 
 
-def get_conversation_repository() -> ConversationRepository | None:
+def get_conversation_repository() -> ConversationRepository:
     """Get the conversation repository.
 
     Returns:
-        Conversation repository or None if using in-memory storage.
+        Conversation repository instance.
+
+    Raises:
+        RuntimeError: If database is not initialized.
     """
-    return _conversation_repo
+    return _ensure_initialized(_conversation_repo, "Conversation repository")
 
 
-def get_turn_repository() -> TurnRepository | None:
+def get_turn_repository() -> TurnRepository:
     """Get the turn repository.
 
     Returns:
-        Turn repository or None if using in-memory storage.
+        Turn repository instance.
+
+    Raises:
+        RuntimeError: If database is not initialized.
     """
-    return _turn_repo
+    return _ensure_initialized(_turn_repo, "Turn repository")
 
 
-def get_failure_repository() -> FailureRepository | None:
+def get_failure_repository() -> FailureRepository:
     """Get the failure repository.
 
     Returns:
-        Failure repository or None if using in-memory storage.
+        Failure repository instance.
+
+    Raises:
+        RuntimeError: If database is not initialized.
     """
-    return _failure_repo
+    return _ensure_initialized(_failure_repo, "Failure repository")
 
 
-def get_metrics_repository() -> MetricsRepository | None:
+def get_metrics_repository() -> MetricsRepository:
     """Get the metrics repository.
 
     Returns:
-        Metrics repository or None if using in-memory storage.
+        Metrics repository instance.
+
+    Raises:
+        RuntimeError: If database is not initialized.
     """
-    return _metrics_repo
+    return _ensure_initialized(_metrics_repo, "Metrics repository")
 
 
-def get_test_suite_repository() -> TestSuiteRepository | None:
+def get_test_suite_repository() -> TestSuiteRepository:
     """Get the test suite repository.
 
     Returns:
-        Test suite repository or None if using in-memory storage.
+        Test suite repository instance.
+
+    Raises:
+        RuntimeError: If database is not initialized.
     """
-    return _test_suite_repo
+    return _ensure_initialized(_test_suite_repo, "Test suite repository")
 
 
-def get_test_scenario_repository() -> TestScenarioRepository | None:
+def get_test_scenario_repository() -> TestScenarioRepository:
     """Get the test scenario repository.
 
     Returns:
-        Test scenario repository or None if using in-memory storage.
+        Test scenario repository instance.
+
+    Raises:
+        RuntimeError: If database is not initialized.
     """
-    return _test_scenario_repo
+    return _ensure_initialized(_test_scenario_repo, "Test scenario repository")
 
 
-def get_test_execution_repository() -> TestExecutionRepository | None:
+def get_test_execution_repository() -> TestExecutionRepository:
     """Get the test execution repository.
 
     Returns:
-        Test execution repository or None if using in-memory storage.
+        Test execution repository instance.
+
+    Raises:
+        RuntimeError: If database is not initialized.
     """
-    return _test_execution_repo
+    return _ensure_initialized(_test_execution_repo, "Test execution repository")
 
 
-def get_persona_repository() -> PersonaRepository | None:
+def get_persona_repository() -> PersonaRepository:
     """Get the persona repository.
 
     Returns:
-        Persona repository or None if using in-memory storage.
+        Persona repository instance.
+
+    Raises:
+        RuntimeError: If database is not initialized.
     """
-    return _persona_repo
+    return _ensure_initialized(_persona_repo, "Persona repository")
 
 
-def get_agent_repository() -> AgentRepository | None:
+def get_agent_repository() -> AgentRepository:
     """Get the agent repository.
 
     Returns:
-        Agent repository or None if using in-memory storage.
+        Agent repository instance.
+
+    Raises:
+        RuntimeError: If database is not initialized.
     """
-    return _agent_repo
+    return _ensure_initialized(_agent_repo, "Agent repository")
 
 
-def get_agent_verification_service() -> AgentVerificationService | None:
+def get_user_repository() -> UserRepository:
+    """Get the user repository.
+
+    Returns:
+        User repository instance.
+
+    Raises:
+        RuntimeError: If database is not initialized.
+    """
+    return _ensure_initialized(_user_repo, "User repository")
+
+
+def get_organization_repository() -> OrganizationRepository:
+    """Get the organization repository.
+
+    Returns:
+        Organization repository instance.
+
+    Raises:
+        RuntimeError: If database is not initialized.
+    """
+    return _ensure_initialized(_organization_repo, "Organization repository")
+
+
+def get_organization_member_repository() -> OrganizationMemberRepository:
+    """Get the organization member repository.
+
+    Returns:
+        Organization member repository instance.
+
+    Raises:
+        RuntimeError: If database is not initialized.
+    """
+    return _ensure_initialized(_organization_member_repo, "Organization member repository")
+
+
+def get_organization_invite_repository() -> OrganizationInviteRepository:
+    """Get the organization invite repository.
+
+    Returns:
+        Organization invite repository instance.
+
+    Raises:
+        RuntimeError: If database is not initialized.
+    """
+    return _ensure_initialized(_organization_invite_repo, "Organization invite repository")
+
+
+def get_agent_verification_service() -> AgentVerificationService:
     """Get the agent verification service.
 
     Returns:
-        Agent verification service or None if using in-memory storage.
+        Agent verification service instance.
+
+    Raises:
+        RuntimeError: If database is not initialized.
     """
-    if _agent_verification_service is None:
-        logger.debug(
-            "get_agent_verification_service called but service is None "
-            "(PostgreSQL may not be configured)"
-        )
-    return _agent_verification_service
+    return _ensure_initialized(_agent_verification_service, "Agent verification service")
+
+
+def get_organization_service() -> OrganizationService:
+    """Get the organization service.
+
+    Returns:
+        Organization service instance.
+
+    Raises:
+        RuntimeError: If database is not initialized.
+    """
+    return _ensure_initialized(_organization_service, "Organization service")
+
+
+def get_scenario_generation_service() -> ScenarioGenerationService | None:
+    """Get the scenario generation service.
+
+    Creates a ScenarioGenerationService instance lazily using LLMServiceFactory.
+
+    Returns:
+        ScenarioGenerationService instance or None if LLM service cannot be created.
+
+    Note:
+        Returns None if LLM service creation fails (e.g., missing API keys).
+        This is acceptable since scenario generation is an optional feature.
+    """
+    global _scenario_generation_service
+
+    # Create service lazily if not already created
+    if _scenario_generation_service is None:
+        try:
+            from voiceobs.server.services.llm_factory import LLMServiceFactory
+
+            llm_service = LLMServiceFactory.create()
+            _scenario_generation_service = ScenarioGenerationService(
+                llm_service=llm_service,
+                test_suite_repo=get_test_suite_repository(),
+                test_scenario_repo=get_test_scenario_repository(),
+                persona_repo=get_persona_repository(),
+                agent_repo=get_agent_repository(),
+            )
+            logger.info("Created ScenarioGenerationService")
+        except Exception as e:
+            logger.warning(f"Failed to create ScenarioGenerationService: {e}")
+            return None
+
+    return _scenario_generation_service
 
 
 def is_using_postgres() -> bool:
-    """Check if using PostgreSQL storage.
+    """Check if PostgreSQL is initialized.
 
     Returns:
-        True if using PostgreSQL, False if using in-memory.
+        True if PostgreSQL database has been initialized, False otherwise.
+
+    Note:
+        This function is primarily used for startup checks. In normal operation,
+        PostgreSQL should always be initialized, so this should always return True.
     """
     return _use_postgres
 
@@ -529,7 +635,9 @@ def reset_dependencies() -> None:
     global _database, _span_storage
     global _conversation_repo, _turn_repo, _failure_repo, _metrics_repo
     global _test_suite_repo, _test_scenario_repo, _test_execution_repo, _persona_repo, _agent_repo
-    global _agent_verification_service, _use_postgres, _audio_storage
+    global _user_repo, _organization_repo, _organization_member_repo, _organization_invite_repo
+    global _agent_verification_service, _organization_service, _scenario_generation_service
+    global _use_postgres, _audio_storage
     _database = None
     _span_storage = None
     _conversation_repo = None
@@ -541,6 +649,12 @@ def reset_dependencies() -> None:
     _test_execution_repo = None
     _persona_repo = None
     _agent_repo = None
+    _user_repo = None
+    _organization_repo = None
+    _organization_member_repo = None
+    _organization_invite_repo = None
     _agent_verification_service = None
+    _organization_service = None
+    _scenario_generation_service = None
     _use_postgres = False
     _audio_storage = None

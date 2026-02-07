@@ -18,6 +18,7 @@ interface BackendAgent {
   id: string;
   name: string;
   goal: string;
+  context?: string;
   agent_type: string;
   phone_number: string | null;
   connection_status: ConnectionStatus;

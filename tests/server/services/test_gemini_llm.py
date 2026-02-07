@@ -1,7 +1,7 @@
 """Tests for Gemini LLM service."""
 
 import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from pydantic import BaseModel
@@ -86,7 +86,7 @@ class TestGeminiLLMService:
         mock_get_provider.return_value = mock_provider
         mock_provider.create_llm.return_value = mock_llm
         mock_llm.with_structured_output.return_value = mock_structured_llm
-        mock_structured_llm.invoke.return_value = expected_output
+        mock_structured_llm.ainvoke = AsyncMock(return_value=expected_output)
 
         service = GeminiLLMService()
         result = await service.generate_structured(
@@ -96,7 +96,7 @@ class TestGeminiLLMService:
         )
 
         assert result is expected_output
-        mock_structured_llm.invoke.assert_called_once_with("test prompt")
+        mock_structured_llm.ainvoke.assert_called_once_with("test prompt")
 
     @pytest.mark.asyncio
     @patch.dict(os.environ, {"GOOGLE_API_KEY": "test-key"})
@@ -113,7 +113,7 @@ class TestGeminiLLMService:
         mock_get_provider.return_value = mock_provider
         mock_provider.create_llm.return_value = mock_llm
         mock_llm.with_structured_output.return_value = mock_structured_llm
-        mock_structured_llm.invoke.return_value = TestOutputSchema()
+        mock_structured_llm.ainvoke = AsyncMock(return_value=TestOutputSchema())
 
         service = GeminiLLMService()
         await service.generate_structured(

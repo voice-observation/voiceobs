@@ -11,7 +11,6 @@ from fastapi.testclient import TestClient
 
 from voiceobs.server.app import create_app
 from voiceobs.server.dependencies import reset_dependencies
-from voiceobs.server.store import reset_span_store
 
 
 @pytest.fixture
@@ -20,12 +19,10 @@ def client_no_raise():
 
     This allows testing that unhandled exceptions return 500 status codes.
     """
-    reset_span_store()
     reset_dependencies()
     app = create_app()
     with TestClient(app, raise_server_exceptions=False) as client:
         yield client
-    reset_span_store()
     reset_dependencies()
 
 

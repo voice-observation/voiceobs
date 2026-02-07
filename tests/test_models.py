@@ -84,6 +84,10 @@ class TestTestSuiteRow:
             name="Test Suite 1",
             description="A test suite",
             status="running",
+            test_scopes=["core_flows", "safety_adversarial"],
+            thoroughness=2,
+            edge_cases=["hesitations", "interrupts"],
+            evaluation_strictness="strict",
             created_at=created_at,
         )
 
@@ -91,6 +95,10 @@ class TestTestSuiteRow:
         assert row.name == "Test Suite 1"
         assert row.description == "A test suite"
         assert row.status == "running"
+        assert row.test_scopes == ["core_flows", "safety_adversarial"]
+        assert row.thoroughness == 2
+        assert row.edge_cases == ["hesitations", "interrupts"]
+        assert row.evaluation_strictness == "strict"
         assert row.created_at == created_at
 
     def test_test_suite_row_defaults(self):
@@ -106,6 +114,10 @@ class TestTestSuiteRow:
         assert row.name == "Test Suite 1"
         assert row.description is None
         assert row.status == "pending"
+        assert row.test_scopes is None
+        assert row.thoroughness == 1
+        assert row.edge_cases is None
+        assert row.evaluation_strictness == "balanced"
         assert row.created_at is None
 
 

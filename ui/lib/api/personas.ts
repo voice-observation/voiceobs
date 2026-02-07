@@ -9,6 +9,7 @@ import type {
   PersonaUpdateRequest,
   PersonasListResponse,
   PersonaAudioPreviewResponse,
+  PreviewAudioStatusResponse,
 } from "../types";
 
 export class PersonasApi extends BaseApiClient {
@@ -74,10 +75,18 @@ export class PersonasApi extends BaseApiClient {
   }
 
   /**
-   * Generate and store preview audio for a persona.
+   * Start async preview audio generation for a persona.
+   * Returns immediately with status "generating".
    */
-  async generatePersonaPreviewAudio(id: string): Promise<PersonaAudioPreviewResponse> {
-    return this.post<PersonaAudioPreviewResponse>(`/api/v1/personas/${id}/preview-audio`, {});
+  async generatePersonaPreviewAudio(id: string): Promise<PreviewAudioStatusResponse> {
+    return this.post<PreviewAudioStatusResponse>(`/api/v1/personas/${id}/preview-audio`, {});
+  }
+
+  /**
+   * Get preview audio generation status for a persona.
+   */
+  async getPreviewAudioStatus(id: string): Promise<PreviewAudioStatusResponse> {
+    return this.get<PreviewAudioStatusResponse>(`/api/v1/personas/${id}/preview-audio/status`);
   }
 
   /**
@@ -96,5 +105,13 @@ export class PersonasApi extends BaseApiClient {
     return this.get<Record<string, Record<string, Record<string, unknown>>>>(
       "/api/v1/personas/tts-models"
     );
+  }
+
+  /**
+   * Set a persona as the default fallback.
+   * POST /api/v1/personas/{id}/set-default
+   */
+  async setDefault(id: string): Promise<Persona> {
+    return this.post<Persona>(`/api/v1/personas/${id}/set-default`, {});
   }
 }
