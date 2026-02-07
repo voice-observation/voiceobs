@@ -1,6 +1,7 @@
 """Tests for persona-related Pydantic models."""
 
 from datetime import datetime
+from uuid import uuid4
 
 import pytest
 from pydantic import ValidationError
@@ -15,6 +16,60 @@ from voiceobs.server.models import (
     TestScenarioCreateRequest,
     TestScenarioUpdateRequest,
 )
+
+
+def test_persona_row_preview_audio_status_fields():
+    """Test PersonaRow has preview_audio_status and preview_audio_error fields."""
+    from voiceobs.server.db.models import PersonaRow
+
+    persona = PersonaRow(
+        id=uuid4(),
+        name="Test",
+        aggression=0.5,
+        patience=0.5,
+        verbosity=0.5,
+        tts_provider="openai",
+        preview_audio_status="generating",
+        preview_audio_error="Test error",
+    )
+
+    assert persona.preview_audio_status == "generating"
+    assert persona.preview_audio_error == "Test error"
+
+
+def test_persona_response_preview_audio_status_fields():
+    """Test PersonaResponse has preview_audio_status and preview_audio_error fields."""
+    from voiceobs.server.models.response.persona import PersonaResponse
+
+    response = PersonaResponse(
+        id="123",
+        name="Test",
+        aggression=0.5,
+        patience=0.5,
+        verbosity=0.5,
+        tts_provider="openai",
+        preview_audio_status="generating",
+        preview_audio_error="Test error",
+    )
+
+    assert response.preview_audio_status == "generating"
+    assert response.preview_audio_error == "Test error"
+
+
+def test_persona_list_item_preview_audio_status_field():
+    """Test PersonaListItem has preview_audio_status field."""
+    from voiceobs.server.models.response.persona import PersonaListItem
+
+    item = PersonaListItem(
+        id="123",
+        name="Test",
+        aggression=0.5,
+        patience=0.5,
+        verbosity=0.5,
+        preview_audio_status="ready",
+    )
+
+    assert item.preview_audio_status == "ready"
 
 
 class TestPersonaResponse:
@@ -96,7 +151,7 @@ class TestPersonaCreateRequest:
             aggression=0.5,
             patience=0.7,
             verbosity=0.6,
-            traits=["polite", "helpful"],
+            traits=["polite", "cooperative"],
             tts_provider="openai",
             tts_config={"model": "tts-1", "voice": "nova"},
             metadata={"source": "test"},
@@ -108,7 +163,7 @@ class TestPersonaCreateRequest:
         assert request.aggression == 0.5
         assert request.patience == 0.7
         assert request.verbosity == 0.6
-        assert request.traits == ["polite", "helpful"]
+        assert request.traits == ["polite", "cooperative"]
         assert request.tts_provider == "openai"
         assert request.tts_config == {"model": "tts-1", "voice": "nova"}
 
@@ -283,7 +338,7 @@ class TestPersonaUpdateRequest:
             aggression=0.9,
             patience=0.1,
             verbosity=0.7,
-            traits=["updated"],
+            traits=["assertive"],
             tts_provider="elevenlabs",
             tts_config={"voice_id": "abc123"},
             metadata={"updated": True},
@@ -294,7 +349,7 @@ class TestPersonaUpdateRequest:
         assert request.aggression == 0.9
         assert request.patience == 0.1
         assert request.verbosity == 0.7
-        assert request.traits == ["updated"]
+        assert request.traits == ["assertive"]
         assert request.tts_provider == "elevenlabs"
 
     def test_persona_update_request_partial(self):

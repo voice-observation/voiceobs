@@ -8,13 +8,7 @@
         "aggression": 0.05,
         "patience": 0.85,
         "verbosity": 0.55,
-        "traits": [
-          { "key": "speaking_rate_wpm", "value": 155 },
-          { "key": "interrupt_rate", "value": 0.03 },
-          { "key": "disfluency_rate", "value": 0.02 },
-          { "key": "self_correction_rate", "value": 0.02 },
-          { "key": "emotion", "value": "warm" }
-        ],
+        "traits": ["calm", "cooperative", "polite", "patient"],
         "metadata": {
           "is_predefined": true,
           "category": "core",
@@ -33,13 +27,7 @@
         "aggression": 0.2,
         "patience": 0.45,
         "verbosity": 0.2,
-        "traits": [
-          { "key": "speaking_rate_wpm", "value": 190 },
-          { "key": "interrupt_rate", "value": 0.12 },
-          { "key": "disfluency_rate", "value": 0.02 },
-          { "key": "self_correction_rate", "value": 0.03 },
-          { "key": "emotion", "value": "neutral" }
-        ],
+        "traits": ["impatient", "terse", "rushed", "assertive"],
         "metadata": {
           "is_predefined": true,
           "category": "core",
@@ -58,13 +46,7 @@
         "aggression": 0.08,
         "patience": 0.9,
         "verbosity": 0.65,
-        "traits": [
-          { "key": "speaking_rate_wpm", "value": 135 },
-          { "key": "interrupt_rate", "value": 0.02 },
-          { "key": "disfluency_rate", "value": 0.06 },
-          { "key": "self_correction_rate", "value": 0.05 },
-          { "key": "emotion", "value": "uncertain" }
-        ],
+        "traits": ["confused", "patient", "cooperative", "verbose"],
         "metadata": {
           "is_predefined": true,
           "category": "core",
@@ -83,14 +65,7 @@
         "aggression": 0.05,
         "patience": 0.95,
         "verbosity": 0.55,
-        "traits": [
-          { "key": "speaking_rate_wpm", "value": 115 },
-          { "key": "interrupt_rate", "value": 0.01 },
-          { "key": "disfluency_rate", "value": 0.04 },
-          { "key": "self_correction_rate", "value": 0.02 },
-          { "key": "silence_tolerance_seconds", "value": 4.0 },
-          { "key": "emotion", "value": "gentle" }
-        ],
+        "traits": ["patient", "polite", "relaxed", "verbose"],
         "metadata": {
           "is_predefined": true,
           "category": "core",
@@ -109,14 +84,7 @@
         "aggression": 0.08,
         "patience": 0.85,
         "verbosity": 0.45,
-        "traits": [
-          { "key": "speaking_rate_wpm", "value": 140 },
-          { "key": "interrupt_rate", "value": 0.03 },
-          { "key": "disfluency_rate", "value": 0.05 },
-          { "key": "self_correction_rate", "value": 0.06 },
-          { "key": "emotion", "value": "neutral" },
-          { "key": "language_simplicity", "value": "high" }
-        ],
+        "traits": ["nervous", "patient", "inexperienced", "polite"],
         "metadata": {
           "is_predefined": true,
           "category": "core",
@@ -135,13 +103,7 @@
         "aggression": 0.08,
         "patience": 0.8,
         "verbosity": 0.55,
-        "traits": [
-          { "key": "speaking_rate_wpm", "value": 145 },
-          { "key": "interrupt_rate", "value": 0.03 },
-          { "key": "disfluency_rate", "value": 0.18 },
-          { "key": "self_correction_rate", "value": 0.06 },
-          { "key": "emotion", "value": "nervous" }
-        ],
+        "traits": ["nervous", "anxious", "cooperative", "indirect"],
         "metadata": {
           "is_predefined": true,
           "category": "messy",
@@ -160,13 +122,7 @@
         "aggression": 0.1,
         "patience": 0.7,
         "verbosity": 0.5,
-        "traits": [
-          { "key": "speaking_rate_wpm", "value": 165 },
-          { "key": "interrupt_rate", "value": 0.05 },
-          { "key": "disfluency_rate", "value": 0.07 },
-          { "key": "self_correction_rate", "value": 0.22 },
-          { "key": "emotion", "value": "neutral" }
-        ],
+        "traits": ["confused", "cooperative", "verbose", "casual"],
         "metadata": {
           "is_predefined": true,
           "category": "messy",
@@ -185,13 +141,7 @@
         "aggression": 0.35,
         "patience": 0.35,
         "verbosity": 0.35,
-        "traits": [
-          { "key": "speaking_rate_wpm", "value": 185 },
-          { "key": "interrupt_rate", "value": 0.35 },
-          { "key": "disfluency_rate", "value": 0.04 },
-          { "key": "self_correction_rate", "value": 0.05 },
-          { "key": "emotion", "value": "impatient" }
-        ],
+        "traits": ["impatient", "assertive", "rushed", "blunt"],
         "metadata": {
           "is_predefined": true,
           "category": "messy",
@@ -210,13 +160,7 @@
         "aggression": 0.12,
         "patience": 0.75,
         "verbosity": 0.45,
-        "traits": [
-          { "key": "speaking_rate_wpm", "value": 160 },
-          { "key": "interrupt_rate", "value": 0.05 },
-          { "key": "disfluency_rate", "value": 0.05 },
-          { "key": "self_correction_rate", "value": 0.04 },
-          { "key": "environment_noise_profile", "value": "cafe" }
-        ],
+        "traits": ["neutral", "cooperative", "casual", "patient"],
         "metadata": {
           "is_predefined": true,
           "category": "messy",
@@ -235,13 +179,7 @@
         "aggression": 0.1,
         "patience": 0.8,
         "verbosity": 0.7,
-        "traits": [
-          { "key": "speaking_rate_wpm", "value": 150 },
-          { "key": "interrupt_rate", "value": 0.02 },
-          { "key": "disfluency_rate", "value": 0.03 },
-          { "key": "self_correction_rate", "value": 0.03 },
-          { "key": "emotion", "value": "neutral" }
-        ],
+        "traits": ["verbose", "cooperative", "cheerful", "casual"],
         "metadata": {
           "is_predefined": true,
           "category": "adversarial",
@@ -260,13 +198,7 @@
         "aggression": 0.35,
         "patience": 0.6,
         "verbosity": 0.65,
-        "traits": [
-          { "key": "speaking_rate_wpm", "value": 165 },
-          { "key": "interrupt_rate", "value": 0.08 },
-          { "key": "disfluency_rate", "value": 0.02 },
-          { "key": "self_correction_rate", "value": 0.02 },
-          { "key": "emotion", "value": "assertive" }
-        ],
+        "traits": ["assertive", "demanding", "difficult", "blunt"],
         "metadata": {
           "is_predefined": true,
           "category": "adversarial",
@@ -285,13 +217,7 @@
         "aggression": 0.85,
         "patience": 0.2,
         "verbosity": 0.55,
-        "traits": [
-          { "key": "speaking_rate_wpm", "value": 175 },
-          { "key": "interrupt_rate", "value": 0.25 },
-          { "key": "disfluency_rate", "value": 0.04 },
-          { "key": "self_correction_rate", "value": 0.03 },
-          { "key": "emotion", "value": "angry" }
-        ],
+        "traits": ["angry", "demanding", "impatient", "blunt"],
         "metadata": {
           "is_predefined": true,
           "category": "adversarial",

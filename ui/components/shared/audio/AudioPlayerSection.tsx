@@ -13,14 +13,14 @@ import {
   RotateCcw,
   RotateCw,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/primitives/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@/components/primitives/select";
 import { cn } from "@/lib/utils";
 import { formatTime, type PlaybackSpeed, PLAYBACK_SPEEDS } from "@/lib/audio";
 

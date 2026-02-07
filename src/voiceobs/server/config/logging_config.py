@@ -3,18 +3,34 @@
 import logging
 import os
 
+import colorlog
+
 
 def configure_logging() -> None:
-    """Configure logging for voiceobs modules."""
+    """Configure logging for voiceobs modules with colored output."""
     log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+    level = getattr(logging, log_level, logging.INFO)
 
-    # Configure root logger format
-    logging.basicConfig(
-        level=getattr(logging, log_level, logging.INFO),
-        format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
+    # Create colored handler
+    handler = colorlog.StreamHandler()
+    handler.setFormatter(
+        colorlog.ColoredFormatter(
+            "%(log_color)s%(asctime)s [%(name)s] %(levelname)s%(reset)s:  %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+            log_colors={
+                "DEBUG": "cyan",
+                "INFO": "green",
+                "WARNING": "yellow",
+                "ERROR": "red",
+                "CRITICAL": "red,bg_white",
+            },
+        )
     )
 
+    # Configure root logger with our handler
+    root_logger = logging.getLogger()
+    root_logger.handlers = [handler]
+    root_logger.setLevel(level)
+
     # Ensure voiceobs modules log at the configured level
-    voiceobs_logger = logging.getLogger("voiceobs")
-    voiceobs_logger.setLevel(getattr(logging, log_level, logging.INFO))
+    logging.getLogger("voiceobs").setLevel(level)

@@ -684,3 +684,89 @@ class TestPersonaRepository:
         assert count == 3
         sql = mock_db.fetchval.call_args[0][0]
         assert "WHERE is_active = $1" in sql
+
+    @pytest.mark.asyncio
+    async def test_create_persona_with_preview_audio_status(self, mock_db):
+        """Test creating a persona with preview_audio_status."""
+        repo = PersonaRepository(mock_db)
+        persona_id = uuid4()
+
+        mock_db.fetchrow.return_value = MockRecord(
+            {
+                "id": persona_id,
+                "name": "Test Persona",
+                "description": None,
+                "aggression": 0.5,
+                "patience": 0.5,
+                "verbosity": 0.5,
+                "traits": [],
+                "tts_provider": "openai",
+                "tts_config": {},
+                "preview_audio_url": None,
+                "preview_audio_text": None,
+                "preview_audio_status": "generating",
+                "preview_audio_error": None,
+                "metadata": {},
+                "created_at": None,
+                "updated_at": None,
+                "created_by": None,
+                "is_active": True,
+                "is_default": False,
+            }
+        )
+
+        persona = await repo.create(
+            name="Test Persona",
+            aggression=0.5,
+            patience=0.5,
+            verbosity=0.5,
+            tts_provider="openai",
+            preview_audio_status="generating",
+        )
+
+        assert persona.preview_audio_status == "generating"
+        assert persona.preview_audio_error is None
+
+    @pytest.mark.asyncio
+    async def test_update_persona_with_preview_audio_status(self, mock_db):
+        """Test updating a persona's preview_audio_status and preview_audio_error."""
+        repo = PersonaRepository(mock_db)
+        persona_id = uuid4()
+
+        mock_db.fetchrow.return_value = MockRecord(
+            {
+                "id": persona_id,
+                "name": "Test Persona",
+                "description": None,
+                "aggression": 0.5,
+                "patience": 0.5,
+                "verbosity": 0.5,
+                "traits": [],
+                "tts_provider": "openai",
+                "tts_config": {},
+                "preview_audio_url": None,
+                "preview_audio_text": None,
+                "preview_audio_status": "failed",
+                "preview_audio_error": "TTS service unavailable",
+                "metadata": {},
+                "created_at": None,
+                "updated_at": None,
+                "created_by": None,
+                "is_active": True,
+                "is_default": False,
+            }
+        )
+
+        result = await repo.update(
+            persona_id,
+            preview_audio_status="failed",
+            preview_audio_error="TTS service unavailable",
+        )
+
+        assert result is not None
+        assert result.preview_audio_status == "failed"
+        assert result.preview_audio_error == "TTS service unavailable"
+        mock_db.execute.assert_called_once()
+        update_query = mock_db.execute.call_args[0][0]
+        assert "preview_audio_status" in update_query
+        assert "preview_audio_error" in update_query

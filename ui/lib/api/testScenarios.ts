@@ -1,8 +1,8 @@
 /**
- * Test Scenarios API client (mock data implementation).
+ * Test Scenarios API client - integrates with backend /api/v1/tests/scenarios endpoints.
  */
 
-import { BaseApiClient, simulateDelay } from "./base";
+import { BaseApiClient } from "./base";
 import type {
   TestScenario,
   TestScenarioCreateRequest,
@@ -10,95 +10,74 @@ import type {
   TestScenariosListResponse,
   TestScenarioFilters,
 } from "../types";
-import { mockTestScenarios, mockTestSuites } from "../mockData";
 
-// In-memory storage for test scenarios
-const inMemoryStore = {
-  testScenarios: [...mockTestScenarios],
-  testSuites: [...mockTestSuites],
-};
+const API_BASE = "/api/v1/tests/scenarios";
 
 export class TestScenariosApi extends BaseApiClient {
   /**
-   * List all test scenarios with optional filtering.
+   * List all test scenarios with optional filtering and pagination.
+   * GET /api/v1/tests/scenarios?suite_id={suite_id}&status={status}&limit={limit}&offset={offset}
    */
   async listTestScenarios(filters?: TestScenarioFilters): Promise<TestScenariosListResponse> {
-    await simulateDelay();
-    let scenarios = inMemoryStore.testScenarios;
+    const params = new URLSearchParams();
     if (filters?.suite_id) {
-      scenarios = scenarios.filter((s) => s.suite_id === filters.suite_id);
+      params.append("suite_id", filters.suite_id);
     }
-    return {
-      count: scenarios.length,
-      scenarios,
-    };
+    if (filters?.persona_id) {
+      params.append("persona_id", filters.persona_id);
+    }
+    if (filters?.status) {
+      params.append("status", filters.status);
+    }
+    if (filters?.intent) {
+      params.append("intent", filters.intent);
+    }
+    if (filters?.tag) {
+      params.append("tag", filters.tag);
+    }
+    if (filters?.search) {
+      params.append("search", filters.search);
+    }
+    if (filters?.limit !== undefined) {
+      params.append("limit", String(filters.limit));
+    }
+    if (filters?.offset !== undefined) {
+      params.append("offset", String(filters.offset));
+    }
+    const queryString = params.toString();
+    const url = queryString ? `${API_BASE}?${queryString}` : API_BASE;
+    return this.get<TestScenariosListResponse>(url);
   }
 
   /**
    * Get a test scenario by ID.
+   * GET /api/v1/tests/scenarios/{scenario_id}
    */
   async getTestScenario(id: string): Promise<TestScenario> {
-    await simulateDelay();
-    const scenario = inMemoryStore.testScenarios.find((s) => s.id === id);
-    if (!scenario) {
-      throw new Error(`Test scenario '${id}' not found`);
-    }
-    return scenario;
+    return this.get<TestScenario>(`${API_BASE}/${id}`);
   }
 
   /**
    * Create a new test scenario.
+   * POST /api/v1/tests/scenarios
    */
   async createTestScenario(data: TestScenarioCreateRequest): Promise<TestScenario> {
-    await simulateDelay(500);
-    // Verify suite exists
-    const suite = inMemoryStore.testSuites.find((s) => s.id === data.suite_id);
-    if (!suite) {
-      throw new Error(`Test suite '${data.suite_id}' not found`);
-    }
-    const newScenario: TestScenario = {
-      id: `scenario-${Date.now()}`,
-      suite_id: data.suite_id,
-      name: data.name,
-      goal: data.goal,
-      persona_json: data.persona_json || {},
-      max_turns: data.max_turns || null,
-      timeout: data.timeout || null,
-    };
-    inMemoryStore.testScenarios.push(newScenario);
-    return newScenario;
+    return this.post<TestScenario>(API_BASE, data);
   }
 
   /**
    * Update a test scenario.
+   * PUT /api/v1/tests/scenarios/{scenario_id}
    */
   async updateTestScenario(id: string, data: TestScenarioUpdateRequest): Promise<TestScenario> {
-    await simulateDelay(400);
-    const index = inMemoryStore.testScenarios.findIndex((s) => s.id === id);
-    if (index === -1) {
-      throw new Error(`Test scenario '${id}' not found`);
-    }
-    const scenario = inMemoryStore.testScenarios[index];
-    inMemoryStore.testScenarios[index] = {
-      ...scenario,
-      ...(data.name !== undefined && data.name !== null && { name: data.name }),
-      ...(data.goal !== undefined && data.goal !== null && { goal: data.goal }),
-      ...(data.persona_json !== undefined && { persona_json: data.persona_json || {} }),
-      ...(data.max_turns !== undefined && { max_turns: data.max_turns }),
-      ...(data.timeout !== undefined && { timeout: data.timeout }),
-    };
-    return inMemoryStore.testScenarios[index];
+    return this.put<TestScenario>(`${API_BASE}/${id}`, data);
   }
 
   /**
    * Delete a test scenario.
+   * DELETE /api/v1/tests/scenarios/{scenario_id}
    */
   async deleteTestScenario(id: string): Promise<void> {
-    await simulateDelay(300);
-    const index = inMemoryStore.testScenarios.findIndex((s) => s.id === id);
-    if (index === -1) {
-      throw new Error(`Test scenario '${id}' not found`);
-    }
-    inMemoryStore.testScenarios.splice(index, 1);
+    return this.delete(`${API_BASE}/${id}`);
   }
 }

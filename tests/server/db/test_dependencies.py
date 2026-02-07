@@ -6,7 +6,6 @@ from uuid import uuid4
 import pytest
 
 from voiceobs.server.dependencies import (
-    InMemorySpanStoreAdapter,
     PostgresSpanStoreAdapter,
     get_conversation_repository,
     get_failure_repository,
@@ -18,97 +17,6 @@ from voiceobs.server.dependencies import (
     reset_dependencies,
     shutdown_database,
 )
-from voiceobs.server.store import SpanStore
-
-
-class TestInMemorySpanStoreAdapter:
-    """Tests for the InMemorySpanStoreAdapter class."""
-
-    @pytest.fixture
-    def mock_store(self):
-        """Create a mock SpanStore."""
-        store = MagicMock(spec=SpanStore)
-        return store
-
-    @pytest.mark.asyncio
-    async def test_add_span(self, mock_store):
-        """Test add_span delegates to store."""
-        adapter = InMemorySpanStoreAdapter(mock_store)
-        mock_store.add_span.return_value = uuid4()
-
-        result = await adapter.add_span(
-            name="test.span",
-            duration_ms=100.0,
-            attributes={"key": "value"},
-        )
-
-        mock_store.add_span.assert_called_once_with(
-            name="test.span",
-            start_time=None,
-            end_time=None,
-            duration_ms=100.0,
-            attributes={"key": "value"},
-            trace_id=None,
-            span_id=None,
-            parent_span_id=None,
-        )
-        assert result is not None
-
-    @pytest.mark.asyncio
-    async def test_get_span(self, mock_store):
-        """Test get_span delegates to store."""
-        adapter = InMemorySpanStoreAdapter(mock_store)
-        span_id = uuid4()
-        mock_store.get_span.return_value = {"id": span_id}
-
-        result = await adapter.get_span(span_id)
-
-        mock_store.get_span.assert_called_once_with(span_id)
-        assert result == {"id": span_id}
-
-    @pytest.mark.asyncio
-    async def test_get_all_spans(self, mock_store):
-        """Test get_all_spans delegates to store."""
-        adapter = InMemorySpanStoreAdapter(mock_store)
-        mock_store.get_all_spans.return_value = [{"id": uuid4()}]
-
-        result = await adapter.get_all_spans()
-
-        mock_store.get_all_spans.assert_called_once()
-        assert len(result) == 1
-
-    @pytest.mark.asyncio
-    async def test_get_spans_as_dicts(self, mock_store):
-        """Test get_spans_as_dicts delegates to store."""
-        adapter = InMemorySpanStoreAdapter(mock_store)
-        mock_store.get_spans_as_dicts.return_value = [{"name": "test"}]
-
-        result = await adapter.get_spans_as_dicts()
-
-        mock_store.get_spans_as_dicts.assert_called_once()
-        assert len(result) == 1
-
-    @pytest.mark.asyncio
-    async def test_clear(self, mock_store):
-        """Test clear delegates to store."""
-        adapter = InMemorySpanStoreAdapter(mock_store)
-        mock_store.clear.return_value = 5
-
-        result = await adapter.clear()
-
-        mock_store.clear.assert_called_once()
-        assert result == 5
-
-    @pytest.mark.asyncio
-    async def test_count(self, mock_store):
-        """Test count delegates to store."""
-        adapter = InMemorySpanStoreAdapter(mock_store)
-        mock_store.count.return_value = 10
-
-        result = await adapter.count()
-
-        mock_store.count.assert_called_once()
-        assert result == 10
 
 
 class TestPostgresSpanStoreAdapter:
@@ -247,15 +155,12 @@ class TestDependencyFunctions:
 
     @pytest.mark.asyncio
     async def test_init_database_without_url(self):
-        """Test init_database uses in-memory when no URL configured."""
+        """Test init_database raises RuntimeError when no URL configured."""
         # Ensure no URL is set
         with patch.dict("os.environ", {}, clear=True):
             with patch("voiceobs.server.dependencies._get_database_url", return_value=None):
-                await init_database()
-
-        assert not is_using_postgres()
-        storage = get_storage()
-        assert isinstance(storage, InMemorySpanStoreAdapter)
+                with pytest.raises(RuntimeError, match="PostgreSQL database is required"):
+                    await init_database()
 
     @pytest.mark.asyncio
     async def test_init_database_with_url(self):
@@ -318,42 +223,44 @@ class TestDependencyFunctions:
         assert not is_using_postgres()
         mock_db.disconnect.assert_called_once()
 
-    def test_get_storage_fallback(self):
-        """Test get_storage falls back to in-memory when not initialized."""
+    def test_get_storage_raises_when_not_initialized(self):
+        """Test get_storage raises RuntimeError when not initialized."""
         reset_dependencies()
-        storage = get_storage()
-        assert isinstance(storage, InMemorySpanStoreAdapter)
+        with pytest.raises(RuntimeError, match="Database not initialized"):
+            get_storage()
 
-    def test_get_conversation_repository_none_for_in_memory(self):
-        """Test get_conversation_repository returns None for in-memory."""
+    def test_get_conversation_repository_raises_when_not_initialized(self):
+        """Test get_conversation_repository raises RuntimeError when not initialized."""
         reset_dependencies()
-        repo = get_conversation_repository()
-        assert repo is None
+        with pytest.raises(RuntimeError, match="Database not initialized"):
+            get_conversation_repository()
 
-    def test_get_turn_repository_none_for_in_memory(self):
-        """Test get_turn_repository returns None for in-memory."""
+    def test_get_turn_repository_raises_when_not_initialized(self):
+        """Test get_turn_repository raises RuntimeError when not initialized."""
         reset_dependencies()
-        repo = get_turn_repository()
-        assert repo is None
+        with pytest.raises(RuntimeError, match="Database not initialized"):
+            get_turn_repository()
 
-    def test_get_failure_repository_none_for_in_memory(self):
-        """Test get_failure_repository returns None for in-memory."""
+    def test_get_failure_repository_raises_when_not_initialized(self):
+        """Test get_failure_repository raises RuntimeError when not initialized."""
         reset_dependencies()
-        repo = get_failure_repository()
-        assert repo is None
+        with pytest.raises(RuntimeError, match="Database not initialized"):
+            get_failure_repository()
 
-    def test_get_persona_repository_none_for_in_memory(self):
-        """Test get_persona_repository returns None for in-memory."""
+    def test_get_persona_repository_raises_when_not_initialized(self):
+        """Test get_persona_repository raises RuntimeError when not initialized."""
         reset_dependencies()
-        repo = get_persona_repository()
-        assert repo is None
+        with pytest.raises(RuntimeError, match="Database not initialized"):
+            get_persona_repository()
 
     def test_reset_dependencies(self):
         """Test reset_dependencies clears all state."""
         reset_dependencies()
         assert not is_using_postgres()
-        assert get_conversation_repository() is None
-        assert get_persona_repository() is None
+        with pytest.raises(RuntimeError, match="Database not initialized"):
+            get_conversation_repository()
+        with pytest.raises(RuntimeError, match="Database not initialized"):
+            get_persona_repository()
 
 
 class TestGetDatabaseUrl:

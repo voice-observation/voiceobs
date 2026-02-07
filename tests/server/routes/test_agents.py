@@ -10,48 +10,10 @@ from voiceobs.server.db.models import AgentRow
 class TestAgents:
     """Tests for agent CRUD endpoints."""
 
-    @patch("voiceobs.server.routes.agents.is_using_postgres", return_value=False)
-    def test_create_agent_postgres_required(self, mock_is_postgres, client):
-        """Test creating an agent without PostgreSQL configured."""
-        response = client.post(
-            "/api/v1/agents",
-            json={
-                "name": "Test Agent",
-                "agent_type": "phone",
-                "phone_number": "+1234567890",
-                "goal": "Test goal",
-                "supported_intents": ["intent1"],
-            },
-        )
-
-        assert response.status_code == 501
-        data = response.json()
-        assert "PostgreSQL database" in data["detail"]
-
-    @patch("voiceobs.server.routes.agents.is_using_postgres", return_value=True)
-    @patch("voiceobs.server.routes.agents.get_agent_repository", return_value=None)
-    def test_create_agent_repository_unavailable(self, mock_get_repo, mock_is_postgres, client):
-        """Test creating an agent when repository is unavailable."""
-        response = client.post(
-            "/api/v1/agents",
-            json={
-                "name": "Test Agent",
-                "agent_type": "phone",
-                "phone_number": "+1234567890",
-                "goal": "Test goal",
-                "supported_intents": ["intent1"],
-            },
-        )
-
-        assert response.status_code == 500
-        data = response.json()
-        assert "not available" in data["detail"]
-
     @patch("voiceobs.server.routes.agents.get_agent_verification_service")
-    @patch("voiceobs.server.routes.agents.is_using_postgres", return_value=True)
-    @patch("voiceobs.server.routes.agents.get_agent_repo")
+    @patch("voiceobs.server.routes.agents.get_agent_repository")
     def test_create_phone_agent_success(
-        self, mock_get_agent_repo, mock_is_postgres, mock_get_verification_service, client
+        self, mock_get_agent_repo, mock_get_verification_service, client
     ):
         """Test successful phone agent creation."""
         agent_id = uuid4()
@@ -116,10 +78,9 @@ class TestAgents:
         assert call_kwargs["goal"] == "Help customers with inquiries"
 
     @patch("voiceobs.server.routes.agents.get_agent_verification_service")
-    @patch("voiceobs.server.routes.agents.is_using_postgres", return_value=True)
-    @patch("voiceobs.server.routes.agents.get_agent_repo")
+    @patch("voiceobs.server.routes.agents.get_agent_repository")
     def test_create_web_agent_success(
-        self, mock_get_agent_repo, mock_is_postgres, mock_get_verification_service, client
+        self, mock_get_agent_repo, mock_get_verification_service, client
     ):
         """Test successful web agent creation."""
         agent_id = uuid4()
@@ -172,10 +133,9 @@ class TestAgents:
         assert data["goal"] == "Handle web inquiries"
 
     @patch("voiceobs.server.routes.agents.get_agent_verification_service")
-    @patch("voiceobs.server.routes.agents.is_using_postgres", return_value=True)
-    @patch("voiceobs.server.routes.agents.get_agent_repo")
+    @patch("voiceobs.server.routes.agents.get_agent_repository")
     def test_create_agent_validation_error(
-        self, mock_get_agent_repo, mock_is_postgres, mock_get_verification_service, client
+        self, mock_get_agent_repo, mock_get_verification_service, client
     ):
         """Test agent creation with repository validation error."""
         mock_repo = AsyncMock()
@@ -198,7 +158,7 @@ class TestAgents:
         data = response.json()
         assert "Invalid phone number format" in data["detail"]
 
-    @patch("voiceobs.server.routes.agents.get_agent_repo")
+    @patch("voiceobs.server.routes.agents.get_agent_repository")
     def test_list_agents_success(self, mock_get_agent_repo, client):
         """Test listing agents."""
         agent1_id = uuid4()
@@ -257,7 +217,7 @@ class TestAgents:
         assert data["agents"][1]["name"] == "Web Agent"
         assert data["agents"][1]["web_url"] == "https://api.example.com"
 
-    @patch("voiceobs.server.routes.agents.get_agent_repo")
+    @patch("voiceobs.server.routes.agents.get_agent_repository")
     def test_list_agents_with_filters(self, mock_get_agent_repo, client):
         """Test listing agents with query filters."""
         mock_repo = AsyncMock()
@@ -272,7 +232,7 @@ class TestAgents:
             connection_status="verified", is_active=True, limit=10, offset=5
         )
 
-    @patch("voiceobs.server.routes.agents.get_agent_repo")
+    @patch("voiceobs.server.routes.agents.get_agent_repository")
     def test_get_agent_success(self, mock_get_agent_repo, client):
         """Test getting a single agent by ID."""
         agent_id = uuid4()
@@ -311,7 +271,7 @@ class TestAgents:
         assert data["phone_number"] == "+1234567890"
         assert data["supported_intents"] == ["intent1", "intent2"]
 
-    @patch("voiceobs.server.routes.agents.get_agent_repo")
+    @patch("voiceobs.server.routes.agents.get_agent_repository")
     def test_get_agent_not_found(self, mock_get_agent_repo, client):
         """Test getting a non-existent agent."""
         agent_id = uuid4()
@@ -326,7 +286,7 @@ class TestAgents:
         data = response.json()
         assert "not found" in data["detail"].lower()
 
-    @patch("voiceobs.server.routes.agents.get_agent_repo")
+    @patch("voiceobs.server.routes.agents.get_agent_repository")
     def test_get_agent_invalid_uuid(self, mock_get_agent_repo, client):
         """Test getting an agent with invalid UUID."""
         response = client.get("/api/v1/agents/invalid-uuid")
@@ -335,7 +295,7 @@ class TestAgents:
         data = response.json()
         assert "invalid" in data["detail"].lower()
 
-    @patch("voiceobs.server.routes.agents.get_agent_repo")
+    @patch("voiceobs.server.routes.agents.get_agent_repository")
     def test_update_agent_success(self, mock_get_agent_repo, client):
         """Test updating an agent."""
         agent_id = uuid4()
@@ -404,10 +364,9 @@ class TestAgents:
         assert data["metadata"]["updated"] is True
 
     @patch("voiceobs.server.routes.agents.get_agent_verification_service")
-    @patch("voiceobs.server.routes.agents.is_using_postgres", return_value=True)
-    @patch("voiceobs.server.routes.agents.get_agent_repo")
+    @patch("voiceobs.server.routes.agents.get_agent_repository")
     def test_update_agent_phone_number(
-        self, mock_get_agent_repo, mock_is_postgres, mock_get_verification_service, client
+        self, mock_get_agent_repo, mock_get_verification_service, client
     ):
         """Test updating agent phone number."""
         agent_id = uuid4()
@@ -474,7 +433,7 @@ class TestAgents:
         call_kwargs = mock_repo.update.call_args[1]
         assert call_kwargs["contact_info"]["phone_number"] == "+9876543210"
 
-    @patch("voiceobs.server.routes.agents.get_agent_repo")
+    @patch("voiceobs.server.routes.agents.get_agent_repository")
     def test_update_agent_not_found(self, mock_get_agent_repo, client):
         """Test updating a non-existent agent."""
         agent_id = uuid4()
@@ -492,9 +451,8 @@ class TestAgents:
         data = response.json()
         assert "not found" in data["detail"].lower()
 
-    @patch("voiceobs.server.routes.agents.is_using_postgres", return_value=True)
-    @patch("voiceobs.server.routes.agents.get_agent_repo")
-    def test_update_agent_validation_error(self, mock_get_agent_repo, mock_is_postgres, client):
+    @patch("voiceobs.server.routes.agents.get_agent_repository")
+    def test_update_agent_validation_error(self, mock_get_agent_repo, client):
         """Test updating agent with validation error from repository."""
         agent_id = uuid4()
         now = datetime.now(timezone.utc)
@@ -534,7 +492,7 @@ class TestAgents:
         data = response.json()
         assert "phone_number is required" in data["detail"]
 
-    @patch("voiceobs.server.routes.agents.get_agent_repo")
+    @patch("voiceobs.server.routes.agents.get_agent_repository")
     def test_delete_agent(self, mock_get_agent_repo, client):
         """Test deleting an agent."""
         agent_id = uuid4()
@@ -548,7 +506,7 @@ class TestAgents:
         assert response.status_code == 204
         mock_repo.delete.assert_called_once_with(agent_id)
 
-    @patch("voiceobs.server.routes.agents.get_agent_repo")
+    @patch("voiceobs.server.routes.agents.get_agent_repository")
     def test_delete_agent_not_found(self, mock_get_agent_repo, client):
         """Test deleting a non-existent agent."""
         agent_id = uuid4()
@@ -564,11 +522,8 @@ class TestAgents:
         assert "not found" in data["detail"].lower()
 
     @patch("voiceobs.server.routes.agents.get_agent_verification_service")
-    @patch("voiceobs.server.routes.agents.is_using_postgres", return_value=True)
-    @patch("voiceobs.server.routes.agents.get_agent_repo")
-    def test_verify_agent_success(
-        self, mock_get_agent_repo, mock_is_postgres, mock_get_verification_service, client
-    ):
+    @patch("voiceobs.server.routes.agents.get_agent_repository")
+    def test_verify_agent_success(self, mock_get_agent_repo, mock_get_verification_service, client):
         """Test verifying an agent."""
         agent_id = uuid4()
         now = datetime.now(timezone.utc)
@@ -610,7 +565,7 @@ class TestAgents:
         assert data["id"] == str(agent_id)
         assert data["connection_status"] == "saved"
 
-    @patch("voiceobs.server.routes.agents.get_agent_repo")
+    @patch("voiceobs.server.routes.agents.get_agent_repository")
     def test_verify_agent_already_verified(self, mock_get_agent_repo, client):
         """Test verifying an already verified agent without force."""
         agent_id = uuid4()
@@ -650,11 +605,8 @@ class TestAgents:
         assert data["connection_status"] == "verified"
 
     @patch("voiceobs.server.routes.agents.get_agent_verification_service")
-    @patch("voiceobs.server.routes.agents.is_using_postgres", return_value=True)
-    @patch("voiceobs.server.routes.agents.get_agent_repo")
-    def test_verify_agent_force(
-        self, mock_get_agent_repo, mock_is_postgres, mock_get_verification_service, client
-    ):
+    @patch("voiceobs.server.routes.agents.get_agent_repository")
+    def test_verify_agent_force(self, mock_get_agent_repo, mock_get_verification_service, client):
         """Test force verifying an agent."""
         agent_id = uuid4()
         now = datetime.now(timezone.utc)
@@ -695,7 +647,7 @@ class TestAgents:
         data = response.json()
         assert data["id"] == str(agent_id)
 
-    @patch("voiceobs.server.routes.agents.get_agent_repo")
+    @patch("voiceobs.server.routes.agents.get_agent_repository")
     def test_verify_agent_not_found(self, mock_get_agent_repo, client):
         """Test verifying a non-existent agent."""
         agent_id = uuid4()
@@ -713,7 +665,7 @@ class TestAgents:
         data = response.json()
         assert "not found" in data["detail"].lower()
 
-    @patch("voiceobs.server.routes.agents.get_agent_repo")
+    @patch("voiceobs.server.routes.agents.get_agent_repository")
     def test_list_agents_empty(self, mock_get_agent_repo, client):
         """Test listing agents when no agents exist."""
         mock_repo = AsyncMock()
@@ -727,7 +679,7 @@ class TestAgents:
         assert data["count"] == 0
         assert data["agents"] == []
 
-    @patch("voiceobs.server.routes.agents.get_agent_repo")
+    @patch("voiceobs.server.routes.agents.get_agent_repository")
     def test_get_verification_status_success(self, mock_get_agent_repo, client):
         """Test getting verification status for a valid agent."""
         agent_id = uuid4()
@@ -772,7 +724,7 @@ class TestAgents:
         assert data["transcript"][0]["role"] == "assistant"
         assert data["error"] is None
 
-    @patch("voiceobs.server.routes.agents.get_agent_repo")
+    @patch("voiceobs.server.routes.agents.get_agent_repository")
     def test_get_verification_status_not_found(self, mock_get_agent_repo, client):
         """Test getting verification status for a non-existent agent."""
         agent_id = uuid4()

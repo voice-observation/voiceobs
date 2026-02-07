@@ -22,6 +22,7 @@ class AgentResponse(BaseModel):
     web_url: str | None = Field(None, description="Web URL from contact_info (for web agents)")
     goal: str = Field(..., description="Agent goal")
     supported_intents: list[str] = Field(..., description="Supported intents")
+    context: str | None = Field(None, description="Domain-specific agent context")
     connection_status: str = Field(..., description="Connection status")
     verification_attempts: int = Field(..., description="Number of verification attempts")
     last_verification_at: datetime | None = Field(None, description="Last verification timestamp")

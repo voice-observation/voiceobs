@@ -251,13 +251,9 @@ class TestServerPersistenceIntegration:
         """Test that ingest endpoint writes to PostgreSQL when configured."""
         # This tests that the dependencies module properly initializes
         # PostgreSQL storage when database URL is configured
-        from voiceobs.server.dependencies import (
-            InMemorySpanStoreAdapter,
-            PostgresSpanStoreAdapter,
-        )
+        from voiceobs.server.dependencies import PostgresSpanStoreAdapter
 
-        # Verify adapter classes exist and have correct interfaces
-        assert hasattr(InMemorySpanStoreAdapter, "add_span")
+        # Verify adapter class exists and has correct interfaces
         assert hasattr(PostgresSpanStoreAdapter, "add_span")
         assert hasattr(PostgresSpanStoreAdapter, "get_spans_as_dicts")
 

@@ -23,8 +23,11 @@ class PersonaRow:
     tts_config: dict[str, Any] = field(default_factory=dict)
     preview_audio_url: str | None = None
     preview_audio_text: str | None = None
+    preview_audio_status: str | None = None
+    preview_audio_error: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     created_at: datetime | None = None
     updated_at: datetime | None = None
     created_by: str | None = None
     is_active: bool = True
+    is_default: bool = False

@@ -1,6 +1,6 @@
 "use client";
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/primitives/dialog";
 import { AgentConfigForm } from "@/components/agents/AgentConfigForm";
 import { useAgentActions } from "@/hooks/useAgentActions";
 import type { Agent, AgentCreateRequest, AgentUpdateRequest } from "@/lib/types";

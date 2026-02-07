@@ -1,42 +1,174 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Play, Volume2 } from "lucide-react";
+import { Card, CardContent } from "@/components/primitives/card";
+import { Button } from "@/components/primitives/button";
+import { Switch } from "@/components/primitives/switch";
+import { Badge } from "@/components/primitives/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/primitives/dropdown-menu";
+import {
+  MoreHorizontal,
+  Play,
+  Star,
+  Volume2,
+  Loader2,
+  RefreshCw,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import type { PersonaListItem } from "@/lib/types";
+import { api } from "@/lib/api";
 
 interface PersonaCardProps {
   persona: PersonaListItem;
   onToggleEnabled: (id: string, enabled: boolean) => void;
   onListenVoice: (id: string) => void;
+  onSetDefault: (id: string) => void;
+  onDelete: (persona: PersonaListItem) => void;
 }
 
-export function PersonaCard({ persona, onToggleEnabled, onListenVoice }: PersonaCardProps) {
-  const [isPlaying, setIsPlaying] = useState(false);
+const POLL_INTERVAL_MS = 2000;
+const POLL_TIMEOUT_MS = 60000;
 
-  const handleListen = async () => {
-    if (isPlaying) {
-      // If already playing, stop it
+export function PersonaCard({
+  persona,
+  onToggleEnabled,
+  onListenVoice,
+  onSetDefault,
+  onDelete,
+}: PersonaCardProps) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [previewStatus, setPreviewStatus] = useState<"generating" | "ready" | "failed" | null>(
+    persona.preview_audio_status
+  );
+  const [audioUrl, setAudioUrl] = useState<string | null>(persona.preview_audio_url);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    };
+  }, []);
+
+  const playAudio = (url: string) => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    const audio = new Audio(url);
+    audioRef.current = audio;
+    audio.onended = () => setIsPlaying(false);
+    audio.onerror = () => setIsPlaying(false);
+    audio.play().catch(() => setIsPlaying(false));
+    setIsPlaying(true);
+  };
+
+  const handleTryVoice = async () => {
+    // If playing, stop
+    if (isPlaying && audioRef.current) {
+      audioRef.current.pause();
       setIsPlaying(false);
       return;
     }
 
-    setIsPlaying(true);
+    // If ready, play immediately
+    if (previewStatus === "ready" && audioUrl) {
+      playAudio(audioUrl);
+      return;
+    }
+
+    // Start generation
     try {
-      await onListenVoice(persona.id);
-      // Reset playing state after a reasonable delay
-      // In a production app, you'd listen to audio events
-      setTimeout(() => setIsPlaying(false), 10000);
-    } catch (err) {
-      console.error("Failed to play audio:", err);
-      setIsPlaying(false);
+      await api.personas.generatePersonaPreviewAudio(persona.id);
+      setPreviewStatus("generating");
+
+      // Start polling
+      const startTime = Date.now();
+      pollIntervalRef.current = setInterval(async () => {
+        // Check timeout
+        if (Date.now() - startTime > POLL_TIMEOUT_MS) {
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
+          }
+          setPreviewStatus("failed");
+          return;
+        }
+
+        try {
+          const result = await api.personas.getPreviewAudioStatus(persona.id);
+          setPreviewStatus(result.status);
+
+          if (result.status === "ready" && result.audio_url) {
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = null;
+            }
+            setAudioUrl(result.audio_url);
+            playAudio(result.audio_url);
+          } else if (result.status === "failed") {
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = null;
+            }
+          }
+        } catch {
+          // Continue polling on error
+        }
+      }, POLL_INTERVAL_MS);
+    } catch {
+      setPreviewStatus("failed");
     }
   };
 
-  const hasPreviewAudio = !!persona.preview_audio_url;
+  const getButtonContent = () => {
+    if (isPlaying) {
+      return (
+        <>
+          <Volume2 className="mr-1.5 h-4 w-4 animate-pulse" />
+          Playing...
+        </>
+      );
+    }
+
+    switch (previewStatus) {
+      case "generating":
+        return (
+          <>
+            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+            Generating...
+          </>
+        );
+      case "failed":
+        return (
+          <>
+            <RefreshCw className="mr-1.5 h-4 w-4" />
+            Retry
+          </>
+        );
+      default:
+        return (
+          <>
+            <Play className="mr-1.5 h-4 w-4" />
+            Try Voice
+          </>
+        );
+    }
+  };
+
+  const isButtonDisabled = previewStatus === "generating";
 
   return (
     <Link href={`/personas/${persona.id}`} className="block">
@@ -44,14 +176,72 @@ export function PersonaCard({ persona, onToggleEnabled, onListenVoice }: Persona
         <CardContent className="p-5">
           <div className="mb-3 flex items-start justify-between">
             <div className="flex-1 pr-4">
-              <h3 className="mb-1 text-base font-semibold transition-colors hover:text-primary">
-                {persona.name}
-              </h3>
+              <div className="mb-1 flex items-center gap-2">
+                <h3 className="text-base font-semibold transition-colors hover:text-primary">
+                  {persona.name}
+                </h3>
+                {persona.is_default && (
+                  <Badge variant="secondary" className="flex items-center gap-1">
+                    <Star className="h-3 w-3" />
+                    Default
+                  </Badge>
+                )}
+              </div>
               <p className="line-clamp-2 text-sm text-muted-foreground">
                 {persona.description || ""}
               </p>
             </div>
-            <div onClick={(e) => e.preventDefault()}>
+            <div className="flex items-center gap-2" onClick={(e) => e.preventDefault()}>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                    <span className="sr-only">Open menu</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link
+                      href={`/personas/${persona.id}/edit`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Pencil className="mr-2 h-4 w-4" />
+                      Edit
+                    </Link>
+                  </DropdownMenuItem>
+                  {!persona.is_default && (
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onSetDefault(persona.id);
+                      }}
+                    >
+                      <Star className="mr-2 h-4 w-4" />
+                      Set as Default
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onDelete(persona);
+                    }}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Switch
                 checked={persona.is_active}
                 onCheckedChange={(checked) => onToggleEnabled(persona.id, checked)}
@@ -100,22 +290,11 @@ export function PersonaCard({ persona, onToggleEnabled, onListenVoice }: Persona
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  handleListen();
+                  handleTryVoice();
                 }}
-                disabled={!hasPreviewAudio}
-                title={hasPreviewAudio ? "Play preview audio" : "No preview audio available"}
+                disabled={isButtonDisabled}
               >
-                {isPlaying ? (
-                  <>
-                    <Volume2 className="mr-1.5 h-4 w-4 animate-pulse" />
-                    Playing...
-                  </>
-                ) : (
-                  <>
-                    <Play className="mr-1.5 h-4 w-4" />
-                    Try Voice
-                  </>
-                )}
+                {getButtonContent()}
               </Button>
             </div>
           </div>

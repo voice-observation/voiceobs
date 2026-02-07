@@ -18,6 +18,7 @@ class TestTestSuiteRepository:
         """Test creating a test suite with minimal fields."""
         repo = TestSuiteRepository(mock_db)
         suite_id = uuid4()
+        agent_id = uuid4()
 
         mock_db.fetchrow.return_value = MockRecord(
             {
@@ -25,16 +26,27 @@ class TestTestSuiteRepository:
                 "name": "Test Suite",
                 "description": None,
                 "status": "pending",
+                "generation_error": None,
+                "agent_id": agent_id,
+                "test_scopes": ["core_flows", "common_mistakes"],
+                "thoroughness": 1,
+                "edge_cases": [],
+                "evaluation_strictness": "balanced",
                 "created_at": datetime.utcnow(),
             }
         )
 
-        result = await repo.create(name="Test Suite")
+        result = await repo.create(name="Test Suite", agent_id=agent_id)
 
         assert result.id == suite_id
         assert result.name == "Test Suite"
         assert result.description is None
         assert result.status == "pending"
+        assert result.agent_id == agent_id
+        assert result.test_scopes == ["core_flows", "common_mistakes"]
+        assert result.thoroughness == 1
+        assert result.edge_cases == []
+        assert result.evaluation_strictness == "balanced"
         mock_db.execute.assert_called_once()
         assert "INSERT INTO test_suites" in mock_db.execute.call_args[0][0]
 
@@ -43,6 +55,7 @@ class TestTestSuiteRepository:
         """Test creating a test suite with description."""
         repo = TestSuiteRepository(mock_db)
         suite_id = uuid4()
+        agent_id = uuid4()
 
         mock_db.fetchrow.return_value = MockRecord(
             {
@@ -50,16 +63,25 @@ class TestTestSuiteRepository:
                 "name": "Test Suite",
                 "description": "Test description",
                 "status": "pending",
+                "generation_error": None,
+                "agent_id": agent_id,
+                "test_scopes": ["core_flows", "common_mistakes"],
+                "thoroughness": 1,
+                "edge_cases": [],
+                "evaluation_strictness": "balanced",
                 "created_at": datetime.utcnow(),
             }
         )
 
-        result = await repo.create(name="Test Suite", description="Test description")
+        result = await repo.create(
+            name="Test Suite", description="Test description", agent_id=agent_id
+        )
 
         assert result.id == suite_id
         assert result.name == "Test Suite"
         assert result.description == "Test description"
         assert result.status == "pending"
+        assert result.agent_id == agent_id
 
     @pytest.mark.asyncio
     async def test_create_suite_failure(self, mock_db):
@@ -75,6 +97,7 @@ class TestTestSuiteRepository:
         """Test getting a test suite that exists."""
         repo = TestSuiteRepository(mock_db)
         suite_id = uuid4()
+        agent_id = uuid4()
 
         mock_db.fetchrow.return_value = MockRecord(
             {
@@ -82,6 +105,12 @@ class TestTestSuiteRepository:
                 "name": "Test Suite",
                 "description": "Test description",
                 "status": "pending",
+                "generation_error": None,
+                "agent_id": agent_id,
+                "test_scopes": ["core_flows"],
+                "thoroughness": 2,
+                "edge_cases": ["hesitations"],
+                "evaluation_strictness": "strict",
                 "created_at": datetime.utcnow(),
             }
         )
@@ -93,6 +122,11 @@ class TestTestSuiteRepository:
         assert result.name == "Test Suite"
         assert result.description == "Test description"
         assert result.status == "pending"
+        assert result.agent_id == agent_id
+        assert result.test_scopes == ["core_flows"]
+        assert result.thoroughness == 2
+        assert result.edge_cases == ["hesitations"]
+        assert result.evaluation_strictness == "strict"
         mock_db.fetchrow.assert_called_once()
         assert suite_id in mock_db.fetchrow.call_args[0]
 
@@ -126,6 +160,8 @@ class TestTestSuiteRepository:
         repo = TestSuiteRepository(mock_db)
         suite1_id = uuid4()
         suite2_id = uuid4()
+        agent1_id = uuid4()
+        agent2_id = uuid4()
 
         mock_db.fetch.return_value = [
             MockRecord(
@@ -134,6 +170,12 @@ class TestTestSuiteRepository:
                     "name": "Suite 1",
                     "description": "Description 1",
                     "status": "pending",
+                    "generation_error": None,
+                    "agent_id": agent1_id,
+                    "test_scopes": ["core_flows", "common_mistakes"],
+                    "thoroughness": 1,
+                    "edge_cases": [],
+                    "evaluation_strictness": "balanced",
                     "created_at": datetime.utcnow(),
                 }
             ),
@@ -143,6 +185,12 @@ class TestTestSuiteRepository:
                     "name": "Suite 2",
                     "description": "Description 2",
                     "status": "completed",
+                    "generation_error": None,
+                    "agent_id": agent2_id,
+                    "test_scopes": ["safety_adversarial"],
+                    "thoroughness": 2,
+                    "edge_cases": ["adversarial"],
+                    "evaluation_strictness": "strict",
                     "created_at": datetime.utcnow(),
                 }
             ),
@@ -154,15 +202,18 @@ class TestTestSuiteRepository:
         assert result[0].id == suite1_id
         assert result[0].name == "Suite 1"
         assert result[0].status == "pending"
+        assert result[0].agent_id == agent1_id
         assert result[1].id == suite2_id
         assert result[1].name == "Suite 2"
         assert result[1].status == "completed"
+        assert result[1].agent_id == agent2_id
 
     @pytest.mark.asyncio
     async def test_update_suite_name(self, mock_db):
         """Test updating a test suite's name."""
         repo = TestSuiteRepository(mock_db)
         suite_id = uuid4()
+        agent_id = uuid4()
 
         # Mock get() call after update
         mock_db.fetchrow.return_value = MockRecord(
@@ -171,11 +222,17 @@ class TestTestSuiteRepository:
                 "name": "Updated Suite",
                 "description": "Original description",
                 "status": "pending",
+                "generation_error": None,
+                "agent_id": agent_id,
+                "test_scopes": ["core_flows", "common_mistakes"],
+                "thoroughness": 1,
+                "edge_cases": [],
+                "evaluation_strictness": "balanced",
                 "created_at": datetime.utcnow(),
             }
         )
 
-        result = await repo.update(suite_id, name="Updated Suite")
+        result = await repo.update(suite_id, {"name": "Updated Suite"})
 
         assert result is not None
         assert result.name == "Updated Suite"
@@ -188,6 +245,7 @@ class TestTestSuiteRepository:
         """Test updating a test suite's description."""
         repo = TestSuiteRepository(mock_db)
         suite_id = uuid4()
+        agent_id = uuid4()
 
         mock_db.fetchrow.return_value = MockRecord(
             {
@@ -195,11 +253,17 @@ class TestTestSuiteRepository:
                 "name": "Test Suite",
                 "description": "Updated description",
                 "status": "pending",
+                "generation_error": None,
+                "agent_id": agent_id,
+                "test_scopes": ["core_flows", "common_mistakes"],
+                "thoroughness": 1,
+                "edge_cases": [],
+                "evaluation_strictness": "balanced",
                 "created_at": datetime.utcnow(),
             }
         )
 
-        result = await repo.update(suite_id, description="Updated description")
+        result = await repo.update(suite_id, {"description": "Updated description"})
 
         assert result is not None
         assert result.description == "Updated description"
@@ -210,6 +274,7 @@ class TestTestSuiteRepository:
         """Test updating a test suite's status."""
         repo = TestSuiteRepository(mock_db)
         suite_id = uuid4()
+        agent_id = uuid4()
 
         mock_db.fetchrow.return_value = MockRecord(
             {
@@ -217,11 +282,17 @@ class TestTestSuiteRepository:
                 "name": "Test Suite",
                 "description": "Description",
                 "status": "running",
+                "generation_error": None,
+                "agent_id": agent_id,
+                "test_scopes": ["core_flows", "common_mistakes"],
+                "thoroughness": 1,
+                "edge_cases": [],
+                "evaluation_strictness": "balanced",
                 "created_at": datetime.utcnow(),
             }
         )
 
-        result = await repo.update(suite_id, status="running")
+        result = await repo.update(suite_id, {"status": "running"})
 
         assert result is not None
         assert result.status == "running"
@@ -232,6 +303,7 @@ class TestTestSuiteRepository:
         """Test updating multiple fields of a test suite."""
         repo = TestSuiteRepository(mock_db)
         suite_id = uuid4()
+        agent_id = uuid4()
 
         mock_db.fetchrow.return_value = MockRecord(
             {
@@ -239,12 +311,19 @@ class TestTestSuiteRepository:
                 "name": "Updated Suite",
                 "description": "Updated description",
                 "status": "completed",
+                "generation_error": None,
+                "agent_id": agent_id,
+                "test_scopes": ["core_flows", "common_mistakes"],
+                "thoroughness": 1,
+                "edge_cases": [],
+                "evaluation_strictness": "balanced",
                 "created_at": datetime.utcnow(),
             }
         )
 
         result = await repo.update(
-            suite_id, name="Updated Suite", description="Updated description", status="completed"
+            suite_id,
+            {"name": "Updated Suite", "description": "Updated description", "status": "completed"},
         )
 
         assert result is not None
@@ -253,15 +332,16 @@ class TestTestSuiteRepository:
         assert result.status == "completed"
         # Should have multiple SET clauses
         update_query = mock_db.execute.call_args[0][0]
-        assert "name = $1" in update_query
-        assert "description = $2" in update_query
-        assert "status = $3" in update_query
+        assert "name = $" in update_query
+        assert "description = $" in update_query
+        assert "status = $" in update_query
 
     @pytest.mark.asyncio
     async def test_update_suite_no_changes(self, mock_db):
         """Test updating a test suite with no changes."""
         repo = TestSuiteRepository(mock_db)
         suite_id = uuid4()
+        agent_id = uuid4()
 
         mock_db.fetchrow.return_value = MockRecord(
             {
@@ -269,11 +349,17 @@ class TestTestSuiteRepository:
                 "name": "Test Suite",
                 "description": "Description",
                 "status": "pending",
+                "generation_error": None,
+                "agent_id": agent_id,
+                "test_scopes": ["core_flows", "common_mistakes"],
+                "thoroughness": 1,
+                "edge_cases": [],
+                "evaluation_strictness": "balanced",
                 "created_at": datetime.utcnow(),
             }
         )
 
-        result = await repo.update(suite_id)
+        result = await repo.update(suite_id, {})
 
         assert result is not None
         # Should call get() but not execute()
@@ -290,7 +376,7 @@ class TestTestSuiteRepository:
         # First call for update, second call for get()
         mock_db.fetchrow.side_effect = [None]
 
-        result = await repo.update(suite_id, name="Updated")
+        result = await repo.update(suite_id, {"name": "Updated"})
 
         assert result is None
 

@@ -32,6 +32,7 @@ class AgentRepository:
         contact_info: dict[str, Any],
         goal: str,
         supported_intents: list[str],
+        context: str | None = None,
         metadata: dict[str, Any] | None = None,
         created_by: str | None = None,
     ) -> AgentRow:
@@ -43,6 +44,7 @@ class AgentRepository:
             contact_info: Contact info dict (e.g., {"phone_number": "..."} or {"web_url": "..."})
             goal: Agent goal
             supported_intents: List of supported intents
+            context: Domain-specific context about what the agent does
             metadata: Additional metadata
             created_by: Creator identifier
 
@@ -65,10 +67,10 @@ class AgentRepository:
             """
             INSERT INTO agents (
                 id, name, agent_type, contact_info, goal, supported_intents,
-                connection_status, metadata, created_by, is_active
+                context, connection_status, metadata, created_by, is_active
             )
             VALUES (
-                $1, $2, $3, $4::jsonb, $5, $6::jsonb, 'saved', $7::jsonb, $8, true
+                $1, $2, $3, $4::jsonb, $5, $6::jsonb, $7, 'saved', $8::jsonb, $9, true
             )
             """,
             agent_id,
@@ -77,6 +79,7 @@ class AgentRepository:
             json.dumps(contact_info),
             goal,
             json.dumps(supported_intents),
+            context,
             json.dumps(metadata),
             created_by,
         )
@@ -84,7 +87,7 @@ class AgentRepository:
         row = await self._db.fetchrow(
             """
             SELECT id, name, agent_type, contact_info, goal, supported_intents,
-                   connection_status, verification_attempts, last_verification_at,
+                   context, connection_status, verification_attempts, last_verification_at,
                    verification_error, verification_transcript, verification_reasoning,
                    metadata, created_at, updated_at, created_by, is_active
             FROM agents WHERE id = $1
@@ -109,7 +112,7 @@ class AgentRepository:
         row = await self._db.fetchrow(
             """
             SELECT id, name, agent_type, contact_info, goal, supported_intents,
-                   connection_status, verification_attempts, last_verification_at,
+                   context, connection_status, verification_attempts, last_verification_at,
                    verification_error, verification_transcript, verification_reasoning,
                    metadata, created_at, updated_at, created_by, is_active
             FROM agents WHERE id = $1
@@ -171,7 +174,7 @@ class AgentRepository:
         rows = await self._db.fetch(
             f"""
             SELECT id, name, agent_type, contact_info, goal, supported_intents,
-                   connection_status, verification_attempts, last_verification_at,
+                   context, connection_status, verification_attempts, last_verification_at,
                    verification_error, verification_transcript, verification_reasoning,
                    metadata, created_at, updated_at, created_by, is_active
             FROM agents
@@ -192,6 +195,7 @@ class AgentRepository:
         contact_info: dict[str, Any] | None | object = _NOT_PROVIDED,
         goal: str | None | object = _NOT_PROVIDED,
         supported_intents: list[str] | None | object = _NOT_PROVIDED,
+        context: str | None | object = _NOT_PROVIDED,
         connection_status: str | None | object = _NOT_PROVIDED,
         verification_attempts: int | None | object = _NOT_PROVIDED,
         last_verification_at: datetime | None | object = _NOT_PROVIDED,
@@ -210,6 +214,7 @@ class AgentRepository:
             contact_info: Contact information (will merge with existing if partial update)
             goal: Agent goal
             supported_intents: Supported intents
+            context: Domain-specific context about what the agent does
             connection_status: Connection status
             verification_attempts: Number of verification attempts
             last_verification_at: Last verification timestamp
@@ -232,6 +237,7 @@ class AgentRepository:
             "contact_info": contact_info,
             "goal": goal,
             "supported_intents": supported_intents,
+            "context": context,
             "connection_status": connection_status,
             "verification_attempts": verification_attempts,
             "last_verification_at": last_verification_at,
@@ -370,6 +376,7 @@ class AgentRepository:
             contact_info=contact_info,
             goal=row["goal"],
             supported_intents=supported_intents,
+            context=row["context"],
             connection_status=row["connection_status"],
             verification_attempts=row["verification_attempts"],
             last_verification_at=row["last_verification_at"],

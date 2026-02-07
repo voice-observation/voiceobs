@@ -1,4 +1,4 @@
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/components/primitives/badge";
 import { Loader2, CheckCircle2, XCircle, Clock, AlertCircle } from "lucide-react";
 import type { ConnectionStatus } from "@/lib/types";
 

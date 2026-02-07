@@ -3,14 +3,14 @@
 import { useState, useRef } from "react";
 import type WaveSurfer from "wavesurfer.js";
 import { Play, Pause, Volume2, VolumeX } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/primitives/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@/components/primitives/select";
 import { Waveform } from "./Waveform";
 import { formatTime, type PlaybackSpeed, PLAYBACK_SPEEDS } from "@/lib/audio";
 import { cn } from "@/lib/utils";

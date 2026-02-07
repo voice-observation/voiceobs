@@ -6,6 +6,8 @@ This module provides async database connection pooling using asyncpg.
 from __future__ import annotations
 
 import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
@@ -135,6 +137,26 @@ class Database:
         if self._pool is None:
             raise RuntimeError("Database not connected")
         return await self._pool.fetchval(query, *args)
+
+    @asynccontextmanager
+    async def transaction(self) -> AsyncIterator[asyncpg.Connection]:
+        """Start a database transaction.
+
+        Yields a connection with an active transaction that will be
+        committed on successful exit or rolled back on exception.
+
+        Yields:
+            Connection with active transaction.
+
+        Raises:
+            RuntimeError: If not connected to the database.
+        """
+        if self._pool is None:
+            raise RuntimeError("Database not connected")
+
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                yield conn
 
     async def init_schema(self) -> None:
         """Initialize the database schema.

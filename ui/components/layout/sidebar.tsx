@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
+import { OrgSwitcher } from "@/components/organization";
+import { createClient } from "@/lib/supabase/client";
+import type { User } from "@supabase/supabase-js";
 import {
   LayoutDashboard,
   MessageSquare,
@@ -17,8 +20,9 @@ import {
   FileText,
   Menu,
   X,
+  LogOut,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/primitives/button";
 
 interface NavigationItem {
   name: string;
@@ -59,6 +63,32 @@ const navigationSections: NavigationSection[] = [
 export function Sidebar() {
   const pathname = usePathname();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const router = useRouter();
+  const supabase = createClient();
+
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  };
 
   const isActive = (href: string) => {
     if (href === "/") {
@@ -89,6 +119,10 @@ export function Sidebar() {
           <X className="h-5 w-5" />
         </Button>
       </div>
+      {/* Organization switcher */}
+      <div className="border-b border-sidebar-border px-3 py-2">
+        <OrgSwitcher />
+      </div>
       <nav className="scrollbar-thin flex-1 overflow-y-auto p-4">
         {navigationSections.map((section, sectionIndex) => (
           <div key={section.label} className={sectionIndex > 0 ? "mt-6" : ""}>
@@ -116,6 +150,18 @@ export function Sidebar() {
           </div>
         ))}
       </nav>
+      {/* User section at bottom */}
+      <div className="mt-auto border-t pt-4">
+        {user ? (
+          <div className="space-y-2">
+            <div className="truncate px-3 text-sm text-muted-foreground">{user.email}</div>
+            <Button variant="ghost" className="w-full justify-start" onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Log out
+            </Button>
+          </div>
+        ) : null}
+      </div>
       <div className="border-t border-sidebar-border p-4">
         <div className="flex items-center justify-center">
           <ThemeToggle />

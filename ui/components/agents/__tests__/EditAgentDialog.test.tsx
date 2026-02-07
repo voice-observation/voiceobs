@@ -31,7 +31,7 @@ jest.mock("@/hooks/use-toast", () => ({
 }));
 
 // Mock the tooltip provider to avoid portal issues in tests
-jest.mock("@/components/ui/tooltip", () => ({
+jest.mock("@/components/primitives/tooltip", () => ({
   TooltipProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   TooltipTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,

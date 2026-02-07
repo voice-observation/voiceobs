@@ -99,6 +99,17 @@ class AudioStorageProvider(Protocol):
         """
         ...
 
+    async def delete_by_url(self, url: str) -> bool:
+        """Delete audio file by its URL.
+
+        Args:
+            url: The URL returned from store_audio (e.g., "/audio/prefix/file.mp3" or "s3://bucket/key").
+
+        Returns:
+            True if deleted, False if not found or invalid URL.
+        """
+        ...
+
 
 class AudioStorage:
     """Audio storage service that uses a configured provider.
@@ -204,3 +215,14 @@ class AudioStorage:
             URL or path to the stored audio file.
         """
         return await self._provider.store_audio(audio_data, prefix, content_type)
+
+    async def delete_by_url(self, url: str) -> bool:
+        """Delete audio file by its URL.
+
+        Args:
+            url: The URL returned from store_audio.
+
+        Returns:
+            True if deleted, False if not found or invalid URL.
+        """
+        return await self._provider.delete_by_url(url)

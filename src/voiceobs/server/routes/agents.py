@@ -4,11 +4,9 @@ import logging
 
 from fastapi import APIRouter, HTTPException, Query, status
 
-from voiceobs.server.db.repositories.agent import AgentRepository
 from voiceobs.server.dependencies import (
     get_agent_repository,
     get_agent_verification_service,
-    is_using_postgres,
 )
 from voiceobs.server.models import (
     AgentCreateRequest,
@@ -24,30 +22,6 @@ from voiceobs.server.utils import parse_uuid
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/agents", tags=["Agents"])
-
-
-def get_agent_repo() -> AgentRepository:
-    """Dependency to get agent repository.
-
-    Returns:
-        Agent repository.
-
-    Raises:
-        HTTPException: If repository is not available.
-    """
-    if not is_using_postgres():
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Agent API requires PostgreSQL database",
-        )
-
-    repo = get_agent_repository()
-    if repo is None:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Agent repository not available",
-        )
-    return repo
 
 
 @router.post(
@@ -68,7 +42,7 @@ async def create_agent(
     request: AgentCreateRequest,
 ) -> AgentResponse:
     """Create a new agent and start verification in background."""
-    repo = get_agent_repo()
+    repo = get_agent_repository()
 
     # Build contact_info from request (already validated in Pydantic model)
     contact_info = request.contact_info or {}
@@ -81,6 +55,7 @@ async def create_agent(
             contact_info=contact_info,
             goal=request.goal,
             supported_intents=request.supported_intents,
+            context=request.context,
             metadata=request.metadata,
             created_by=request.created_by,
         )
@@ -121,6 +96,7 @@ async def create_agent(
         web_url=agent.web_url,
         goal=agent.goal,
         supported_intents=agent.supported_intents,
+        context=agent.context,
         connection_status=agent.connection_status,
         verification_attempts=agent.verification_attempts,
         last_verification_at=agent.last_verification_at,
@@ -151,7 +127,7 @@ async def list_agents(
     offset: int | None = Query(None, ge=0, description="Number of results to skip"),
 ) -> AgentsListResponse:
     """List all agents with optional filtering."""
-    repo = get_agent_repo()
+    repo = get_agent_repository()
     agents = await repo.list_all(
         connection_status=connection_status,
         is_active=is_active,
@@ -193,7 +169,7 @@ async def list_agents(
 )
 async def get_agent(agent_id: str) -> AgentResponse:
     """Get agent by ID."""
-    repo = get_agent_repo()
+    repo = get_agent_repository()
     agent_uuid = parse_uuid(agent_id, "agent")
     agent = await repo.get(agent_uuid)
 
@@ -212,6 +188,7 @@ async def get_agent(agent_id: str) -> AgentResponse:
         web_url=agent.web_url,
         goal=agent.goal,
         supported_intents=agent.supported_intents,
+        context=agent.context,
         connection_status=agent.connection_status,
         verification_attempts=agent.verification_attempts,
         last_verification_at=agent.last_verification_at,
@@ -244,7 +221,7 @@ async def update_agent(
     request: AgentUpdateRequest,
 ) -> AgentResponse:
     """Update an agent. Re-verifies if phone number or web_url changed."""
-    repo = get_agent_repo()
+    repo = get_agent_repository()
     agent_uuid = parse_uuid(agent_id, "agent")
 
     # Get existing agent
@@ -334,6 +311,7 @@ async def update_agent(
         web_url=agent.web_url,
         goal=agent.goal,
         supported_intents=agent.supported_intents,
+        context=agent.context,
         connection_status=agent.connection_status,
         verification_attempts=agent.verification_attempts,
         last_verification_at=agent.last_verification_at,
@@ -363,7 +341,7 @@ async def update_agent(
 )
 async def delete_agent(agent_id: str) -> None:
     """Delete an agent."""
-    repo = get_agent_repo()
+    repo = get_agent_repository()
     agent_uuid = parse_uuid(agent_id, "agent")
     deleted = await repo.delete(agent_uuid)
 
@@ -385,7 +363,7 @@ async def delete_agent(agent_id: str) -> None:
 )
 async def get_verification_status(agent_id: str):
     """Get verification status for an agent."""
-    repo = get_agent_repo()
+    repo = get_agent_repository()
     agent_uuid = parse_uuid(agent_id, "agent")
     agent = await repo.get(agent_uuid)
 
@@ -424,7 +402,7 @@ async def verify_agent(
     request: AgentVerificationRequest = AgentVerificationRequest(),
 ) -> AgentResponse:
     """Manually trigger agent verification."""
-    repo = get_agent_repo()
+    repo = get_agent_repository()
     agent_uuid = parse_uuid(agent_id, "agent")
     agent = await repo.get(agent_uuid)
 
@@ -445,6 +423,7 @@ async def verify_agent(
             web_url=agent.web_url,
             goal=agent.goal,
             supported_intents=agent.supported_intents,
+            context=agent.context,
             connection_status=agent.connection_status,
             verification_attempts=agent.verification_attempts,
             last_verification_at=agent.last_verification_at,
@@ -490,6 +469,7 @@ async def verify_agent(
         web_url=agent.web_url,
         goal=agent.goal,
         supported_intents=agent.supported_intents,
+        context=agent.context,
         connection_status=agent.connection_status,
         verification_attempts=agent.verification_attempts,
         last_verification_at=agent.last_verification_at,
