@@ -20,7 +20,7 @@ import { Filter, Plus, Eye, Copy, Play, Trash2, Pencil, AlertCircle, Loader2 } f
 import { api } from "@/lib/api";
 import { logger } from "@/lib/logger";
 import { useTestSuiteActions } from "@/hooks/useTestSuiteActions";
-import { useToast } from "@/hooks";
+import { toast } from "sonner";
 import type { TestSuite } from "@/lib/types";
 import {
   getPassRateFromStatus,
@@ -38,8 +38,6 @@ export default function TestSuitesPage() {
   const [editingSuite, setEditingSuite] = useState<TestSuite | null>(null);
   const [deletingSuite, setDeletingSuite] = useState<{ id: string; name: string } | null>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  const { toast } = useToast();
 
   const { deleteSuite, runSuite, deletingIds, runningIds } = useTestSuiteActions({
     onDeleted: (suiteId) => {
@@ -106,18 +104,15 @@ export default function TestSuitesPage() {
 
               // Show toast when generation completes
               if (status.status === "ready" && s.status !== "ready") {
-                toast({
-                  title: "Generation Complete",
+                toast("Generation Complete", {
                   description: `"${s.name}" generated ${status.scenario_count} test scenarios.`,
                 });
               } else if (
                 status.status === "generation_failed" &&
                 s.status !== "generation_failed"
               ) {
-                toast({
-                  title: "Generation Failed",
+                toast.error("Generation Failed", {
                   description: status.error || `Failed to generate scenarios for "${s.name}".`,
-                  variant: "destructive",
                 });
               }
 

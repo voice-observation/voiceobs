@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { api } from "@/lib/api";
 import { logger } from "@/lib/logger";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { useVerificationPolling } from "@/hooks/useVerificationPolling";
 import type { Agent, AgentUpdateRequest } from "@/lib/types";
 
@@ -47,8 +47,6 @@ interface UseAgentActionsResult {
  */
 export function useAgentActions(options: UseAgentActionsOptions = {}): UseAgentActionsResult {
   const { onVerified, onDeleted, onUpdated, onActiveToggled } = options;
-  const { toast } = useToast();
-
   const [verifyingIds, setVerifyingIds] = useState<Set<string>>(new Set());
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const [updatingIds, setUpdatingIds] = useState<Set<string>>(new Set());
@@ -72,20 +70,15 @@ export function useAgentActions(options: UseAgentActionsOptions = {}): UseAgentA
       });
 
       if (status === "verified") {
-        toast({
-          title: "Agent verified",
-          description: "The agent has been successfully verified.",
-        });
+        toast("Agent verified", { description: "The agent has been successfully verified." });
         onVerifiedRef.current?.(agentId);
       } else if (status === "failed") {
-        toast({
-          title: "Verification failed",
+        toast.error("Verification failed", {
           description: verificationError || "Agent verification failed.",
-          variant: "destructive",
         });
       }
     },
-    [toast]
+    []
   );
 
   // We need a separate polling instance per agent being verified
@@ -128,67 +121,55 @@ export function useAgentActions(options: UseAgentActionsOptions = {}): UseAgentA
    * This calls the /verify endpoint and then starts polling.
    * Use this when user explicitly clicks "Verify" button.
    */
-  const verifyAgent = useCallback(
-    async (agentId: string) => {
-      const maxRetries = 3;
-      let lastError: Error | null = null;
+  const verifyAgent = useCallback(async (agentId: string) => {
+    const maxRetries = 3;
+    let lastError: Error | null = null;
 
-      setVerifyingIds((prev) => new Set(prev).add(agentId));
-      currentVerifyingAgentRef.current = agentId;
+    setVerifyingIds((prev) => new Set(prev).add(agentId));
+    currentVerifyingAgentRef.current = agentId;
 
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          await api.agents.verifyAgent(agentId, true);
-          toast({
-            title: "Verification started",
-            description: "Verifying agent...",
-          });
-          startPollingRef.current?.(agentId);
-          return; // Success, exit the function
-        } catch (err) {
-          lastError = err instanceof Error ? err : new Error("Unknown error");
-          logger.error(`Failed to start verification (attempt ${attempt}/${maxRetries})`, err);
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await api.agents.verifyAgent(agentId, true);
+        toast("Verification started", { description: "Verifying agent..." });
+        startPollingRef.current?.(agentId);
+        return; // Success, exit the function
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error("Unknown error");
+        logger.error(`Failed to start verification (attempt ${attempt}/${maxRetries})`, err);
 
-          if (attempt < maxRetries) {
-            // Exponential backoff: 1s, 2s, 4s
-            const backoffDelay = 1000 * Math.pow(2, attempt - 1);
-            logger.info(`Retrying in ${backoffDelay}ms...`);
-            await new Promise((resolve) => setTimeout(resolve, backoffDelay));
-          }
+        if (attempt < maxRetries) {
+          // Exponential backoff: 1s, 2s, 4s
+          const backoffDelay = 1000 * Math.pow(2, attempt - 1);
+          logger.info(`Retrying in ${backoffDelay}ms...`);
+          await new Promise((resolve) => setTimeout(resolve, backoffDelay));
         }
       }
+    }
 
-      // All retries failed
-      setVerifyingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(agentId);
-        return next;
-      });
-      currentVerifyingAgentRef.current = null;
-      toast({
-        title: "Failed to start verification",
-        description: lastError?.message || "Unknown error",
-        variant: "destructive",
-      });
-    },
-    [toast]
-  );
+    // All retries failed
+    setVerifyingIds((prev) => {
+      const next = new Set(prev);
+      next.delete(agentId);
+      return next;
+    });
+    currentVerifyingAgentRef.current = null;
+    toast.error("Failed to start verification", {
+      description: lastError?.message || "Unknown error",
+    });
+  }, []);
 
   const deleteAgent = useCallback(
     async (agentId: string) => {
       try {
         setDeletingIds((prev) => new Set(prev).add(agentId));
         await api.agents.deleteAgent(agentId);
-        toast({
-          title: "Agent deleted",
-        });
+        toast("Agent deleted");
         onDeleted?.(agentId);
       } catch (err) {
         logger.error("Failed to delete agent", err);
-        toast({
-          title: "Failed to delete agent",
+        toast.error("Failed to delete agent", {
           description: err instanceof Error ? err.message : "Unknown error",
-          variant: "destructive",
         });
       } finally {
         setDeletingIds((prev) => {
@@ -198,7 +179,7 @@ export function useAgentActions(options: UseAgentActionsOptions = {}): UseAgentA
         });
       }
     },
-    [toast, onDeleted]
+    [onDeleted]
   );
 
   const updateAgent = useCallback(
@@ -217,28 +198,21 @@ export function useAgentActions(options: UseAgentActionsOptions = {}): UseAgentA
         const updatedAgent = await api.agents.updateAgent(agentId, data);
 
         if (phoneChanged) {
-          toast({
-            title: "Agent updated",
-            description: "Re-verification in progress...",
-          });
+          toast("Agent updated", { description: "Re-verification in progress..." });
           // Start polling for verification
           setVerifyingIds((prev) => new Set(prev).add(agentId));
           currentVerifyingAgentRef.current = agentId;
           startPollingRef.current?.(agentId);
         } else {
-          toast({
-            title: "Agent updated",
-          });
+          toast("Agent updated");
         }
 
         onUpdated?.(updatedAgent);
         return updatedAgent;
       } catch (err) {
         logger.error("Failed to update agent", err);
-        toast({
-          title: "Failed to update agent",
+        toast.error("Failed to update agent", {
           description: err instanceof Error ? err.message : "Unknown error",
-          variant: "destructive",
         });
         return null;
       } finally {
@@ -249,7 +223,7 @@ export function useAgentActions(options: UseAgentActionsOptions = {}): UseAgentA
         });
       }
     },
-    [toast, onUpdated]
+    [onUpdated]
   );
 
   const toggleActive = useCallback(
@@ -258,8 +232,7 @@ export function useAgentActions(options: UseAgentActionsOptions = {}): UseAgentA
       try {
         setUpdatingIds((prev) => new Set(prev).add(agentId));
         await api.agents.updateAgent(agentId, { is_active: newIsActive });
-        toast({
-          title: newIsActive ? "Agent activated" : "Agent deactivated",
+        toast(newIsActive ? "Agent activated" : "Agent deactivated", {
           description: newIsActive
             ? "The agent is now active and can receive calls."
             : "The agent is now inactive.",
@@ -267,10 +240,8 @@ export function useAgentActions(options: UseAgentActionsOptions = {}): UseAgentA
         onActiveToggled?.(agentId, newIsActive);
       } catch (err) {
         logger.error("Failed to toggle agent status", err);
-        toast({
-          title: "Failed to update agent",
+        toast.error("Failed to update agent", {
           description: err instanceof Error ? err.message : "Unknown error",
-          variant: "destructive",
         });
         throw err; // Re-throw so caller can handle optimistic update revert
       } finally {
@@ -281,7 +252,7 @@ export function useAgentActions(options: UseAgentActionsOptions = {}): UseAgentA
         });
       }
     },
-    [toast, onActiveToggled]
+    [onActiveToggled]
   );
 
   return {

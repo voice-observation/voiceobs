@@ -271,8 +271,8 @@ def test_get_me_returns_orgs(client):
     assert data["active_org"]["name"] == "Org 1"
 
 
-def test_get_me_no_active_org(client):
-    """Test that /me works when user has no active org."""
+def test_get_me_no_active_org_falls_back_to_first_org(client):
+    """Test that /me auto-selects first org when user has no active org but has orgs."""
     from voiceobs.server.db.models import OrganizationRow
 
     user_id = uuid4()
@@ -297,6 +297,7 @@ def test_get_me_no_active_org(client):
 
     mock_user_repo = AsyncMock()
     mock_user_repo.upsert.return_value = mock_user
+    mock_user_repo.update.return_value = mock_user
 
     mock_org_repo = AsyncMock()
     mock_org_repo.list_for_user.return_value = orgs
@@ -304,20 +305,27 @@ def test_get_me_no_active_org(client):
     decode_jwt_patch = "voiceobs.server.auth.dependencies.decode_supabase_jwt"
     user_repo_dep_patch = "voiceobs.server.auth.dependencies.get_user_repository"
     org_repo_patch = "voiceobs.server.routes.auth.get_organization_repository"
+    user_repo_routes_patch = "voiceobs.server.routes.auth.get_user_repository"
 
     with patch(decode_jwt_patch, return_value=payload):
         with patch(user_repo_dep_patch, return_value=mock_user_repo):
             with patch(org_repo_patch, return_value=mock_org_repo):
-                response = client.get(
-                    "/api/v1/auth/me",
-                    headers={"Authorization": f"Bearer {token}"},
-                )
+                with patch(user_repo_routes_patch, return_value=mock_user_repo):
+                    response = client.get(
+                        "/api/v1/auth/me",
+                        headers={"Authorization": f"Bearer {token}"},
+                    )
 
     assert response.status_code == 200
     data = response.json()
     assert data["user"]["id"] == str(user_id)
     assert len(data["orgs"]) == 1
-    assert data["active_org"] is None
+    # Should fall back to first available org
+    assert data["active_org"] is not None
+    assert data["active_org"]["id"] == str(org_id)
+    assert data["active_org"]["name"] == "Org 1"
+    # Should persist the selection
+    mock_user_repo.update.assert_called_once_with(user_id, last_active_org_id=org_id)
 
 
 def test_get_me_no_orgs(client):
@@ -394,8 +402,8 @@ def test_get_me_org_repo_none(client):
     assert data["active_org"] is None
 
 
-def test_get_me_active_org_not_found(client):
-    """Test that /me works when active org is not found (deleted or invalid)."""
+def test_get_me_active_org_not_found_falls_back_to_first_org(client):
+    """Test that /me auto-selects first org when active org was deleted."""
     user_id = uuid4()
     org_id = uuid4()
     deleted_org_id = uuid4()  # This org was deleted or doesn't exist
@@ -421,6 +429,7 @@ def test_get_me_active_org_not_found(client):
 
     mock_user_repo = AsyncMock()
     mock_user_repo.upsert.return_value = mock_user
+    mock_user_repo.update.return_value = mock_user
 
     mock_org_repo = AsyncMock()
     mock_org_repo.list_for_user.return_value = orgs
@@ -429,18 +438,24 @@ def test_get_me_active_org_not_found(client):
     decode_jwt_patch = "voiceobs.server.auth.dependencies.decode_supabase_jwt"
     user_repo_dep_patch = "voiceobs.server.auth.dependencies.get_user_repository"
     org_repo_patch = "voiceobs.server.routes.auth.get_organization_repository"
+    user_repo_routes_patch = "voiceobs.server.routes.auth.get_user_repository"
 
     with patch(decode_jwt_patch, return_value=payload):
         with patch(user_repo_dep_patch, return_value=mock_user_repo):
             with patch(org_repo_patch, return_value=mock_org_repo):
-                response = client.get(
-                    "/api/v1/auth/me",
-                    headers={"Authorization": f"Bearer {token}"},
-                )
+                with patch(user_repo_routes_patch, return_value=mock_user_repo):
+                    response = client.get(
+                        "/api/v1/auth/me",
+                        headers={"Authorization": f"Bearer {token}"},
+                    )
 
     assert response.status_code == 200
     data = response.json()
     assert data["user"]["id"] == str(user_id)
     assert len(data["orgs"]) == 1
-    # Active org should be None since the referenced org doesn't exist
-    assert data["active_org"] is None
+    # Should fall back to first available org since the active one was deleted
+    assert data["active_org"] is not None
+    assert data["active_org"]["id"] == str(org_id)
+    assert data["active_org"]["name"] == "Org 1"
+    # Should persist the selection
+    mock_user_repo.update.assert_called_once_with(user_id, last_active_org_id=org_id)

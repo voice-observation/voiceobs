@@ -11,7 +11,7 @@ import { api } from "@/lib/api";
 import { logger } from "@/lib/logger";
 import { PersonaCard } from "@/components/personas/PersonaCard";
 import { DeletePersonaDialog } from "@/components/personas/DeletePersonaDialog";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import type { PersonaListItem } from "@/lib/types";
 
 export default function PersonasPage() {
@@ -21,8 +21,6 @@ export default function PersonasPage() {
   const [activeTab, setActiveTab] = useState("active");
   const [deletePersona, setDeletePersona] = useState<PersonaListItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const { toast } = useToast();
-
   useEffect(() => {
     async function fetchData() {
       try {
@@ -132,18 +130,15 @@ export default function PersonasPage() {
     try {
       await api.personas.deletePersona(deletePersona.id);
       setPersonas((prev) => prev.filter((p) => p.id !== deletePersona.id));
-      toast({
-        title: "Persona deleted",
+      toast("Persona deleted", {
         description: `"${deletePersona.name}" has been deleted successfully.`,
       });
       setDeletePersona(null);
     } catch (err) {
       logger.error("Failed to delete persona", err);
       const errorMessage = err instanceof Error ? err.message : "Failed to delete persona";
-      toast({
-        title: "Delete failed",
+      toast.error("Delete failed", {
         description: errorMessage,
-        variant: "destructive",
       });
     } finally {
       setIsDeleting(false);

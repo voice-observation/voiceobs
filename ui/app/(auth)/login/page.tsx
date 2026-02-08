@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/primitives/button";
 import { Input } from "@/components/primitives/input";
 import { Label } from "@/components/primitives/label";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Mail, Lock, Loader2, Mic2 } from "lucide-react";
 
 function LoginForm() {
@@ -16,7 +16,6 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { toast } = useToast();
   const supabase = createClient();
 
   const redirectTo = searchParams.get("redirect") || "/";
@@ -31,10 +30,8 @@ function LoginForm() {
     });
 
     if (error) {
-      toast({
-        title: "Login failed",
+      toast.error("Login failed", {
         description: error.message,
-        variant: "destructive",
       });
       setLoading(false);
       return;
@@ -55,10 +52,8 @@ function LoginForm() {
     });
 
     if (error) {
-      toast({
-        title: "Login failed",
+      toast.error("Login failed", {
         description: error.message,
-        variant: "destructive",
       });
       setLoading(false);
     }

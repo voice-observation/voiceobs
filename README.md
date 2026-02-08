@@ -89,6 +89,27 @@ pip install voiceobs
 
 For complete documentation, examples, API reference, and more, visit the **[documentation website](https://voice-observation.github.io/voiceobs/)**.
 
+## Development
+
+### E2E Tests
+
+End-to-end tests with Playwright:
+
+```bash
+cd e2e
+npm install
+npx playwright install chromium
+
+# Configure test user (see e2e/README.md)
+cp .env.test.example .env.test
+# Edit .env.test with test user credentials
+
+# Run tests (requires frontend + backend running)
+npm test
+```
+
+See [e2e/README.md](e2e/README.md) for detailed documentation.
+
 ## License
 
 Apache-2.0 - see [LICENSE](LICENSE) for details.

@@ -16,7 +16,7 @@ import { ScenarioRunHistory } from "@/components/tests/ScenarioRunHistory";
 import { ArrowLeft, Pencil, Trash2, AlertCircle, Play } from "lucide-react";
 import { api } from "@/lib/api";
 import { logger } from "@/lib/logger";
-import { useToast } from "@/hooks";
+import { toast } from "sonner";
 import type { TestScenario, TestSuite, PersonaListItem } from "@/lib/types";
 
 export default function TestScenarioDetailPage() {
@@ -34,8 +34,6 @@ export default function TestScenarioDetailPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
     try {
@@ -80,10 +78,7 @@ export default function TestScenarioDetailPage() {
 
   const handleScenarioUpdated = async (updatedScenario: TestScenario) => {
     setScenario(updatedScenario);
-    toast({
-      title: "Scenario Updated",
-      description: "Test scenario has been updated successfully.",
-    });
+    toast("Scenario Updated", { description: "Test scenario has been updated successfully." });
   };
 
   const handleConfirmDelete = async () => {
@@ -91,10 +86,7 @@ export default function TestScenarioDetailPage() {
     setIsDeleting(true);
     try {
       await api.testScenarios.deleteTestScenario(scenario.id);
-      toast({
-        title: "Scenario Deleted",
-        description: `"${scenario.name}" has been deleted.`,
-      });
+      toast("Scenario Deleted", { description: `"${scenario.name}" has been deleted.` });
       // Navigate back to list or suite detail
       if (testSuite) {
         router.push(`/test-suites/${testSuite.id}`);
@@ -103,11 +95,7 @@ export default function TestScenarioDetailPage() {
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to delete scenario";
-      toast({
-        title: "Delete Failed",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      toast.error("Delete Failed", { description: errorMessage });
       logger.error("Failed to delete scenario", err);
     } finally {
       setIsDeleting(false);

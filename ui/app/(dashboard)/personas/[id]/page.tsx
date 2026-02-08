@@ -21,7 +21,7 @@ import { logger } from "@/lib/logger";
 import { AlertCircle, ArrowLeft, Pencil, Play, Trash2, Volume2 } from "lucide-react";
 import { AudioPlayer } from "@/components/shared/audio/AudioPlayer";
 import { DeletePersonaDialog } from "@/components/personas/DeletePersonaDialog";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import type { Persona } from "@/lib/types";
 
 export default function PersonaDetailPage({ params }: { params: { id: string } }) {
@@ -33,8 +33,6 @@ export default function PersonaDetailPage({ params }: { params: { id: string } }
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const { toast } = useToast();
-
   useEffect(() => {
     async function fetchData() {
       try {
@@ -136,18 +134,15 @@ export default function PersonaDetailPage({ params }: { params: { id: string } }
     setIsDeleting(true);
     try {
       await api.personas.deletePersona(persona.id);
-      toast({
-        title: "Persona deleted",
+      toast("Persona deleted", {
         description: `"${persona.name}" has been deleted successfully.`,
       });
       router.push("/personas");
     } catch (err) {
       logger.error("Failed to delete persona", err);
       const errorMessage = err instanceof Error ? err.message : "Failed to delete persona";
-      toast({
-        title: "Delete failed",
+      toast.error("Delete failed", {
         description: errorMessage,
-        variant: "destructive",
       });
       setIsDeleting(false);
     }

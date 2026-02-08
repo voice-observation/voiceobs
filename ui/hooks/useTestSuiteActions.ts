@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { api } from "@/lib/api";
 import { logger } from "@/lib/logger";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import type { TestSuite, TestSuiteCreateRequest, TestSuiteUpdateRequest } from "@/lib/types";
 
 interface UseTestSuiteActionsOptions {
@@ -44,8 +44,6 @@ export function useTestSuiteActions(
   options: UseTestSuiteActionsOptions = {}
 ): UseTestSuiteActionsResult {
   const { onCreated, onUpdated, onDeleted, onRunComplete } = options;
-  const { toast } = useToast();
-
   const [creatingIds, setCreatingIds] = useState<Set<string>>(new Set());
   const [updatingIds, setUpdatingIds] = useState<Set<string>>(new Set());
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
@@ -57,18 +55,15 @@ export function useTestSuiteActions(
       try {
         setCreatingIds((prev) => new Set(prev).add(tempId));
         const suite = await api.testSuites.createTestSuite(data);
-        toast({
-          title: "Test suite created",
+        toast("Test suite created", {
           description: `"${suite.name}" has been created successfully.`,
         });
         onCreated?.(suite);
         return suite;
       } catch (err) {
         logger.error("Failed to create test suite", err);
-        toast({
-          title: "Failed to create test suite",
+        toast.error("Failed to create test suite", {
           description: err instanceof Error ? err.message : "Unknown error",
-          variant: "destructive",
         });
         return null;
       } finally {
@@ -79,7 +74,7 @@ export function useTestSuiteActions(
         });
       }
     },
-    [toast, onCreated]
+    [onCreated]
   );
 
   const updateSuite = useCallback(
@@ -87,17 +82,13 @@ export function useTestSuiteActions(
       try {
         setUpdatingIds((prev) => new Set(prev).add(suiteId));
         const suite = await api.testSuites.updateTestSuite(suiteId, data);
-        toast({
-          title: "Test suite updated",
-        });
+        toast("Test suite updated");
         onUpdated?.(suite);
         return suite;
       } catch (err) {
         logger.error("Failed to update test suite", err);
-        toast({
-          title: "Failed to update test suite",
+        toast.error("Failed to update test suite", {
           description: err instanceof Error ? err.message : "Unknown error",
-          variant: "destructive",
         });
         return null;
       } finally {
@@ -108,7 +99,7 @@ export function useTestSuiteActions(
         });
       }
     },
-    [toast, onUpdated]
+    [onUpdated]
   );
 
   const deleteSuite = useCallback(
@@ -116,17 +107,13 @@ export function useTestSuiteActions(
       try {
         setDeletingIds((prev) => new Set(prev).add(suiteId));
         await api.testSuites.deleteTestSuite(suiteId);
-        toast({
-          title: "Test suite deleted",
-        });
+        toast("Test suite deleted");
         onDeleted?.(suiteId);
         return true;
       } catch (err) {
         logger.error("Failed to delete test suite", err);
-        toast({
-          title: "Failed to delete test suite",
+        toast.error("Failed to delete test suite", {
           description: err instanceof Error ? err.message : "Unknown error",
-          variant: "destructive",
         });
         return false;
       } finally {
@@ -137,15 +124,14 @@ export function useTestSuiteActions(
         });
       }
     },
-    [toast, onDeleted]
+    [onDeleted]
   );
 
   const runSuite = useCallback(
     async (suiteId: string): Promise<void> => {
       try {
         setRunningIds((prev) => new Set(prev).add(suiteId));
-        toast({
-          title: "Running test suite",
+        toast("Running test suite", {
           description: "Test execution started...",
         });
 
@@ -167,10 +153,8 @@ export function useTestSuiteActions(
         }, 2000);
       } catch (err) {
         logger.error("Failed to run test suite", err);
-        toast({
-          title: "Failed to run test suite",
+        toast.error("Failed to run test suite", {
           description: err instanceof Error ? err.message : "Unknown error",
-          variant: "destructive",
         });
         setRunningIds((prev) => {
           const next = new Set(prev);
@@ -179,7 +163,7 @@ export function useTestSuiteActions(
         });
       }
     },
-    [toast, onRunComplete]
+    [onRunComplete]
   );
 
   return {

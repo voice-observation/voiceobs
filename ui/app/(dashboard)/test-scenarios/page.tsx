@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useTestScenarios, useToast } from "@/hooks";
+import { useTestScenarios } from "@/hooks";
+import { toast } from "sonner";
 import { Button } from "@/components/primitives/button";
 import { TestScenariosTable } from "@/components/tests/TestScenariosTable";
 import { TestScenarioDialog } from "@/components/tests/TestScenarioDialog";
@@ -13,8 +14,6 @@ import type { TestScenario } from "@/lib/types";
 
 export default function TestScenariosPage() {
   const router = useRouter();
-  const { toast } = useToast();
-
   const {
     scenarios,
     testSuites,
@@ -42,7 +41,7 @@ export default function TestScenariosPage() {
   const handleUpdate = async () => {
     await refetch();
     setSelectedScenario(null);
-    toast({ title: "Scenario Updated", description: "Test scenario has been updated." });
+    toast("Scenario Updated", { description: "Test scenario has been updated." });
   };
 
   const handleDelete = async () => {
@@ -51,19 +50,15 @@ export default function TestScenariosPage() {
       await deleteScenario(selectedScenario.id);
       setDeleteDialogOpen(false);
       setSelectedScenario(null);
-      toast({ title: "Scenario Deleted", description: `"${selectedScenario.name}" deleted.` });
+      toast("Scenario Deleted", { description: `"${selectedScenario.name}" deleted.` });
     } catch {
-      toast({
-        title: "Delete Failed",
-        description: "Failed to delete scenario.",
-        variant: "destructive",
-      });
+      toast.error("Delete Failed", { description: "Failed to delete scenario." });
     }
   };
 
   const handleScenarioCreated = async () => {
     await refetch();
-    toast({ title: "Scenario Created", description: "Test scenario has been created." });
+    toast("Scenario Created", { description: "Test scenario has been created." });
   };
 
   return (

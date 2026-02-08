@@ -14,11 +14,17 @@ jest.mock("@/lib/api", () => ({
   },
 }));
 
-// Mock the toast hook
-const mockToast = jest.fn();
-jest.mock("@/hooks/use-toast", () => ({
-  useToast: () => ({ toast: mockToast }),
+// Mock sonner toast
+jest.mock("sonner", () => ({
+  toast: Object.assign(jest.fn(), {
+    error: jest.fn(),
+    warning: jest.fn(),
+    success: jest.fn(),
+  }),
 }));
+const { toast: mockToast } = require("sonner") as {
+  toast: jest.Mock & { error: jest.Mock; warning: jest.Mock; success: jest.Mock };
+};
 
 // Mock the logger
 jest.mock("@/lib/logger", () => ({
@@ -181,8 +187,8 @@ describe("useAgentActions", () => {
       });
 
       expect(mockToast).toHaveBeenCalledWith(
+        "Verification started",
         expect.objectContaining({
-          title: "Verification started",
           description: "Verifying agent...",
         })
       );
@@ -235,11 +241,9 @@ describe("useAgentActions", () => {
         await verifyPromise;
       });
 
-      expect(mockToast).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: "Failed to start verification",
-          variant: "destructive",
-        })
+      expect(mockToast.error).toHaveBeenCalledWith(
+        "Failed to start verification",
+        expect.anything()
       );
     });
 
@@ -321,11 +325,7 @@ describe("useAgentActions", () => {
         await result.current.deleteAgent("agent-123");
       });
 
-      expect(mockToast).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: "Agent deleted",
-        })
-      );
+      expect(mockToast).toHaveBeenCalledWith("Agent deleted");
     });
 
     it("calls onDeleted callback after deletion", async () => {
@@ -350,12 +350,7 @@ describe("useAgentActions", () => {
         await result.current.deleteAgent("agent-123");
       });
 
-      expect(mockToast).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: "Failed to delete agent",
-          variant: "destructive",
-        })
-      );
+      expect(mockToast.error).toHaveBeenCalledWith("Failed to delete agent", expect.anything());
     });
 
     it("removes agent from deletingIds after completion", async () => {
@@ -428,11 +423,7 @@ describe("useAgentActions", () => {
         await result.current.updateAgent("agent-123", { name: "Updated Agent" }, "+14155551234");
       });
 
-      expect(mockToast).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: "Agent updated",
-        })
-      );
+      expect(mockToast).toHaveBeenCalledWith("Agent updated");
     });
 
     it("shows re-verification toast when phone number changes", async () => {
@@ -456,8 +447,8 @@ describe("useAgentActions", () => {
       });
 
       expect(mockToast).toHaveBeenCalledWith(
+        "Agent updated",
         expect.objectContaining({
-          title: "Agent updated",
           description: "Re-verification in progress...",
         })
       );
@@ -544,12 +535,7 @@ describe("useAgentActions", () => {
         await result.current.updateAgent("agent-123", { name: "Updated Agent" });
       });
 
-      expect(mockToast).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: "Failed to update agent",
-          variant: "destructive",
-        })
-      );
+      expect(mockToast.error).toHaveBeenCalledWith("Failed to update agent", expect.anything());
     });
 
     it("removes agent from updatingIds after completion", async () => {
@@ -610,11 +596,7 @@ describe("useAgentActions", () => {
         await result.current.toggleActive("agent-123", false);
       });
 
-      expect(mockToast).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: "Agent activated",
-        })
-      );
+      expect(mockToast).toHaveBeenCalledWith("Agent activated", expect.anything());
     });
 
     it("shows deactivated toast when deactivating", async () => {
@@ -629,11 +611,7 @@ describe("useAgentActions", () => {
         await result.current.toggleActive("agent-123", true);
       });
 
-      expect(mockToast).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: "Agent deactivated",
-        })
-      );
+      expect(mockToast).toHaveBeenCalledWith("Agent deactivated", expect.anything());
     });
 
     it("calls onActiveToggled callback", async () => {

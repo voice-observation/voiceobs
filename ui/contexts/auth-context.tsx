@@ -9,7 +9,7 @@ import {
   useRef,
   ReactNode,
 } from "react";
-import { api, AuthMeResponse, UserResponse, OrgSummary, ActiveOrgResponse } from "@/lib/api";
+import { api, UserResponse, OrgSummary, ActiveOrgResponse } from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
 
 interface AuthContextType {
@@ -92,19 +92,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       hasFetchedRef.current = true;
 
       // Determine active org: use localStorage override, or fall back to server's active_org
+      let effectiveActiveOrg: ActiveOrgResponse | null = null;
       const storedOrgId = localStorage.getItem(ORG_STORAGE_KEY);
       if (storedOrgId) {
         const storedOrg = response.orgs.find((o) => o.id === storedOrgId);
         if (storedOrg) {
-          setActiveOrg({ id: storedOrg.id, name: storedOrg.name });
+          effectiveActiveOrg = { id: storedOrg.id, name: storedOrg.name };
         } else {
           // Stored org no longer valid, fall back to server's active org
           localStorage.removeItem(ORG_STORAGE_KEY);
-          setActiveOrg(response.active_org);
+          effectiveActiveOrg = response.active_org;
         }
       } else {
-        setActiveOrg(response.active_org);
+        effectiveActiveOrg = response.active_org;
       }
+
+      // Fallback: if no active org but user has orgs, select the first one
+      if (!effectiveActiveOrg && response.orgs.length > 0) {
+        const firstOrg = response.orgs[0];
+        effectiveActiveOrg = { id: firstOrg.id, name: firstOrg.name };
+        localStorage.setItem(ORG_STORAGE_KEY, firstOrg.id);
+        api.auth.updateMe({ last_active_org_id: firstOrg.id }).catch((err) => {
+          console.error("Failed to persist org fallback:", err);
+        });
+      }
+
+      setActiveOrg(effectiveActiveOrg);
     } catch (err) {
       // Don't log "Unauthorized" errors - those are handled by redirect
       if (err instanceof Error && err.message !== "Unauthorized") {

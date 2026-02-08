@@ -64,6 +64,14 @@ async def get_me(
             if active:
                 active_org = ActiveOrgResponse(id=str(active.id), name=active.name)
 
+        # Fallback: if no active org but user has orgs, auto-select the first one
+        if not active_org and org_memberships:
+            first_org = org_memberships[0]["org"]
+            active_org = ActiveOrgResponse(id=str(first_org.id), name=first_org.name)
+            # Persist the selection so subsequent requests don't repeat this
+            user_repo = get_user_repository()
+            await user_repo.update(current_user.id, last_active_org_id=first_org.id)
+
     return AuthMeResponse(
         user=user_response,
         active_org=active_org,

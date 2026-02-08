@@ -19,7 +19,7 @@ import {
 } from "@/components/primitives/select";
 import { api } from "@/lib/api";
 import { logger } from "@/lib/logger";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { TraitSelect } from "@/components/personas/TraitSelect";
 import type { PersonaCreateRequest } from "@/lib/types";
 
@@ -32,8 +32,6 @@ const DEFAULT_VERBOSITY = 0.4;
 
 export default function NewPersonaPage() {
   const router = useRouter();
-  const { toast } = useToast();
-
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [aggression, setAggression] = useState([DEFAULT_AGGRESSION]);
@@ -98,17 +96,14 @@ export default function NewPersonaPage() {
       }
 
       const newPersona = await api.personas.createPersona(requestData);
-      toast({
-        title: "Persona created",
+      toast("Persona created", {
         description: `"${newPersona.name}" has been created successfully.`,
       });
       router.push("/personas");
     } catch (error) {
       logger.error("Failed to create persona", error);
-      toast({
-        title: "Create failed",
+      toast.error("Create failed", {
         description: error instanceof Error ? error.message : "Failed to create persona",
-        variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
