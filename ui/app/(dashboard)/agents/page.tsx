@@ -19,7 +19,7 @@ import { EditAgentDialog } from "@/components/agents/EditAgentDialog";
 import { useAgentActions } from "@/hooks/useAgentActions";
 import { api } from "@/lib/api";
 import { logger } from "@/lib/logger";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import type { Agent, AgentListItem, AgentCreateRequest, AgentUpdateRequest } from "@/lib/types";
 import {
   Settings2,
@@ -36,7 +36,6 @@ import {
 
 export default function AgentsPage() {
   const router = useRouter();
-  const { toast } = useToast();
   const [agents, setAgents] = useState<AgentListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -97,10 +96,7 @@ export default function AgentsPage() {
     async (data: AgentCreateRequest | AgentUpdateRequest) => {
       try {
         const newAgent = await api.agents.createAgent(data as AgentCreateRequest);
-        toast({
-          title: "Agent created",
-          description: "Verification in progress...",
-        });
+        toast("Agent created", { description: "Verification in progress..." });
         setIsCreateOpen(false);
 
         // Start polling for verification
@@ -110,36 +106,29 @@ export default function AgentsPage() {
         refreshAgentList();
       } catch (err) {
         logger.error("Failed to create agent", err);
-        toast({
-          title: "Failed to create agent",
+        toast.error("Failed to create agent", {
           description: err instanceof Error ? err.message : "Unknown error",
-          variant: "destructive",
         });
         throw err;
       }
     },
-    [toast, refreshAgentList, verifyAgent]
+    [refreshAgentList, verifyAgent]
   );
 
-  const handleOpenEditDialog = useCallback(
-    async (agentId: string) => {
-      try {
-        setIsEditLoading(true);
-        const fullAgent = await api.agents.getAgent(agentId);
-        setEditAgent(fullAgent);
-      } catch (err) {
-        logger.error("Failed to fetch agent for editing", err);
-        toast({
-          title: "Failed to load agent",
-          description: err instanceof Error ? err.message : "Unknown error",
-          variant: "destructive",
-        });
-      } finally {
-        setIsEditLoading(false);
-      }
-    },
-    [toast]
-  );
+  const handleOpenEditDialog = useCallback(async (agentId: string) => {
+    try {
+      setIsEditLoading(true);
+      const fullAgent = await api.agents.getAgent(agentId);
+      setEditAgent(fullAgent);
+    } catch (err) {
+      logger.error("Failed to fetch agent for editing", err);
+      toast.error("Failed to load agent", {
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
+    } finally {
+      setIsEditLoading(false);
+    }
+  }, []);
 
   const handleToggleActive = async (agent: AgentListItem) => {
     // Optimistic update

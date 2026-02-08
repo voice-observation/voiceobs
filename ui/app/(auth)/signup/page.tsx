@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/primitives/button";
 import { Input } from "@/components/primitives/input";
 import { Label } from "@/components/primitives/label";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Mail, Lock, User, Loader2, Mic2 } from "lucide-react";
 
 export default function SignupPage() {
@@ -16,7 +16,6 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const { toast } = useToast();
   const supabase = createClient();
 
   const handleEmailSignup = async (e: React.FormEvent) => {
@@ -34,17 +33,14 @@ export default function SignupPage() {
     });
 
     if (error) {
-      toast({
-        title: "Signup failed",
+      toast.error("Signup failed", {
         description: error.message,
-        variant: "destructive",
       });
       setLoading(false);
       return;
     }
 
-    toast({
-      title: "Account created",
+    toast("Account created", {
       description: "Please check your email to verify your account.",
     });
 
@@ -62,10 +58,8 @@ export default function SignupPage() {
     });
 
     if (error) {
-      toast({
-        title: "Signup failed",
+      toast.error("Signup failed", {
         description: error.message,
-        variant: "destructive",
       });
       setLoading(false);
     }

@@ -11,11 +11,17 @@ jest.mock("@/lib/api", () => ({
   },
 }));
 
-// Mock the toast hook
-const mockToast = jest.fn();
-jest.mock("@/hooks/use-toast", () => ({
-  useToast: () => ({ toast: mockToast }),
+// Mock sonner toast
+jest.mock("sonner", () => ({
+  toast: Object.assign(jest.fn(), {
+    error: jest.fn(),
+    warning: jest.fn(),
+    success: jest.fn(),
+  }),
 }));
+const { toast: mockToast } = require("sonner") as {
+  toast: jest.Mock & { error: jest.Mock; warning: jest.Mock; success: jest.Mock };
+};
 
 describe("DeleteAgentDialog", () => {
   const mockOnOpenChange = jest.fn();
@@ -253,11 +259,7 @@ describe("DeleteAgentDialog", () => {
       fireEvent.click(screen.getByRole("button", { name: /^delete$/i }));
 
       await waitFor(() => {
-        expect(mockToast).toHaveBeenCalledWith(
-          expect.objectContaining({
-            title: "Agent deleted",
-          })
-        );
+        expect(mockToast).toHaveBeenCalledWith("Agent deleted");
       });
     });
 
@@ -275,12 +277,7 @@ describe("DeleteAgentDialog", () => {
       fireEvent.click(screen.getByRole("button", { name: /^delete$/i }));
 
       await waitFor(() => {
-        expect(mockToast).toHaveBeenCalledWith(
-          expect.objectContaining({
-            title: "Failed to delete agent",
-            variant: "destructive",
-          })
-        );
+        expect(mockToast.error).toHaveBeenCalledWith("Failed to delete agent", expect.anything());
       });
     });
 
@@ -298,7 +295,7 @@ describe("DeleteAgentDialog", () => {
       fireEvent.click(screen.getByRole("button", { name: /^delete$/i }));
 
       await waitFor(() => {
-        expect(mockToast).toHaveBeenCalled();
+        expect(mockToast.error).toHaveBeenCalled();
       });
 
       expect(mockOnDeleted).not.toHaveBeenCalled();

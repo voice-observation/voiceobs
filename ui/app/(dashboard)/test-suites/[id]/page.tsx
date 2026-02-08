@@ -37,7 +37,8 @@ import {
 import { api } from "@/lib/api";
 import { logger } from "@/lib/logger";
 import { useTestSuiteActions } from "@/hooks/useTestSuiteActions";
-import { useGenerationPolling, useToast, useTestScenarios } from "@/hooks";
+import { useGenerationPolling, useTestScenarios } from "@/hooks";
+import { toast } from "sonner";
 import type { TestSuite, TestScenario } from "@/lib/types";
 import { getPassRateFromStatus, formatRelativeTime } from "@/lib/utils/testSuiteUtils";
 
@@ -84,8 +85,6 @@ export default function TestSuiteDetailPage() {
   const [editScenarioDialogOpen, setEditScenarioDialogOpen] = useState(false);
   const [deleteScenarioDialogOpen, setDeleteScenarioDialogOpen] = useState(false);
 
-  const { toast } = useToast();
-
   const { deleteSuite, deletingIds } = useTestSuiteActions({
     onDeleted: () => {
       router.push("/test-suites");
@@ -105,15 +104,12 @@ export default function TestSuiteDetailPage() {
       // Refresh scenarios via hook
       refetchScenarios();
       if (status.status === "ready") {
-        toast({
-          title: "Generation Complete",
+        toast("Generation Complete", {
           description: `Generated ${status.scenario_count} test scenarios.`,
         });
       } else if (status.status === "generation_failed") {
-        toast({
-          title: "Generation Failed",
+        toast.error("Generation Failed", {
           description: status.error || "Failed to generate test scenarios.",
-          variant: "destructive",
         });
       }
     },
@@ -167,16 +163,13 @@ export default function TestSuiteDetailPage() {
       // Update suite status locally to trigger polling - don't call fetchData
       // which would show a loading skeleton. Polling will refresh data when complete.
       setSuite((prev) => (prev ? { ...prev, status: "generating" } : null));
-      toast({
-        title: "Generation Started",
+      toast("Generation Started", {
         description: "AI is generating additional test scenarios...",
       });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to start generation";
-      toast({
-        title: "Generation Failed",
+      toast.error("Generation Failed", {
         description: errorMessage,
-        variant: "destructive",
       });
       logger.error("Failed to generate more scenarios", err);
     } finally {
@@ -187,28 +180,18 @@ export default function TestSuiteDetailPage() {
   const handleScenarioUpdated = async () => {
     await refetchScenarios();
     setSelectedScenario(null);
-    toast({
-      title: "Scenario Updated",
-      description: "Test scenario has been updated successfully.",
-    });
+    toast("Scenario Updated", { description: "Test scenario has been updated successfully." });
   };
 
   const handleConfirmDeleteScenario = async () => {
     if (!selectedScenario) return;
     try {
       await deleteScenario(selectedScenario.id);
-      toast({
-        title: "Scenario Deleted",
-        description: `"${selectedScenario.name}" has been deleted.`,
-      });
+      toast("Scenario Deleted", { description: `"${selectedScenario.name}" has been deleted.` });
       setDeleteScenarioDialogOpen(false);
       setSelectedScenario(null);
     } catch {
-      toast({
-        title: "Delete Failed",
-        description: "Failed to delete scenario.",
-        variant: "destructive",
-      });
+      toast.error("Delete Failed", { description: "Failed to delete scenario." });
     }
   };
 

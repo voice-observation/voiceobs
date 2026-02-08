@@ -9,14 +9,13 @@ import { AgentConfigForm } from "@/components/agents/AgentConfigForm";
 import { useVerificationPolling } from "@/hooks/useVerificationPolling";
 import { api } from "@/lib/api";
 import { logger } from "@/lib/logger";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import type { Agent, AgentUpdateRequest } from "@/lib/types";
 import { ArrowLeft, AlertCircle } from "lucide-react";
 
 export default function AgentEditPage() {
   const router = useRouter();
   const params = useParams();
-  const { toast } = useToast();
   const agentId = params.id as string;
 
   const [agent, setAgent] = useState<Agent | null>(null);
@@ -26,15 +25,10 @@ export default function AgentEditPage() {
   const { startPolling } = useVerificationPolling({
     onComplete: (status, verificationError) => {
       if (status === "verified") {
-        toast({
-          title: "Agent verified",
-          description: "The agent has been successfully verified.",
-        });
+        toast("Agent verified", { description: "The agent has been successfully verified." });
       } else if (status === "failed") {
-        toast({
-          title: "Verification failed",
+        toast.error("Verification failed", {
           description: verificationError || "Agent verification failed.",
-          variant: "destructive",
         });
       }
     },
@@ -67,25 +61,18 @@ export default function AgentEditPage() {
       await api.agents.updateAgent(agentId, data);
 
       if (phoneChanged) {
-        toast({
-          title: "Agent updated",
-          description: "Re-verification in progress...",
-        });
+        toast("Agent updated", { description: "Re-verification in progress..." });
         // Start polling for verification
         startPolling(agentId);
       } else {
-        toast({
-          title: "Agent updated",
-        });
+        toast("Agent updated");
       }
 
       router.push(`/agents/${agentId}`);
     } catch (err) {
       logger.error("Failed to update agent", err);
-      toast({
-        title: "Failed to update agent",
+      toast.error("Failed to update agent", {
         description: err instanceof Error ? err.message : "Unknown error",
-        variant: "destructive",
       });
       throw err;
     }

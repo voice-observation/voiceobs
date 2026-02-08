@@ -6,14 +6,13 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/primitives/button";
 import { Input } from "@/components/primitives/input";
 import { Label } from "@/components/primitives/label";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Mail, Loader2, ArrowLeft, CheckCircle2, Mic2 } from "lucide-react";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
-  const { toast } = useToast();
   const supabase = createClient();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -25,10 +24,8 @@ export default function ForgotPasswordPage() {
     });
 
     if (error) {
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: error.message,
-        variant: "destructive",
       });
       setLoading(false);
       return;

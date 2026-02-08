@@ -21,7 +21,7 @@ import {
 import { AlertCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { logger } from "@/lib/logger";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { TraitSelect } from "@/components/personas/TraitSelect";
 import type { Persona, PersonaUpdateRequest } from "@/lib/types";
 
@@ -29,8 +29,6 @@ type TTSModels = Record<string, Record<string, Record<string, unknown>>>;
 
 export default function EditPersonaPage({ params }: { params: { id: string } }) {
   const router = useRouter();
-  const { toast } = useToast();
-
   const [persona, setPersona] = useState<Persona | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -144,17 +142,14 @@ export default function EditPersonaPage({ params }: { params: { id: string } }) 
       }
 
       const updatedPersona = await api.personas.updatePersona(params.id, updateData);
-      toast({
-        title: "Persona updated",
+      toast("Persona updated", {
         description: `"${updatedPersona.name}" has been updated successfully.`,
       });
       router.push(`/personas/${params.id}`);
     } catch (error) {
       logger.error("Failed to update persona", error);
-      toast({
-        title: "Update failed",
+      toast.error("Update failed", {
         description: error instanceof Error ? error.message : "Failed to update persona",
-        variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);

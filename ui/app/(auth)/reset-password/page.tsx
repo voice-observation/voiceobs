@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/primitives/button";
 import { Input } from "@/components/primitives/input";
 import { Label } from "@/components/primitives/label";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Lock, Loader2, Mic2 } from "lucide-react";
 
 export default function ResetPasswordPage() {
@@ -14,17 +14,14 @@ export default function ResetPasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const { toast } = useToast();
   const supabase = createClient();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (password !== confirmPassword) {
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: "Passwords do not match",
-        variant: "destructive",
       });
       return;
     }
@@ -36,17 +33,14 @@ export default function ResetPasswordPage() {
     });
 
     if (error) {
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: error.message,
-        variant: "destructive",
       });
       setLoading(false);
       return;
     }
 
-    toast({
-      title: "Password updated",
+    toast("Password updated", {
       description: "Your password has been reset successfully",
     });
 

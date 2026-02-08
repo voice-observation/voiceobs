@@ -24,11 +24,17 @@ jest.mock("@/lib/api", () => ({
   },
 }));
 
-// Mock the toast hook
-const mockToast = jest.fn();
-jest.mock("@/hooks/use-toast", () => ({
-  useToast: () => ({ toast: mockToast }),
+// Mock sonner toast
+jest.mock("sonner", () => ({
+  toast: Object.assign(jest.fn(), {
+    error: jest.fn(),
+    warning: jest.fn(),
+    success: jest.fn(),
+  }),
 }));
+const { toast: mockToast } = require("sonner") as {
+  toast: jest.Mock & { error: jest.Mock; warning: jest.Mock; success: jest.Mock };
+};
 
 // Mock the tooltip provider to avoid portal issues in tests
 jest.mock("@/components/primitives/tooltip", () => ({
@@ -236,11 +242,7 @@ describe("EditAgentDialog", () => {
       fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
 
       await waitFor(() => {
-        expect(mockToast).toHaveBeenCalledWith(
-          expect.objectContaining({
-            title: "Agent updated",
-          })
-        );
+        expect(mockToast).toHaveBeenCalledWith("Agent updated");
       });
     });
 
@@ -264,8 +266,8 @@ describe("EditAgentDialog", () => {
 
       await waitFor(() => {
         expect(mockToast).toHaveBeenCalledWith(
+          "Agent updated",
           expect.objectContaining({
-            title: "Agent updated",
             description: "Re-verification in progress...",
           })
         );
