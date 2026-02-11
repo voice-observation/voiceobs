@@ -40,6 +40,9 @@ class PersonaRepository:
         preview_audio_text: str | None = None,
         preview_audio_status: str | None = None,
         preview_audio_error: str | None = None,
+        org_id: UUID | None = None,
+        persona_type: str = "custom",
+        is_default: bool = False,
     ) -> PersonaRow:
         """Create a new persona.
 
@@ -58,6 +61,9 @@ class PersonaRepository:
             preview_audio_text: Text used for preview audio generation.
             preview_audio_status: Status of preview audio generation.
             preview_audio_error: Error message if preview audio generation failed.
+            org_id: Organization UUID for scoping. None for unscoped.
+            persona_type: Type of persona (e.g. "custom", "system").
+            is_default: Whether this persona is the default.
 
         Returns:
             The created persona row.
@@ -84,11 +90,11 @@ class PersonaRepository:
                 id, name, description, aggression, patience, verbosity,
                 traits, tts_provider, tts_config, preview_audio_url,
                 preview_audio_text, preview_audio_status, preview_audio_error,
-                metadata, created_by, is_active, is_default
+                metadata, created_by, is_active, is_default, org_id, persona_type
             )
             VALUES (
                 $1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9::jsonb,
-                $10, $11, $12, $13, $14::jsonb, $15, true, false
+                $10, $11, $12, $13, $14::jsonb, $15, true, $16, $17, $18
             )
             """,
             persona_id,
@@ -106,6 +112,9 @@ class PersonaRepository:
             preview_audio_error,
             json.dumps(metadata),  # Convert dict to JSON string for JSONB column
             created_by,
+            is_default,
+            org_id,
+            persona_type,
         )
 
         row = await self._db.fetchrow(
@@ -113,7 +122,8 @@ class PersonaRepository:
             SELECT id, name, description, aggression, patience, verbosity,
                    traits, tts_provider, tts_config, preview_audio_url,
                    preview_audio_text, preview_audio_status, preview_audio_error,
-                   metadata, created_at, updated_at, created_by, is_active, is_default
+                   metadata, created_at, updated_at, created_by, is_active, is_default,
+                   org_id, persona_type
             FROM personas WHERE id = $1
             """,
             persona_id,
@@ -124,8 +134,44 @@ class PersonaRepository:
 
         return self._row_to_persona(row)
 
-    async def get(self, persona_id: UUID) -> PersonaRow | None:
+    async def get(self, persona_id: UUID, org_id: UUID) -> PersonaRow | None:
         """Get persona by UUID.
+
+        Args:
+            persona_id: The persona UUID.
+            org_id: Organization UUID for scoping (required).
+
+        Returns:
+            The persona row, or None if not found.
+        """
+        row = await self._db.fetchrow(
+            """
+            SELECT id, name, description, aggression, patience, verbosity,
+                   traits, tts_provider, tts_config, preview_audio_url,
+                   preview_audio_text, preview_audio_status, preview_audio_error,
+                   metadata, created_at, updated_at, created_by, is_active, is_default,
+                   org_id, persona_type
+            FROM personas WHERE id = $1 AND org_id = $2
+            """,
+            persona_id,
+            org_id,
+        )
+
+        if row is None:
+            return None
+
+        return self._row_to_persona(row)
+
+    async def _get_by_id_unchecked(self, persona_id: UUID) -> PersonaRow | None:
+        """Get persona by UUID without org scoping.
+
+        TEMPORARY: This method exists to bridge the gap until test scenarios/suites
+        are org-scoped. It should only be used for internal validation where org_id
+        is not available in the calling context (e.g., TestScenarioRepository,
+        scenario generation service, test dependencies).
+
+        This method will be removed once test scenarios and test suites are
+        properly org-scoped.
 
         Args:
             persona_id: The persona UUID.
@@ -138,7 +184,8 @@ class PersonaRepository:
             SELECT id, name, description, aggression, patience, verbosity,
                    traits, tts_provider, tts_config, preview_audio_url,
                    preview_audio_text, preview_audio_status, preview_audio_error,
-                   metadata, created_at, updated_at, created_by, is_active, is_default
+                   metadata, created_at, updated_at, created_by, is_active, is_default,
+                   org_id, persona_type
             FROM personas WHERE id = $1
             """,
             persona_id,
@@ -149,33 +196,37 @@ class PersonaRepository:
 
         return self._row_to_persona(row)
 
-    async def get_by_name(self, name: str) -> PersonaRow | None:
-        """Get active persona by name.
+    async def _list_all_active_unchecked(self) -> list[PersonaRow]:
+        """List all active personas without org scoping.
 
-        Args:
-            name: The persona name.
+        TEMPORARY: This method exists to bridge the gap until test scenarios/suites
+        are org-scoped. It should only be used for scenario generation service where
+        org_id is not available in the calling context.
+
+        This method will be removed once test scenarios and test suites are
+        properly org-scoped.
 
         Returns:
-            The persona row, or None if not found.
+            List of active persona rows across all organizations.
         """
-        row = await self._db.fetchrow(
+        rows = await self._db.fetch(
             """
             SELECT id, name, description, aggression, patience, verbosity,
                    traits, tts_provider, tts_config, preview_audio_url,
                    preview_audio_text, preview_audio_status, preview_audio_error,
-                   metadata, created_at, updated_at, created_by, is_active, is_default
-            FROM personas WHERE name = $1 AND is_active = true
-            """,
-            name,
+                   metadata, created_at, updated_at, created_by, is_active, is_default,
+                   org_id, persona_type
+            FROM personas
+            WHERE is_active = true
+            ORDER BY created_at DESC
+            """
         )
 
-        if row is None:
-            return None
-
-        return self._row_to_persona(row)
+        return [self._row_to_persona(row) for row in rows]
 
     async def list_all(
         self,
+        org_id: UUID,
         is_active: bool | None = None,
         limit: int | None = None,
         offset: int | None = None,
@@ -183,6 +234,7 @@ class PersonaRepository:
         """List all personas with optional filtering.
 
         Args:
+            org_id: Organization UUID for scoping (required).
             is_active: Filter by active status. None for all personas.
             limit: Maximum number of results.
             offset: Number of results to skip.
@@ -190,16 +242,16 @@ class PersonaRepository:
         Returns:
             List of persona rows.
         """
-        conditions = []
-        params: list[Any] = []
-        param_idx = 1
+        conditions = ["org_id = $1"]
+        params: list[Any] = [org_id]
+        param_idx = 2
 
         if is_active is not None:
             conditions.append(f"is_active = ${param_idx}")
             params.append(is_active)
             param_idx += 1
 
-        where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        where_clause = f"WHERE {' AND '.join(conditions)}"
 
         limit_clause = ""
         if limit is not None:
@@ -217,7 +269,8 @@ class PersonaRepository:
             SELECT id, name, description, aggression, patience, verbosity,
                    traits, tts_provider, tts_config, preview_audio_url,
                    preview_audio_text, preview_audio_status, preview_audio_error,
-                   metadata, created_at, updated_at, created_by, is_active, is_default
+                   metadata, created_at, updated_at, created_by, is_active, is_default,
+                   org_id, persona_type
             FROM personas
             {where_clause}
             ORDER BY created_at DESC
@@ -231,6 +284,7 @@ class PersonaRepository:
     async def update(
         self,
         persona_id: UUID,
+        org_id: UUID,
         name: str | None = None,
         description: str | None = None,
         aggression: float | None = None,
@@ -250,6 +304,7 @@ class PersonaRepository:
 
         Args:
             persona_id: The persona UUID.
+            org_id: Organization UUID for scoping (required).
             name: New name (optional).
             description: New description (optional).
             aggression: New aggression level (optional).
@@ -263,6 +318,7 @@ class PersonaRepository:
             preview_audio_status: New preview audio status (optional).
             preview_audio_error: New preview audio error (optional).
             metadata: New metadata (optional).
+            is_active: New active status (optional).
 
         Returns:
             The updated persona row, or None if not found.
@@ -315,67 +371,80 @@ class PersonaRepository:
 
         if not updates:
             # No updates, just return the existing persona
-            return await self.get(persona_id)
+            return await self.get(persona_id, org_id=org_id)
 
         # Add updated_at timestamp
         updates.append("updated_at = NOW()")
 
         params.append(persona_id)
+        params.append(org_id)
+        where_clause = f"WHERE id = ${param_idx} AND org_id = ${param_idx + 1}"
+
         await self._db.execute(
             f"""
             UPDATE personas
             SET {", ".join(updates)}
-            WHERE id = ${param_idx}
+            {where_clause}
             """,
             *params,
         )
 
-        return await self.get(persona_id)
+        return await self.get(persona_id, org_id=org_id)
 
-    async def delete(self, persona_id: UUID) -> bool:
+    async def delete(self, persona_id: UUID, org_id: UUID) -> bool:
         """Delete a persona.
 
         Args:
             persona_id: The persona UUID.
+            org_id: Organization UUID for scoping (required).
 
         Returns:
             True if deleted, False if not found.
         """
         result = await self._db.execute(
             """
-            DELETE FROM personas WHERE id = $1
+            DELETE FROM personas WHERE id = $1 AND org_id = $2
             """,
             persona_id,
+            org_id,
         )
         return result == "DELETE 1"
 
-    async def count(self, is_active: bool | None = True) -> int:
+    async def count(self, org_id: UUID, is_active: bool | None = True) -> int:
         """Count personas.
 
         Args:
+            org_id: Organization UUID for scoping (required).
             is_active: Filter by active status. None for all personas.
 
         Returns:
             Count of personas.
         """
-        if is_active is None:
-            count = await self._db.fetchval(
-                """
-                SELECT COUNT(*) FROM personas
-                """
-            )
-        else:
-            count = await self._db.fetchval(
-                """
-                SELECT COUNT(*) FROM personas WHERE is_active = $1
-                """,
-                is_active,
-            )
+        conditions = ["org_id = $1"]
+        params: list[Any] = [org_id]
+        param_idx = 2
+
+        if is_active is not None:
+            conditions.append(f"is_active = ${param_idx}")
+            params.append(is_active)
+            param_idx += 1
+
+        where_clause = f"WHERE {' AND '.join(conditions)}"
+
+        count = await self._db.fetchval(
+            f"""
+            SELECT COUNT(*) FROM personas {where_clause}
+            """,
+            *params,
+        )
 
         return count or 0
 
-    async def get_default(self) -> PersonaRow | None:
+    async def get_default(self, org_id: UUID) -> PersonaRow | None:
         """Get the default persona.
+
+        Args:
+            org_id: Organization UUID for scoping (required).
 
         Returns:
             The persona row with is_default=True, or None if no default exists.
@@ -385,9 +454,11 @@ class PersonaRepository:
             SELECT id, name, description, aggression, patience, verbosity,
                    traits, tts_provider, tts_config, preview_audio_url,
                    preview_audio_text, preview_audio_status, preview_audio_error,
-                   metadata, created_at, updated_at, created_by, is_active, is_default
-            FROM personas WHERE is_default = true
-            """
+                   metadata, created_at, updated_at, created_by, is_active, is_default,
+                   org_id, persona_type
+            FROM personas WHERE is_default = true AND org_id = $1
+            """,
+            org_id,
         )
 
         if row is None:
@@ -395,23 +466,26 @@ class PersonaRepository:
 
         return self._row_to_persona(row)
 
-    async def set_default(self, persona_id: UUID) -> PersonaRow | None:
+    async def set_default(self, persona_id: UUID, org_id: UUID) -> PersonaRow | None:
         """Set a persona as the default, atomically unsetting any previous default.
 
         This method performs two operations atomically within a transaction:
-        1. Unset is_default on all personas
+        1. Unset is_default on all personas within the organization
         2. Set is_default on the specified persona
 
         Args:
             persona_id: The UUID of the persona to set as default.
+            org_id: Organization UUID for scoping (required).
 
         Returns:
             The updated persona row, or None if not found.
         """
         async with self._db.transaction() as conn:
-            # Unset any existing default
+            # Unset any existing default within the organization
             await conn.execute(
-                "UPDATE personas SET is_default = false, updated_at = NOW() WHERE is_default = true"
+                "UPDATE personas SET is_default = false, updated_at = NOW() "
+                "WHERE is_default = true AND org_id = $1",
+                org_id,
             )
 
             # Set the new default
@@ -420,7 +494,7 @@ class PersonaRepository:
                 persona_id,
             )
 
-        return await self.get(persona_id)
+        return await self.get(persona_id, org_id=org_id)
 
     def _row_to_persona(self, row: Any) -> PersonaRow:
         """Convert a database row to a PersonaRow.
@@ -494,4 +568,6 @@ class PersonaRepository:
             created_by=row["created_by"],
             is_active=row["is_active"],
             is_default=row.get("is_default", False),
+            org_id=row.get("org_id"),
+            persona_type=row.get("persona_type", "custom"),
         )

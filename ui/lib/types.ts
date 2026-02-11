@@ -214,6 +214,7 @@ export interface PersonaListItem {
   preview_audio_status: "generating" | "ready" | "failed" | null;
   is_active: boolean;
   is_default?: boolean;
+  persona_type: "system" | "custom";
 }
 
 // PersonaResponse - full persona model with all fields
@@ -237,6 +238,7 @@ export interface Persona {
   created_by: string | null;
   is_active: boolean;
   is_default?: boolean;
+  persona_type: "system" | "custom";
 }
 
 export interface PersonaCreateRequest {

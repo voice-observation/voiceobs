@@ -264,6 +264,7 @@ export const mockPersonas: Persona[] = [
     updated_at: null,
     created_by: null,
     is_active: true,
+    persona_type: "system",
   },
   {
     id: "persona-002",
@@ -284,6 +285,7 @@ export const mockPersonas: Persona[] = [
     updated_at: null,
     created_by: null,
     is_active: true,
+    persona_type: "system",
   },
   {
     id: "persona-003",
@@ -304,6 +306,7 @@ export const mockPersonas: Persona[] = [
     updated_at: null,
     created_by: null,
     is_active: true,
+    persona_type: "system",
   },
   {
     id: "persona-004",
@@ -324,6 +327,7 @@ export const mockPersonas: Persona[] = [
     updated_at: null,
     created_by: null,
     is_active: true,
+    persona_type: "custom",
   },
   {
     id: "persona-005",
@@ -344,6 +348,7 @@ export const mockPersonas: Persona[] = [
     updated_at: "2024-01-13T10:00:00Z",
     created_by: null,
     is_active: true,
+    persona_type: "custom",
   },
   {
     id: "persona-006",
@@ -364,6 +369,7 @@ export const mockPersonas: Persona[] = [
     updated_at: null,
     created_by: null,
     is_active: false,
+    persona_type: "custom",
   },
 ];
 

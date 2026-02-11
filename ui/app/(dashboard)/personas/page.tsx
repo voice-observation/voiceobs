@@ -9,25 +9,30 @@ import { Skeleton } from "@/components/primitives/skeleton";
 import { AlertCircle, Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import { logger } from "@/lib/logger";
+import { useAuth } from "@/contexts/auth-context";
 import { PersonaCard } from "@/components/personas/PersonaCard";
 import { DeletePersonaDialog } from "@/components/personas/DeletePersonaDialog";
 import { toast } from "sonner";
 import type { PersonaListItem } from "@/lib/types";
 
 export default function PersonasPage() {
+  const { activeOrg } = useAuth();
+  const orgId = activeOrg?.id ?? "";
   const [personas, setPersonas] = useState<PersonaListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("active");
   const [deletePersona, setDeletePersona] = useState<PersonaListItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [playingPersonaId, setPlayingPersonaId] = useState<string | null>(null);
   useEffect(() => {
+    if (!orgId) return;
     async function fetchData() {
       try {
         setLoading(true);
         setError(null);
         // Fetch all personas (both active and inactive)
-        const response = await api.personas.listPersonas(null);
+        const response = await api.personas.listPersonas(orgId, null);
         setPersonas(response.personas);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load personas");
@@ -36,7 +41,7 @@ export default function PersonasPage() {
       }
     }
     fetchData();
-  }, []);
+  }, [orgId]);
 
   const activePersonas = personas.filter((p) => p.is_active);
   const inactivePersonas = personas.filter((p) => !p.is_active);
@@ -47,7 +52,7 @@ export default function PersonasPage() {
       setPersonas((prev) => prev.map((p) => (p.id === id ? { ...p, is_active: enabled } : p)));
 
       // Call the API to update the persona's active status
-      const updatedPersona = await api.personas.setPersonaActive(id, enabled);
+      const updatedPersona = await api.personas.setPersonaActive(orgId, id, enabled);
 
       // Update the persona in the list with the response from the API
       setPersonas((prev) =>
@@ -62,7 +67,7 @@ export default function PersonasPage() {
       });
       // Revert on error by refreshing
       try {
-        const response = await api.personas.listPersonas(null);
+        const response = await api.personas.listPersonas(orgId, null);
         setPersonas(response.personas);
       } catch (refreshErr) {
         logger.error("Failed to refresh personas after toggle error", refreshErr);
@@ -75,11 +80,11 @@ export default function PersonasPage() {
       let preview;
       try {
         // Try to get existing preview audio
-        preview = await api.personas.getPersonaPreviewAudio(id);
+        preview = await api.personas.getPersonaPreviewAudio(orgId, id);
       } catch (err) {
         // If preview doesn't exist, generate it
         logger.debug("Preview audio not found, generating...", { personaId: id });
-        preview = await api.personas.generatePersonaPreviewAudio(id);
+        preview = await api.personas.generatePersonaPreviewAudio(orgId, id);
       }
 
       if (preview.audio_url) {
@@ -109,10 +114,10 @@ export default function PersonasPage() {
 
   const handleSetDefault = async (id: string) => {
     try {
-      await api.personas.setDefault(id);
+      await api.personas.setDefault(orgId, id);
       logger.info("Persona set as default", { personaId: id });
       // Refresh the personas list to get updated is_default flags
-      const response = await api.personas.listPersonas(null);
+      const response = await api.personas.listPersonas(orgId, null);
       setPersonas(response.personas);
     } catch (err) {
       logger.error("Failed to set persona as default", err, { personaId: id });
@@ -128,7 +133,7 @@ export default function PersonasPage() {
 
     setIsDeleting(true);
     try {
-      await api.personas.deletePersona(deletePersona.id);
+      await api.personas.deletePersona(orgId, deletePersona.id);
       setPersonas((prev) => prev.filter((p) => p.id !== deletePersona.id));
       toast("Persona deleted", {
         description: `"${deletePersona.name}" has been deleted successfully.`,
@@ -208,11 +213,14 @@ export default function PersonasPage() {
               {activePersonas.map((persona) => (
                 <PersonaCard
                   key={persona.id}
+                  orgId={orgId}
                   persona={persona}
                   onToggleEnabled={handleToggleEnabled}
                   onListenVoice={handleListenVoice}
                   onSetDefault={handleSetDefault}
                   onDelete={handleDeleteClick}
+                  playingPersonaId={playingPersonaId}
+                  onPlayingChange={setPlayingPersonaId}
                 />
               ))}
             </div>
@@ -233,11 +241,14 @@ export default function PersonasPage() {
               {inactivePersonas.map((persona) => (
                 <PersonaCard
                   key={persona.id}
+                  orgId={orgId}
                   persona={persona}
                   onToggleEnabled={handleToggleEnabled}
                   onListenVoice={handleListenVoice}
                   onSetDefault={handleSetDefault}
                   onDelete={handleDeleteClick}
+                  playingPersonaId={playingPersonaId}
+                  onPlayingChange={setPlayingPersonaId}
                 />
               ))}
             </div>

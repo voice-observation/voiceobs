@@ -41,6 +41,7 @@ class TestResolvePersonaForScenario:
             verbosity=0.5,
             traits=["friendly", "helpful"],
             tts_provider="openai",
+            org_id=uuid4(),
             tts_config={"voice": "alloy"},
             preview_audio_url="https://example.com/audio.mp3",
             preview_audio_text="Hello, this is how I sound.",
@@ -49,13 +50,13 @@ class TestResolvePersonaForScenario:
         )
 
         mock_repo = AsyncMock(spec=PersonaRepository)
-        mock_repo.get.return_value = persona_row
+        mock_repo._get_by_id_unchecked.return_value = persona_row
 
         # Act
         result = await resolve_persona_for_scenario(scenario, mock_repo)
 
         # Assert
-        mock_repo.get.assert_called_once_with(persona_id)
+        mock_repo._get_by_id_unchecked.assert_called_once_with(persona_id)
         assert isinstance(result, PersonaDNA)
         assert result.aggression == 0.3
         assert result.patience == 0.8
@@ -79,14 +80,14 @@ class TestResolvePersonaForScenario:
         )
 
         mock_repo = AsyncMock(spec=PersonaRepository)
-        mock_repo.get.return_value = None
+        mock_repo._get_by_id_unchecked.return_value = None
 
         # Act & Assert
         with pytest.raises(ValueError) as exc_info:
             await resolve_persona_for_scenario(scenario, mock_repo)
 
         assert f"Persona {persona_id} not found" in str(exc_info.value)
-        mock_repo.get.assert_called_once_with(persona_id)
+        mock_repo._get_by_id_unchecked.assert_called_once_with(persona_id)
 
     @pytest.mark.asyncio
     async def test_resolve_persona_inactive(self):
@@ -113,19 +114,20 @@ class TestResolvePersonaForScenario:
             verbosity=0.5,
             traits=[],
             tts_provider="openai",
+            org_id=uuid4(),
             tts_config={},
             is_active=False,  # Inactive persona
         )
 
         mock_repo = AsyncMock(spec=PersonaRepository)
-        mock_repo.get.return_value = persona_row
+        mock_repo._get_by_id_unchecked.return_value = persona_row
 
         # Act & Assert
         with pytest.raises(ValueError) as exc_info:
             await resolve_persona_for_scenario(scenario, mock_repo)
 
         assert f"Persona {persona_id} is not active" in str(exc_info.value)
-        mock_repo.get.assert_called_once_with(persona_id)
+        mock_repo._get_by_id_unchecked.assert_called_once_with(persona_id)
 
     @pytest.mark.asyncio
     async def test_resolve_persona_with_empty_traits(self):
@@ -152,12 +154,13 @@ class TestResolvePersonaForScenario:
             verbosity=0.4,
             traits=[],  # Empty traits
             tts_provider="elevenlabs",
+            org_id=uuid4(),
             tts_config={"voice_id": "abc123"},
             is_active=True,
         )
 
         mock_repo = AsyncMock(spec=PersonaRepository)
-        mock_repo.get.return_value = persona_row
+        mock_repo._get_by_id_unchecked.return_value = persona_row
 
         # Act
         result = await resolve_persona_for_scenario(scenario, mock_repo)
@@ -195,12 +198,13 @@ class TestResolvePersonaForScenario:
             verbosity=0.5,  # Middle
             traits=["calm", "patient", "balanced"],
             tts_provider="deepgram",
+            org_id=uuid4(),
             tts_config={"model": "aura-asteria-en"},
             is_active=True,
         )
 
         mock_repo = AsyncMock(spec=PersonaRepository)
-        mock_repo.get.return_value = persona_row
+        mock_repo._get_by_id_unchecked.return_value = persona_row
 
         # Act
         result = await resolve_persona_for_scenario(scenario, mock_repo)
@@ -237,12 +241,13 @@ class TestResolvePersonaForScenario:
             verbosity=0.7,
             traits=traits,
             tts_provider="openai",
+            org_id=uuid4(),
             tts_config={"voice": "nova"},
             is_active=True,
         )
 
         mock_repo = AsyncMock(spec=PersonaRepository)
-        mock_repo.get.return_value = persona_row
+        mock_repo._get_by_id_unchecked.return_value = persona_row
 
         # Act
         result = await resolve_persona_for_scenario(scenario, mock_repo)

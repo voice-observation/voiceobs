@@ -21,6 +21,7 @@ import {
 import { AlertCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { logger } from "@/lib/logger";
+import { useAuth } from "@/contexts/auth-context";
 import { toast } from "sonner";
 import { TraitSelect } from "@/components/personas/TraitSelect";
 import type { Persona, PersonaUpdateRequest } from "@/lib/types";
@@ -29,6 +30,8 @@ type TTSModels = Record<string, Record<string, Record<string, unknown>>>;
 
 export default function EditPersonaPage({ params }: { params: { id: string } }) {
   const router = useRouter();
+  const { activeOrg } = useAuth();
+  const orgId = activeOrg?.id ?? "";
   const [persona, setPersona] = useState<Persona | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,11 +50,12 @@ export default function EditPersonaPage({ params }: { params: { id: string } }) 
 
   // Fetch persona data on mount
   useEffect(() => {
+    if (!orgId) return;
     async function fetchData() {
       try {
         setLoading(true);
         setError(null);
-        const personaData = await api.personas.getPersona(params.id);
+        const personaData = await api.personas.getPersona(orgId, params.id);
         setPersona(personaData);
 
         // Initialize form with persona data
@@ -68,10 +72,11 @@ export default function EditPersonaPage({ params }: { params: { id: string } }) 
       }
     }
     fetchData();
-  }, [params.id]);
+  }, [params.id, orgId]);
 
   // Load TTS models on mount
   useEffect(() => {
+    if (!orgId) return;
     const loadTTSModels = async () => {
       try {
         setLoadingModels(true);
@@ -94,7 +99,7 @@ export default function EditPersonaPage({ params }: { params: { id: string } }) 
     };
 
     loadTTSModels();
-  }, []);
+  }, [orgId]);
 
   // Get available models for selected provider
   const availableModels = ttsProvider ? Object.keys(ttsModels[ttsProvider] || {}) : [];
@@ -141,7 +146,7 @@ export default function EditPersonaPage({ params }: { params: { id: string } }) 
         }
       }
 
-      const updatedPersona = await api.personas.updatePersona(params.id, updateData);
+      const updatedPersona = await api.personas.updatePersona(orgId, params.id, updateData);
       toast("Persona updated", {
         description: `"${updatedPersona.name}" has been updated successfully.`,
       });

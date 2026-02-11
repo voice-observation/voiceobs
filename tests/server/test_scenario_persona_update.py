@@ -23,6 +23,7 @@ def make_persona(
         patience=0.5,
         verbosity=0.5,
         tts_provider="deepgram",
+        org_id=uuid4(),
         traits=traits,
         is_default=is_default,
     )
@@ -129,7 +130,7 @@ class TestScenarioPersonaUpdateRoute:
         mock_scenario_repo.update.return_value = updated_scenario
 
         mock_persona_repo = AsyncMock()
-        mock_persona_repo.get.return_value = new_persona
+        mock_persona_repo._get_by_id_unchecked.return_value = new_persona
 
         request = TestScenarioUpdateRequest(persona_id=str(new_persona_id))
 
@@ -184,7 +185,7 @@ class TestScenarioPersonaUpdateRoute:
         mock_scenario_repo.update.return_value = updated_scenario
 
         mock_persona_repo = AsyncMock()
-        mock_persona_repo.get.return_value = new_persona
+        mock_persona_repo._get_by_id_unchecked.return_value = new_persona
 
         request = TestScenarioUpdateRequest(persona_id=str(new_persona_id))
 
@@ -276,7 +277,7 @@ class TestScenarioPersonaUpdateRoute:
         mock_scenario_repo.update.return_value = updated_scenario
 
         mock_persona_repo = AsyncMock()
-        mock_persona_repo.get.return_value = new_persona
+        mock_persona_repo._get_by_id_unchecked.return_value = new_persona
 
         request = TestScenarioUpdateRequest(persona_id=str(new_persona_id))
 

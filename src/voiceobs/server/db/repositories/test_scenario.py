@@ -119,7 +119,8 @@ class TestScenarioRepository:
             ValueError: If persona_id does not reference an existing active persona.
         """
         # Validate that persona exists and is active
-        persona = await self._persona_repo.get(persona_id)
+        # TODO: Once test scenarios are org-scoped, pass org_id here
+        persona = await self._persona_repo._get_by_id_unchecked(persona_id)
         if persona is None:
             raise ValueError(f"Persona {persona_id} not found")
         if not persona.is_active:
@@ -342,7 +343,8 @@ class TestScenarioRepository:
         """
         # Validate persona if provided
         if persona_id is not None:
-            persona = await self._persona_repo.get(persona_id)
+            # TODO: Once test scenarios are org-scoped, pass org_id here
+            persona = await self._persona_repo._get_by_id_unchecked(persona_id)
             if persona is None:
                 raise ValueError(f"Persona {persona_id} not found")
             if not persona.is_active:

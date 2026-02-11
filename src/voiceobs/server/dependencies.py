@@ -52,6 +52,7 @@ from voiceobs.server.db.repositories import (
 )
 from voiceobs.server.services.agent_verification.service import AgentVerificationService
 from voiceobs.server.services.organization_service import OrganizationService
+from voiceobs.server.services.persona_service import PersonaService
 from voiceobs.server.services.scenario_generation.service import ScenarioGenerationService
 
 logger = logging.getLogger(__name__)
@@ -200,6 +201,7 @@ _organization_member_repo: OrganizationMemberRepository | None = None
 _organization_invite_repo: OrganizationInviteRepository | None = None
 _agent_verification_service: AgentVerificationService | None = None
 _organization_service: OrganizationService | None = None
+_persona_service: PersonaService | None = None
 _scenario_generation_service: ScenarioGenerationService | None = None
 _use_postgres: bool = False
 _audio_storage: Any | None = None
@@ -252,7 +254,7 @@ async def init_database() -> None:
     global _conversation_repo, _turn_repo, _failure_repo, _metrics_repo
     global _test_suite_repo, _test_scenario_repo, _test_execution_repo, _persona_repo, _agent_repo
     global _user_repo, _organization_repo, _organization_member_repo, _organization_invite_repo
-    global _agent_verification_service, _organization_service, _use_postgres
+    global _agent_verification_service, _organization_service, _persona_service, _use_postgres
 
     database_url = _get_database_url()
     logger.info(f"Database URL retrieved: {'configured' if database_url else 'not configured'}")
@@ -285,10 +287,12 @@ async def init_database() -> None:
     _organization_member_repo = OrganizationMemberRepository(_database)
     _organization_invite_repo = OrganizationInviteRepository(_database)
     _agent_verification_service = AgentVerificationService(_agent_repo)
+    _persona_service = PersonaService(persona_repo=_persona_repo)
     _organization_service = OrganizationService(
         org_repo=_organization_repo,
         member_repo=_organization_member_repo,
         user_repo=_user_repo,
+        persona_service=_persona_service,
     )
     _test_suite_repo = TestSuiteRepository(_database)
     _test_scenario_repo = TestScenarioRepository(_database, _persona_repo)
@@ -310,7 +314,8 @@ async def shutdown_database() -> None:
     global _conversation_repo, _turn_repo, _failure_repo, _metrics_repo
     global _test_suite_repo, _test_scenario_repo, _test_execution_repo, _persona_repo, _agent_repo
     global _user_repo, _organization_repo, _organization_member_repo, _organization_invite_repo
-    global _agent_verification_service, _organization_service, _scenario_generation_service
+    global _agent_verification_service, _organization_service, _persona_service
+    global _scenario_generation_service
     global _use_postgres
 
     if _database is not None:
@@ -333,6 +338,7 @@ async def shutdown_database() -> None:
     _organization_invite_repo = None
     _agent_verification_service = None
     _organization_service = None
+    _persona_service = None
     _scenario_generation_service = None
     _use_postgres = False
 
@@ -550,6 +556,18 @@ def get_organization_service() -> OrganizationService:
     return _ensure_initialized(_organization_service, "Organization service")
 
 
+def get_persona_service() -> PersonaService:
+    """Get the persona service instance.
+
+    Returns:
+        Persona service instance.
+
+    Raises:
+        RuntimeError: If database is not initialized.
+    """
+    return _ensure_initialized(_persona_service, "Persona service")
+
+
 def get_scenario_generation_service() -> ScenarioGenerationService | None:
     """Get the scenario generation service.
 
@@ -636,7 +654,8 @@ def reset_dependencies() -> None:
     global _conversation_repo, _turn_repo, _failure_repo, _metrics_repo
     global _test_suite_repo, _test_scenario_repo, _test_execution_repo, _persona_repo, _agent_repo
     global _user_repo, _organization_repo, _organization_member_repo, _organization_invite_repo
-    global _agent_verification_service, _organization_service, _scenario_generation_service
+    global _agent_verification_service, _organization_service, _persona_service
+    global _scenario_generation_service
     global _use_postgres, _audio_storage
     _database = None
     _span_storage = None
@@ -655,6 +674,7 @@ def reset_dependencies() -> None:
     _organization_invite_repo = None
     _agent_verification_service = None
     _organization_service = None
+    _persona_service = None
     _scenario_generation_service = None
     _use_postgres = False
     _audio_storage = None

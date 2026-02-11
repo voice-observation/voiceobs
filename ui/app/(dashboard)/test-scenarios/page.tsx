@@ -10,10 +10,13 @@ import { TestScenarioDialog } from "@/components/tests/TestScenarioDialog";
 import { DeleteTestScenarioDialog } from "@/components/tests/DeleteTestScenarioDialog";
 import { Pagination } from "@/components/primitives/pagination";
 import { Plus } from "lucide-react";
+import { useAuth } from "@/contexts/auth-context";
 import type { TestScenario } from "@/lib/types";
 
 export default function TestScenariosPage() {
   const router = useRouter();
+  const { activeOrg } = useAuth();
+  const orgId = activeOrg?.id ?? "";
   const {
     scenarios,
     testSuites,
@@ -30,7 +33,7 @@ export default function TestScenariosPage() {
     refetch,
     deleteScenario,
     isDeleting,
-  } = useTestScenarios();
+  } = useTestScenarios({ orgId });
 
   // Dialog state
   const [selectedScenario, setSelectedScenario] = useState<TestScenario | null>(null);
@@ -134,6 +137,7 @@ export default function TestScenariosPage() {
             setSelectedScenario(null);
           }
         }}
+        orgId={orgId}
         scenario={editDialogOpen ? (selectedScenario ?? undefined) : undefined}
         onCreate={handleScenarioCreated}
         onUpdate={handleUpdate}

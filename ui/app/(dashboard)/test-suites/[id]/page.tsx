@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { logger } from "@/lib/logger";
+import { useAuth } from "@/contexts/auth-context";
 import { useTestSuiteActions } from "@/hooks/useTestSuiteActions";
 import { useGenerationPolling, useTestScenarios } from "@/hooks";
 import { toast } from "sonner";
@@ -46,6 +47,8 @@ export default function TestSuiteDetailPage() {
   const router = useRouter();
   const params = useParams();
   const suiteId = params.id as string;
+  const { activeOrg } = useAuth();
+  const orgId = activeOrg?.id ?? "";
 
   const [suite, setSuite] = useState<TestSuite | null>(null);
   const [loading, setLoading] = useState(true);
@@ -70,6 +73,7 @@ export default function TestSuiteDetailPage() {
     deleteScenario,
     isDeleting: isDeletingScenario,
   } = useTestScenarios({
+    orgId,
     initialFilters: { suiteId },
   });
 
@@ -432,6 +436,7 @@ export default function TestSuiteDetailPage() {
             setSelectedScenario(null);
           }
         }}
+        orgId={orgId}
         scenario={editScenarioDialogOpen ? (selectedScenario ?? undefined) : undefined}
         suiteId={suite.id}
         onCreate={handleTestCreated}

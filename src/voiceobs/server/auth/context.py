@@ -91,3 +91,52 @@ async def get_auth_context(
             await user_repo.update(user.id, last_active_org_id=org_id)
 
     return AuthContext(user=user, org=org)
+
+
+async def require_org_membership(
+    org_id: UUID,
+    authorization: str | None = Header(None, alias="Authorization"),
+) -> AuthContext:
+    """Require that the authenticated user is a member of the specified organization.
+
+    This dependency is used for org-scoped endpoints where the org_id comes from
+    the URL path (e.g., /api/v1/orgs/{org_id}/personas).
+
+    Args:
+        org_id: Organization ID from the URL path.
+        authorization: Authorization header for JWT.
+
+    Returns:
+        AuthContext with user and organization.
+
+    Raises:
+        HTTPException: If user is not authenticated, org not found, or user not a member.
+    """
+    # Get current user
+    user = await get_current_user(authorization)
+
+    # Get organization
+    org_repo = get_organization_repository()
+    org = await org_repo.get(org_id)
+    if org is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organization not found",
+        )
+
+    # Verify membership
+    member_repo = get_organization_member_repository()
+    is_member = await member_repo.is_member(org_id=org_id, user_id=user.id)
+    if not is_member:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a member of this organization",
+        )
+
+    # Update last_active_org_id if different (convenience for user)
+    if user.last_active_org_id != org_id:
+        user_repo = get_user_repository()
+        if user_repo:
+            await user_repo.update(user.id, last_active_org_id=org_id)
+
+    return AuthContext(user=user, org=org)

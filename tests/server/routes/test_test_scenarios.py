@@ -47,6 +47,7 @@ class TestTestScenarios:
             patience=0.5,
             verbosity=0.5,
             tts_provider="openai",
+            org_id=uuid4(),
             is_active=True,
         )
         mock_scenario = TestScenarioRow(
@@ -65,7 +66,7 @@ class TestTestScenarios:
         mock_get_suite_repository.return_value = mock_suite_repo
 
         mock_persona_repo = AsyncMock()
-        mock_persona_repo.get.return_value = mock_persona
+        mock_persona_repo._get_by_id_unchecked.return_value = mock_persona
         mock_get_persona_repo.return_value = mock_persona_repo
         mock_get_persona_repository.return_value = mock_persona_repo
 
@@ -353,7 +354,7 @@ class TestTestScenarios:
 
         # Persona not found
         mock_persona_repo = AsyncMock()
-        mock_persona_repo.get.return_value = None
+        mock_persona_repo._get_by_id_unchecked.return_value = None
         mock_get_persona_repo.return_value = mock_persona_repo
         mock_get_persona_repository.return_value = mock_persona_repo
 
@@ -408,6 +409,7 @@ class TestTestScenarios:
             patience=0.5,
             verbosity=0.5,
             tts_provider="openai",
+            org_id=uuid4(),
             is_active=False,
         )
 
@@ -421,7 +423,7 @@ class TestTestScenarios:
         mock_get_scenario_repository.return_value = mock_scenario_repo
 
         mock_persona_repo = AsyncMock()
-        mock_persona_repo.get.return_value = mock_persona
+        mock_persona_repo._get_by_id_unchecked.return_value = mock_persona
         mock_get_persona_repo.return_value = mock_persona_repo
         mock_get_persona_repository.return_value = mock_persona_repo
 
@@ -470,7 +472,7 @@ class TestTestScenarios:
 
         # Persona not found
         mock_persona_repo = AsyncMock()
-        mock_persona_repo.get.return_value = None
+        mock_persona_repo._get_by_id_unchecked.return_value = None
         mock_get_persona_repo.return_value = mock_persona_repo
         mock_get_persona_repository.return_value = mock_persona_repo
 
@@ -512,6 +514,7 @@ class TestTestScenarios:
             patience=0.5,
             verbosity=0.5,
             tts_provider="openai",
+            org_id=uuid4(),
             is_active=False,
         )
 
@@ -524,7 +527,7 @@ class TestTestScenarios:
         mock_get_suite_repository.return_value = mock_suite_repo
 
         mock_persona_repo = AsyncMock()
-        mock_persona_repo.get.return_value = mock_persona
+        mock_persona_repo._get_by_id_unchecked.return_value = mock_persona
         mock_get_persona_repo.return_value = mock_persona_repo
         mock_get_persona_repository.return_value = mock_persona_repo
 
@@ -778,6 +781,7 @@ class TestTestScenariosNewCrudFields:
             patience=0.5,
             verbosity=0.5,
             tts_provider="openai",
+            org_id=uuid4(),
             is_active=True,
         )
         mock_scenario = TestScenarioRow(
@@ -799,7 +803,7 @@ class TestTestScenariosNewCrudFields:
         mock_get_suite_repository.return_value = mock_suite_repo
 
         mock_persona_repo = AsyncMock()
-        mock_persona_repo.get.return_value = mock_persona
+        mock_persona_repo._get_by_id_unchecked.return_value = mock_persona
         mock_get_persona_repo.return_value = mock_persona_repo
         mock_get_persona_repository.return_value = mock_persona_repo
 
@@ -992,6 +996,7 @@ class TestIsManualField:
             patience=0.5,
             verbosity=0.5,
             tts_provider="openai",
+            org_id=uuid4(),
             is_active=True,
         )
         # Manual scenario: no persona_traits, so is_manual should be True
@@ -1013,7 +1018,7 @@ class TestIsManualField:
         mock_get_suite_repository.return_value = mock_suite_repo
 
         mock_persona_repo = AsyncMock()
-        mock_persona_repo.get.return_value = mock_persona
+        mock_persona_repo._get_by_id_unchecked.return_value = mock_persona
         mock_get_persona_repo.return_value = mock_persona_repo
         mock_get_persona_repository.return_value = mock_persona_repo
 

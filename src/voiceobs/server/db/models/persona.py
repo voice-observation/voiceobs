@@ -18,6 +18,8 @@ class PersonaRow:
     patience: float
     verbosity: float
     tts_provider: str
+    org_id: UUID | None = None
+    persona_type: str = "custom"
     description: str | None = None
     traits: list[str] = field(default_factory=list)
     tts_config: dict[str, Any] = field(default_factory=dict)

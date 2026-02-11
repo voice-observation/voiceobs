@@ -9,6 +9,7 @@ from voiceobs.server.db.models import UserRow
 from voiceobs.server.dependencies import (
     get_organization_member_repository,
     get_organization_repository,
+    get_persona_service,
 )
 from voiceobs.server.models.request import CreateOrgRequest, UpdateOrgRequest
 from voiceobs.server.models.response import OrgResponse
@@ -68,6 +69,10 @@ async def create_org(
 
     org = await org_repo.create(name=request.name, created_by=current_user.id)
     await member_repo.add(org_id=org.id, user_id=current_user.id, role="owner")
+
+    # Seed system personas for the new organization
+    persona_service = get_persona_service()
+    await persona_service.seed_org_personas(org.id)
 
     return OrgResponse(
         id=str(org.id),

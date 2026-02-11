@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from voiceobs.server.db.models import OrganizationRow, UserRow
 from voiceobs.server.db.repositories.organization import OrganizationRepository
 from voiceobs.server.db.repositories.organization_member import OrganizationMemberRepository
 from voiceobs.server.db.repositories.user import UserRepository
+
+if TYPE_CHECKING:
+    from voiceobs.server.services.persona_service import PersonaService
 
 
 class OrganizationService:
@@ -16,6 +21,7 @@ class OrganizationService:
         org_repo: OrganizationRepository,
         member_repo: OrganizationMemberRepository,
         user_repo: UserRepository,
+        persona_service: PersonaService | None = None,
     ) -> None:
         """Initialize the organization service.
 
@@ -23,10 +29,12 @@ class OrganizationService:
             org_repo: Organization repository.
             member_repo: Organization member repository.
             user_repo: User repository.
+            persona_service: Persona service for seeding org personas.
         """
         self._org_repo = org_repo
         self._member_repo = member_repo
         self._user_repo = user_repo
+        self._persona_service = persona_service
 
     async def ensure_user_has_org(self, user: UserRow) -> OrganizationRow | None:
         """Ensure user has at least one organization.
@@ -56,5 +64,9 @@ class OrganizationService:
 
         # Set as last active org
         await self._user_repo.update(user.id, last_active_org_id=org.id)
+
+        # Seed system personas for the new organization
+        if self._persona_service:
+            await self._persona_service.seed_org_personas(org.id)
 
         return org

@@ -244,7 +244,8 @@ async def validate_persona_exists(
         persona_repo = get_persona_repo()
 
     persona_uuid = parse_persona_id(persona_id)
-    persona = await persona_repo.get(persona_uuid)
+    # TODO: Once test scenarios are org-scoped, pass org_id here
+    persona = await persona_repo._get_by_id_unchecked(persona_uuid)
     if persona is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

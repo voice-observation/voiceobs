@@ -31,6 +31,7 @@ from voiceobs.server.routes import (
     test_scenarios_router,
     test_suites_router,
     traits_router,
+    tts_router,
 )
 
 logger = logging.getLogger(__name__)
@@ -105,6 +106,7 @@ def create_app() -> FastAPI:
     app.include_router(personas_router)
     app.include_router(agents_router)
     app.include_router(traits_router)
+    app.include_router(tts_router)
     app.include_router(auth_router)
     app.include_router(organizations_router)
     app.include_router(organization_members_router)

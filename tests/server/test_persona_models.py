@@ -29,6 +29,7 @@ def test_persona_row_preview_audio_status_fields():
         patience=0.5,
         verbosity=0.5,
         tts_provider="openai",
+        org_id=uuid4(),
         preview_audio_status="generating",
         preview_audio_error="Test error",
     )
@@ -645,3 +646,63 @@ class TestUpdatedTestScenarioModels:
         )
         # Verify persona_json is not an attribute
         assert not hasattr(request, "persona_json")
+
+
+class TestPersonaResponsePersonaType:
+    """Tests for persona_type field in response models."""
+
+    def test_persona_response_has_persona_type(self):
+        """PersonaResponse includes persona_type field."""
+        from voiceobs.server.models.response.persona import PersonaResponse
+
+        resp = PersonaResponse(
+            id="test-id",
+            name="Test",
+            aggression=0.5,
+            patience=0.5,
+            verbosity=0.5,
+            tts_provider="openai",
+            persona_type="system",
+        )
+        assert resp.persona_type == "system"
+
+    def test_persona_response_persona_type_default(self):
+        """PersonaResponse persona_type defaults to 'custom'."""
+        from voiceobs.server.models.response.persona import PersonaResponse
+
+        resp = PersonaResponse(
+            id="test-id",
+            name="Test",
+            aggression=0.5,
+            patience=0.5,
+            verbosity=0.5,
+            tts_provider="openai",
+        )
+        assert resp.persona_type == "custom"
+
+    def test_persona_list_item_has_persona_type(self):
+        """PersonaListItem includes persona_type field."""
+        from voiceobs.server.models.response.persona import PersonaListItem
+
+        item = PersonaListItem(
+            id="test-id",
+            name="Test",
+            aggression=0.5,
+            patience=0.5,
+            verbosity=0.5,
+            persona_type="system",
+        )
+        assert item.persona_type == "system"
+
+    def test_persona_list_item_persona_type_default(self):
+        """PersonaListItem persona_type defaults to 'custom'."""
+        from voiceobs.server.models.response.persona import PersonaListItem
+
+        item = PersonaListItem(
+            id="test-id",
+            name="Test",
+            aggression=0.5,
+            patience=0.5,
+            verbosity=0.5,
+        )
+        assert item.persona_type == "custom"
