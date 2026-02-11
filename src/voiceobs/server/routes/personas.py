@@ -1,15 +1,14 @@
-"""Persona management routes."""
+"""Persona management routes (org-scoped)."""
 
-import json
 from pathlib import Path
-from typing import Any
+from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 
+from voiceobs.server.auth.context import AuthContext, require_org_membership
 from voiceobs.server.dependencies import (
     get_audio_storage,
     get_persona_repository,
-    is_using_postgres,
 )
 from voiceobs.server.models import (
     ErrorResponse,
@@ -29,7 +28,7 @@ from voiceobs.server.utils import parse_uuid
 from voiceobs.server.utils.persona_llm import generate_persona_attributes_with_llm
 from voiceobs.server.utils.storage import get_presigned_url_for_audio
 
-router = APIRouter(prefix="/api/v1/personas", tags=["Personas"])
+router = APIRouter(prefix="/api/v1/orgs/{org_id}/personas", tags=["Personas"])
 
 # Path to TTS provider models file
 MODELS_PATH = Path(__file__).parent.parent / "seed" / "tts_provider_models.json"
@@ -50,6 +49,7 @@ DEFAULT_PREVIEW_TEXT = (
 
 async def _generate_preview_audio_background(
     persona_id: str,
+    org_id: UUID,
     tts_provider: str,
     tts_config: dict,
     preview_text: str,
@@ -74,6 +74,7 @@ async def _generate_preview_audio_background(
 
         await repo.update(
             persona_id=persona_uuid,
+            org_id=org_id,
             preview_audio_url=preview_audio_url,
             preview_audio_text=preview_text,
             preview_audio_status="ready",
@@ -82,6 +83,7 @@ async def _generate_preview_audio_background(
     except Exception as e:
         await repo.update(
             persona_id=persona_uuid,
+            org_id=org_id,
             preview_audio_status="failed",
             preview_audio_error=str(e),
         )
@@ -99,12 +101,14 @@ async def _generate_preview_audio_background(
     },
 )
 async def create_persona(
+    org_id: UUID,
     request: PersonaCreateRequest,
+    auth: AuthContext = Depends(require_org_membership),
 ) -> PersonaResponse:
     """Create a new persona without generating preview audio.
 
     Preview audio is generated lazily when the user requests it via
-    POST /personas/{persona_id}/preview-audio.
+    POST /orgs/{org_id}/personas/{persona_id}/preview-audio.
     """
     repo = get_persona_repository()
 
@@ -166,6 +170,8 @@ async def create_persona(
             created_by=request.created_by,
             preview_audio_url=None,
             preview_audio_text=None,
+            org_id=org_id,
+            persona_type="custom",
         )
     except ValueError as e:
         raise HTTPException(
@@ -193,6 +199,7 @@ async def create_persona(
         created_by=persona.created_by,
         is_active=persona.is_active,
         is_default=persona.is_default,
+        persona_type=persona.persona_type,
     )
 
 
@@ -206,17 +213,20 @@ async def create_persona(
     },
 )
 async def list_personas(
+    org_id: UUID,
+    auth: AuthContext = Depends(require_org_membership),
     is_active: bool | None = Query(None, description="Filter by active status (None for all)"),
     limit: int | None = Query(None, ge=1, le=100, description="Maximum number of results"),
     offset: int | None = Query(None, ge=0, description="Number of results to skip"),
 ) -> PersonasListResponse:
     """List all personas with optional filtering."""
     repo = get_persona_repository()
-    personas = await repo.list_all(is_active=is_active, limit=limit, offset=offset)
+    personas = await repo.list_all(is_active=is_active, limit=limit, offset=offset, org_id=org_id)
 
-    return PersonasListResponse(
-        count=len(personas),
-        personas=[
+    persona_items = []
+    for persona in personas:
+        presigned_url = await get_presigned_url_for_audio(persona.preview_audio_url)
+        persona_items.append(
             PersonaListItem(
                 id=str(persona.id),
                 name=persona.name,
@@ -225,50 +235,19 @@ async def list_personas(
                 patience=persona.patience,
                 verbosity=persona.verbosity,
                 traits=persona.traits,
-                preview_audio_url=persona.preview_audio_url,
+                preview_audio_url=presigned_url,
                 preview_audio_text=persona.preview_audio_text,
                 preview_audio_status=persona.preview_audio_status,
                 is_active=persona.is_active,
                 is_default=persona.is_default,
+                persona_type=persona.persona_type,
             )
-            for persona in personas
-        ],
+        )
+
+    return PersonasListResponse(
+        count=len(persona_items),
+        personas=persona_items,
     )
-
-
-@router.get(
-    "/tts-models",
-    summary="Get available TTS models",
-    description="Get a list of available TTS provider models for persona creation.",
-    responses={
-        501: {"model": ErrorResponse, "description": "Persona API requires PostgreSQL database"},
-    },
-)
-async def get_tts_models() -> dict[str, dict[str, dict[str, Any]]]:
-    """Get available TTS provider models.
-
-    Returns the models from tts_provider_models.json file.
-    """
-    if not is_using_postgres():
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Persona API requires PostgreSQL database",
-        )
-
-    try:
-        with open(MODELS_PATH, encoding="utf-8") as f:
-            data = json.load(f)
-            return data.get("models", {})
-    except FileNotFoundError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="TTS models file not found",
-        )
-    except json.JSONDecodeError as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to parse TTS models file: {str(e)}",
-        )
 
 
 @router.get(
@@ -281,11 +260,15 @@ async def get_tts_models() -> dict[str, dict[str, dict[str, Any]]]:
         501: {"model": ErrorResponse, "description": "Persona API requires PostgreSQL database"},
     },
 )
-async def get_persona(persona_id: str) -> PersonaResponse:
+async def get_persona(
+    org_id: UUID,
+    persona_id: str,
+    auth: AuthContext = Depends(require_org_membership),
+) -> PersonaResponse:
     """Get persona by ID."""
     repo = get_persona_repository()
     persona_uuid = parse_uuid(persona_id, "persona")
-    persona = await repo.get(persona_uuid)
+    persona = await repo.get(persona_uuid, org_id=org_id)
 
     if persona is None:
         raise HTTPException(
@@ -313,6 +296,7 @@ async def get_persona(persona_id: str) -> PersonaResponse:
         created_by=persona.created_by,
         is_active=persona.is_active,
         is_default=persona.is_default,
+        persona_type=persona.persona_type,
     )
 
 
@@ -327,15 +311,17 @@ async def get_persona(persona_id: str) -> PersonaResponse:
     },
 )
 async def update_persona(
+    org_id: UUID,
     persona_id: str,
     request: PersonaUpdateRequest,
+    auth: AuthContext = Depends(require_org_membership),
 ) -> PersonaResponse:
     """Update a persona. Clears preview audio on any update."""
     repo = get_persona_repository()
     persona_uuid = parse_uuid(persona_id, "persona")
 
     # Get existing persona
-    existing = await repo.get(persona_uuid)
+    existing = await repo.get(persona_uuid, org_id=org_id)
     if not existing:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -354,8 +340,9 @@ async def update_persona(
     # Get only explicitly set fields (excludes None defaults)
     update_kwargs = request.model_dump(exclude_unset=True)
 
-    # Add required ID
+    # Add required ID and org scoping
     update_kwargs["persona_id"] = persona_uuid
+    update_kwargs["org_id"] = org_id
 
     # Always clear preview audio fields on any update
     update_kwargs["preview_audio_url"] = None
@@ -398,6 +385,7 @@ async def update_persona(
         created_by=persona.created_by,
         is_active=persona.is_active,
         is_default=persona.is_default,
+        persona_type=persona.persona_type,
     )
 
 
@@ -407,19 +395,25 @@ async def update_persona(
     summary="Delete persona",
     description=(
         "Permanently delete a persona. "
-        "Cannot delete the default persona or the last remaining persona."
+        "Cannot delete system personas, the default persona, or the last remaining persona."
     ),
     responses={
         400: {"model": ErrorResponse, "description": "Cannot delete default or last persona"},
+        403: {"model": ErrorResponse, "description": "System personas cannot be deleted"},
         404: {"model": ErrorResponse, "description": "Persona not found"},
         409: {"model": ErrorResponse, "description": "Persona is in use by test scenarios"},
         501: {"model": ErrorResponse, "description": "Persona API requires PostgreSQL database"},
     },
 )
-async def delete_persona(persona_id: str) -> None:
+async def delete_persona(
+    org_id: UUID,
+    persona_id: str,
+    auth: AuthContext = Depends(require_org_membership),
+) -> None:
     """Delete a persona.
 
     Validation rules:
+    - Cannot delete system personas
     - Cannot delete the default persona
     - Cannot delete the last remaining persona
     - Cannot delete a persona that is used by test scenarios
@@ -429,12 +423,19 @@ async def delete_persona(persona_id: str) -> None:
     repo = get_persona_repository()
     persona_uuid = parse_uuid(persona_id, "persona")
 
-    # Get the persona to check if it's the default
-    persona = await repo.get(persona_uuid)
+    # Get the persona to check constraints
+    persona = await repo.get(persona_uuid, org_id=org_id)
     if persona is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Persona '{persona_id}' not found",
+        )
+
+    # Check if this is a system persona
+    if persona.persona_type == "system":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="System personas cannot be deleted",
         )
 
     # Check if this is the default persona
@@ -445,7 +446,7 @@ async def delete_persona(persona_id: str) -> None:
         )
 
     # Check if this is the last persona
-    persona_count = await repo.count()
+    persona_count = await repo.count(org_id=org_id)
     if persona_count <= 1:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -462,7 +463,7 @@ async def delete_persona(persona_id: str) -> None:
             pass
 
     try:
-        deleted = await repo.delete(persona_uuid)
+        deleted = await repo.delete(persona_uuid, org_id=org_id)
     except ForeignKeyViolationError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -486,7 +487,11 @@ async def delete_persona(persona_id: str) -> None:
         501: {"model": ErrorResponse, "description": "Persona API requires PostgreSQL database"},
     },
 )
-async def set_persona_default(persona_id: str) -> PersonaResponse:
+async def set_persona_default(
+    org_id: UUID,
+    persona_id: str,
+    auth: AuthContext = Depends(require_org_membership),
+) -> PersonaResponse:
     """Set a persona as the default.
 
     This atomically unsets any existing default persona and sets the specified
@@ -496,7 +501,7 @@ async def set_persona_default(persona_id: str) -> PersonaResponse:
     persona_uuid = parse_uuid(persona_id, "persona")
 
     # Check if persona exists
-    existing = await repo.get(persona_uuid)
+    existing = await repo.get(persona_uuid, org_id=org_id)
     if not existing:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -504,7 +509,7 @@ async def set_persona_default(persona_id: str) -> PersonaResponse:
         )
 
     # Set as default
-    persona = await repo.set_default(persona_uuid)
+    persona = await repo.set_default(persona_uuid, org_id=org_id)
 
     if persona is None:
         raise HTTPException(
@@ -532,6 +537,7 @@ async def set_persona_default(persona_id: str) -> PersonaResponse:
         created_by=persona.created_by,
         is_active=persona.is_active,
         is_default=persona.is_default,
+        persona_type=persona.persona_type,
     )
 
 
@@ -545,13 +551,17 @@ async def set_persona_default(persona_id: str) -> PersonaResponse:
         501: {"model": ErrorResponse, "description": "Persona API requires PostgreSQL database"},
     },
 )
-async def get_persona_preview_audio(persona_id: str) -> PersonaAudioPreviewResponse:
+async def get_persona_preview_audio(
+    org_id: UUID,
+    persona_id: str,
+    auth: AuthContext = Depends(require_org_membership),
+) -> PersonaAudioPreviewResponse:
     """Get pregenerated preview audio for a persona."""
     repo = get_persona_repository()
     persona_uuid = parse_uuid(persona_id, "persona")
 
     # Get persona from database
-    persona = await repo.get(persona_uuid)
+    persona = await repo.get(persona_uuid, org_id=org_id)
     if not persona:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -585,12 +595,16 @@ async def get_persona_preview_audio(persona_id: str) -> PersonaAudioPreviewRespo
         501: {"model": ErrorResponse, "description": "Persona API requires PostgreSQL database"},
     },
 )
-async def get_preview_audio_status(persona_id: str) -> PreviewAudioStatusResponse:
+async def get_preview_audio_status(
+    org_id: UUID,
+    persona_id: str,
+    auth: AuthContext = Depends(require_org_membership),
+) -> PreviewAudioStatusResponse:
     """Get preview audio generation status for a persona."""
     repo = get_persona_repository()
     persona_uuid = parse_uuid(persona_id, "persona")
 
-    persona = await repo.get(persona_uuid)
+    persona = await repo.get(persona_uuid, org_id=org_id)
     if not persona:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -621,14 +635,16 @@ async def get_preview_audio_status(persona_id: str) -> PreviewAudioStatusRespons
     },
 )
 async def generate_persona_preview_audio(
+    org_id: UUID,
     persona_id: str,
     background_tasks: BackgroundTasks,
+    auth: AuthContext = Depends(require_org_membership),
 ) -> PreviewAudioStatusResponse:
     """Start async preview audio generation for a persona."""
     repo = get_persona_repository()
     persona_uuid = parse_uuid(persona_id, "persona")
 
-    persona = await repo.get(persona_uuid)
+    persona = await repo.get(persona_uuid, org_id=org_id)
     if not persona:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -646,6 +662,7 @@ async def generate_persona_preview_audio(
         persona_id=persona_uuid,
         preview_audio_status="generating",
         preview_audio_error=None,
+        org_id=org_id,
     )
 
     preview_text = persona.preview_audio_text or DEFAULT_PREVIEW_TEXT
@@ -653,6 +670,7 @@ async def generate_persona_preview_audio(
     background_tasks.add_task(
         _generate_preview_audio_background,
         persona_id,
+        org_id,
         persona.tts_provider,
         persona.tts_config or {},
         preview_text,
@@ -676,15 +694,17 @@ async def generate_persona_preview_audio(
     },
 )
 async def set_persona_active(
+    org_id: UUID,
     persona_id: str,
     request: PersonaActiveRequest,
+    auth: AuthContext = Depends(require_org_membership),
 ) -> PersonaResponse:
     """Enable or disable a persona."""
     repo = get_persona_repository()
     persona_uuid = parse_uuid(persona_id, "persona")
 
     # Get existing persona to verify it exists
-    existing = await repo.get(persona_uuid)
+    existing = await repo.get(persona_uuid, org_id=org_id)
     if not existing:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -696,6 +716,7 @@ async def set_persona_active(
         persona = await repo.update(
             persona_id=persona_uuid,
             is_active=request.is_active,
+            org_id=org_id,
         )
     except ValueError as e:
         raise HTTPException(
@@ -729,4 +750,5 @@ async def set_persona_active(
         created_by=persona.created_by,
         is_active=persona.is_active,
         is_default=persona.is_default,
+        persona_type=persona.persona_type,
     )

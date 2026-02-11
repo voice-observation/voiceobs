@@ -17,7 +17,7 @@
         },
         "preview_audio_text": "Hi there! I'd like to book an appointment, please. I'm flexible on time—whatever works best.",
         "providers": {
-          "elevenlabs": "brian_turbo"
+          "elevenlabs": "daniel_turbo"
         }
       },
       {
@@ -36,7 +36,7 @@
         },
         "preview_audio_text": "Hi. Need an appointment next Tuesday morning. Anything before eleven.",
         "providers": {
-          "elevenlabs": "larry_turbo"
+          "elevenlabs": "daniel_turbo"
         }
       },
       {
@@ -55,7 +55,7 @@
         },
         "preview_audio_text": "Sorry—can you say that again? I'm not sure what time you said was available.",
         "providers": {
-          "elevenlabs": "callum_turbo"
+          "elevenlabs": "daniel_turbo"
         }
       },
       {
@@ -93,7 +93,7 @@
         },
         "preview_audio_text": "Hello. I want book appointment. Next week morning, okay? Please confirm date and time.",
         "providers": {
-          "elevenlabs": "sara_turbo"
+          "elevenlabs": "daniel_turbo"
         }
       },
       {
@@ -226,7 +226,7 @@
         },
         "preview_audio_text": "This is ridiculous. I've been trying to schedule for ten minutes. Just give me the earliest appointment you have—now.",
         "providers": {
-          "elevenlabs": "brad_turbo"
+          "elevenlabs": "charlie_turbo"
         }
       }
     ]

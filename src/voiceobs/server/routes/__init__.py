@@ -21,6 +21,7 @@ from voiceobs.server.routes.test_executions import router as test_executions_rou
 from voiceobs.server.routes.test_scenarios import router as test_scenarios_router
 from voiceobs.server.routes.test_suites import router as test_suites_router
 from voiceobs.server.routes.traits import router as traits_router
+from voiceobs.server.routes.tts import router as tts_router
 
 __all__ = [
     "agents_router",
@@ -40,4 +41,5 @@ __all__ = [
     "test_scenarios_router",
     "test_executions_router",
     "traits_router",
+    "tts_router",
 ]

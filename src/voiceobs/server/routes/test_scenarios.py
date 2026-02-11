@@ -213,7 +213,8 @@ async def update_test_scenario(
     new_persona = None
     if request.persona_id is not None:
         persona_uuid = await validate_persona_exists(request.persona_id, persona_repo)
-        new_persona = await persona_repo.get(persona_uuid)
+        # TODO: Once test scenarios are org-scoped, pass org_id here
+        new_persona = await persona_repo._get_by_id_unchecked(persona_uuid)
 
     # Calculate new persona_match_score if persona is changing and scenario has traits
     new_match_score = None

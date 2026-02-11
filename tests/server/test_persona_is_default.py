@@ -160,13 +160,26 @@ class TestDeletePersonaValidation:
         repo.count = AsyncMock()
         return repo
 
+    @pytest.fixture
+    def mock_auth(self):
+        """Create a mock AuthContext."""
+        from uuid import uuid4
+
+        from voiceobs.server.auth.context import AuthContext
+        from voiceobs.server.db.models import OrganizationRow, UserRow
+
+        user = UserRow(id=uuid4(), email="test@example.com", name="Test", is_active=True)
+        org = OrganizationRow(id=uuid4(), name="Test Org", created_by=uuid4())
+        return AuthContext(user=user, org=org)
+
     @pytest.mark.asyncio
-    async def test_cannot_delete_default_persona(self, mock_repo):
+    async def test_cannot_delete_default_persona(self, mock_repo, mock_auth):
         """Test that deleting the default persona returns 400 error."""
         from uuid import uuid4
 
         from voiceobs.server.routes.personas import delete_persona
 
+        org_id = mock_auth.org.id
         persona_id = uuid4()
         mock_repo.get.return_value = PersonaRow(
             id=persona_id,
@@ -177,6 +190,7 @@ class TestDeletePersonaValidation:
             tts_provider="openai",
             is_active=True,
             is_default=True,
+            org_id=org_id,
         )
         mock_repo.count.return_value = 5
 
@@ -185,18 +199,19 @@ class TestDeletePersonaValidation:
             patch("voiceobs.server.routes.personas.parse_uuid", return_value=persona_id),
         ):
             with pytest.raises(HTTPException) as exc_info:
-                await delete_persona(str(persona_id))
+                await delete_persona(org_id=org_id, persona_id=str(persona_id), auth=mock_auth)
 
             assert exc_info.value.status_code == 400
             assert "default" in exc_info.value.detail.lower()
 
     @pytest.mark.asyncio
-    async def test_cannot_delete_last_persona(self, mock_repo):
+    async def test_cannot_delete_last_persona(self, mock_repo, mock_auth):
         """Test that deleting the last persona returns 400 error."""
         from uuid import uuid4
 
         from voiceobs.server.routes.personas import delete_persona
 
+        org_id = mock_auth.org.id
         persona_id = uuid4()
         mock_repo.get.return_value = PersonaRow(
             id=persona_id,
@@ -207,6 +222,7 @@ class TestDeletePersonaValidation:
             tts_provider="openai",
             is_active=True,
             is_default=False,
+            org_id=org_id,
         )
         mock_repo.count.return_value = 1  # Only one persona left
 
@@ -215,18 +231,19 @@ class TestDeletePersonaValidation:
             patch("voiceobs.server.routes.personas.parse_uuid", return_value=persona_id),
         ):
             with pytest.raises(HTTPException) as exc_info:
-                await delete_persona(str(persona_id))
+                await delete_persona(org_id=org_id, persona_id=str(persona_id), auth=mock_auth)
 
             assert exc_info.value.status_code == 400
             assert "last" in exc_info.value.detail.lower()
 
     @pytest.mark.asyncio
-    async def test_can_delete_non_default_persona_when_others_exist(self, mock_repo):
+    async def test_can_delete_non_default_persona_when_others_exist(self, mock_repo, mock_auth):
         """Test that non-default persona can be deleted when others exist."""
         from uuid import uuid4
 
         from voiceobs.server.routes.personas import delete_persona
 
+        org_id = mock_auth.org.id
         persona_id = uuid4()
         mock_repo.get.return_value = PersonaRow(
             id=persona_id,
@@ -237,6 +254,7 @@ class TestDeletePersonaValidation:
             tts_provider="openai",
             is_active=True,
             is_default=False,
+            org_id=org_id,
         )
         mock_repo.count.return_value = 3  # Multiple personas exist
         mock_repo.delete.return_value = True
@@ -245,10 +263,10 @@ class TestDeletePersonaValidation:
             patch("voiceobs.server.routes.personas.get_persona_repository", return_value=mock_repo),
             patch("voiceobs.server.routes.personas.parse_uuid", return_value=persona_id),
         ):
-            result = await delete_persona(str(persona_id))
+            result = await delete_persona(org_id=org_id, persona_id=str(persona_id), auth=mock_auth)
 
             assert result is None  # 204 No Content
-            mock_repo.delete.assert_called_once_with(persona_id)
+            mock_repo.delete.assert_called_once_with(persona_id, org_id=org_id)
 
 
 class TestSetDefaultPersonaEndpoint:
@@ -262,13 +280,26 @@ class TestSetDefaultPersonaEndpoint:
         repo.set_default = AsyncMock()
         return repo
 
+    @pytest.fixture
+    def mock_auth(self):
+        """Create a mock AuthContext."""
+        from uuid import uuid4
+
+        from voiceobs.server.auth.context import AuthContext
+        from voiceobs.server.db.models import OrganizationRow, UserRow
+
+        user = UserRow(id=uuid4(), email="test@example.com", name="Test", is_active=True)
+        org = OrganizationRow(id=uuid4(), name="Test Org", created_by=uuid4())
+        return AuthContext(user=user, org=org)
+
     @pytest.mark.asyncio
-    async def test_set_default_persona_success(self, mock_repo):
+    async def test_set_default_persona_success(self, mock_repo, mock_auth):
         """Test successfully setting a persona as default."""
         from uuid import uuid4
 
         from voiceobs.server.routes.personas import set_persona_default
 
+        org_id = mock_auth.org.id
         persona_id = uuid4()
         mock_repo.get.return_value = PersonaRow(
             id=persona_id,
@@ -279,6 +310,7 @@ class TestSetDefaultPersonaEndpoint:
             tts_provider="openai",
             is_active=True,
             is_default=False,
+            org_id=org_id,
         )
         mock_repo.set_default.return_value = PersonaRow(
             id=persona_id,
@@ -289,24 +321,28 @@ class TestSetDefaultPersonaEndpoint:
             tts_provider="openai",
             is_active=True,
             is_default=True,
+            org_id=org_id,
         )
 
         with (
             patch("voiceobs.server.routes.personas.get_persona_repository", return_value=mock_repo),
             patch("voiceobs.server.routes.personas.parse_uuid", return_value=persona_id),
         ):
-            result = await set_persona_default(str(persona_id))
+            result = await set_persona_default(
+                org_id=org_id, persona_id=str(persona_id), auth=mock_auth
+            )
 
             assert result.is_default is True
-            mock_repo.set_default.assert_called_once_with(persona_id)
+            mock_repo.set_default.assert_called_once_with(persona_id, org_id=org_id)
 
     @pytest.mark.asyncio
-    async def test_set_default_persona_not_found(self, mock_repo):
+    async def test_set_default_persona_not_found(self, mock_repo, mock_auth):
         """Test setting default on non-existent persona returns 404."""
         from uuid import uuid4
 
         from voiceobs.server.routes.personas import set_persona_default
 
+        org_id = mock_auth.org.id
         persona_id = uuid4()
         mock_repo.get.return_value = None
 
@@ -315,17 +351,18 @@ class TestSetDefaultPersonaEndpoint:
             patch("voiceobs.server.routes.personas.parse_uuid", return_value=persona_id),
         ):
             with pytest.raises(HTTPException) as exc_info:
-                await set_persona_default(str(persona_id))
+                await set_persona_default(org_id=org_id, persona_id=str(persona_id), auth=mock_auth)
 
             assert exc_info.value.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_set_default_returns_500_when_repo_returns_none(self, mock_repo):
+    async def test_set_default_returns_500_when_repo_returns_none(self, mock_repo, mock_auth):
         """Test that 500 error is returned when set_default unexpectedly returns None."""
         from uuid import uuid4
 
         from voiceobs.server.routes.personas import set_persona_default
 
+        org_id = mock_auth.org.id
         persona_id = uuid4()
         # Persona exists when we check
         mock_repo.get.return_value = PersonaRow(
@@ -337,6 +374,7 @@ class TestSetDefaultPersonaEndpoint:
             tts_provider="openai",
             is_active=True,
             is_default=False,
+            org_id=org_id,
         )
         # But set_default returns None (unexpected failure)
         mock_repo.set_default.return_value = None
@@ -346,7 +384,7 @@ class TestSetDefaultPersonaEndpoint:
             patch("voiceobs.server.routes.personas.parse_uuid", return_value=persona_id),
         ):
             with pytest.raises(HTTPException) as exc_info:
-                await set_persona_default(str(persona_id))
+                await set_persona_default(org_id=org_id, persona_id=str(persona_id), auth=mock_auth)
 
             assert exc_info.value.status_code == 500
             assert "Failed to set persona as default" in exc_info.value.detail
@@ -373,6 +411,7 @@ class TestPersonaRepositoryIsDefaultMethods:
         from voiceobs.server.db.repositories.persona import PersonaRepository
 
         persona_id = uuid4()
+        org_id = uuid4()
         mock_db.fetchrow.return_value = {
             "id": persona_id,
             "name": "Default Persona",
@@ -391,10 +430,12 @@ class TestPersonaRepositoryIsDefaultMethods:
             "created_by": None,
             "is_active": True,
             "is_default": True,
+            "org_id": org_id,
+            "persona_type": "custom",
         }
 
         repo = PersonaRepository(mock_db)
-        result = await repo.get_default()
+        result = await repo.get_default(org_id=org_id)
 
         assert result is not None
         assert result.is_default is True
@@ -403,12 +444,15 @@ class TestPersonaRepositoryIsDefaultMethods:
     @pytest.mark.asyncio
     async def test_get_default_returns_none_when_no_default(self, mock_db):
         """Test get_default returns None when no default persona exists."""
+        from uuid import uuid4
+
         from voiceobs.server.db.repositories.persona import PersonaRepository
 
+        org_id = uuid4()
         mock_db.fetchrow.return_value = None
 
         repo = PersonaRepository(mock_db)
-        result = await repo.get_default()
+        result = await repo.get_default(org_id=org_id)
 
         assert result is None
 
@@ -421,6 +465,7 @@ class TestPersonaRepositoryIsDefaultMethods:
         from voiceobs.server.db.repositories.persona import PersonaRepository
 
         persona_id = uuid4()
+        org_id = uuid4()
         mock_db.fetchrow.return_value = {
             "id": persona_id,
             "name": "New Default",
@@ -439,6 +484,8 @@ class TestPersonaRepositoryIsDefaultMethods:
             "created_by": None,
             "is_active": True,
             "is_default": True,
+            "org_id": org_id,
+            "persona_type": "custom",
         }
 
         # Mock the transaction context manager
@@ -451,7 +498,7 @@ class TestPersonaRepositoryIsDefaultMethods:
         mock_db.transaction = mock_transaction
 
         repo = PersonaRepository(mock_db)
-        result = await repo.set_default(persona_id)
+        result = await repo.set_default(persona_id, org_id=org_id)
 
         assert result is not None
         assert result.is_default is True

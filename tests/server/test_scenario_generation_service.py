@@ -64,6 +64,7 @@ def make_persona(
         patience=0.5,
         verbosity=0.5,
         tts_provider="deepgram",
+        org_id=uuid4(),
         traits=traits or [],
         is_default=is_default,
     )
@@ -356,7 +357,7 @@ class TestGenerateScenarios:
         test_scenario_repo.create.return_value = make_scenario(suite.id)
 
         persona_repo = AsyncMock()
-        persona_repo.list_all.return_value = [persona]
+        persona_repo._list_all_active_unchecked.return_value = [persona]
 
         agent_repo = AsyncMock()
         agent_repo.get.return_value = agent
@@ -449,7 +450,7 @@ class TestGenerateScenarios:
         agent_repo.get.return_value = agent
 
         persona_repo = AsyncMock()
-        persona_repo.list_all.return_value = []
+        persona_repo._list_all_active_unchecked.return_value = []
 
         service = ScenarioGenerationService(
             llm_service=AsyncMock(),
@@ -490,7 +491,7 @@ class TestGenerateScenarios:
         test_scenario_repo.create.return_value = make_scenario(suite.id)
 
         persona_repo = AsyncMock()
-        persona_repo.list_all.return_value = [persona]
+        persona_repo._list_all_active_unchecked.return_value = [persona]
 
         agent_repo = AsyncMock()
         agent_repo.get.return_value = agent
@@ -542,7 +543,7 @@ class TestGenerateScenariosBackground:
         test_scenario_repo.create.return_value = make_scenario(suite.id)
 
         persona_repo = AsyncMock()
-        persona_repo.list_all.return_value = [persona]
+        persona_repo._list_all_active_unchecked.return_value = [persona]
 
         agent_repo = AsyncMock()
         agent_repo.get.return_value = agent
@@ -576,7 +577,7 @@ class TestGenerateScenariosBackground:
         agent_repo.get.return_value = agent
 
         persona_repo = AsyncMock()
-        persona_repo.list_all.return_value = []  # This will cause an error
+        persona_repo._list_all_active_unchecked.return_value = []  # This will cause an error
 
         service = ScenarioGenerationService(
             llm_service=AsyncMock(),
@@ -725,7 +726,7 @@ class TestGenerateScenariosTraitSanitization:
         test_scenario_repo.create.return_value = make_scenario(suite.id)
 
         persona_repo = AsyncMock()
-        persona_repo.list_all.return_value = [persona]
+        persona_repo._list_all_active_unchecked.return_value = [persona]
 
         agent_repo = AsyncMock()
         agent_repo.get.return_value = agent

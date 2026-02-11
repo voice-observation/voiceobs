@@ -9,6 +9,9 @@ from voiceobs.server.db.repositories.persona import PersonaRepository
 
 from .conftest import MockRecord
 
+# Test organization ID for org-scoped operations
+TEST_ORG_ID = uuid4()
+
 
 class TestPersonaRepository:
     """Tests for the PersonaRepository class."""
@@ -166,10 +169,13 @@ class TestPersonaRepository:
                 "updated_at": None,
                 "created_by": None,
                 "is_active": True,
+                "is_default": False,
+                "org_id": TEST_ORG_ID,
+                "persona_type": "custom",
             }
         )
 
-        result = await repo.get(persona_id)
+        result = await repo.get(persona_id, org_id=TEST_ORG_ID)
 
         assert result is not None
         assert result.id == persona_id
@@ -181,50 +187,7 @@ class TestPersonaRepository:
         repo = PersonaRepository(mock_db)
         mock_db.fetchrow.return_value = None
 
-        result = await repo.get(uuid4())
-
-        assert result is None
-
-    @pytest.mark.asyncio
-    async def test_get_by_name(self, mock_db):
-        """Test getting a persona by name."""
-        repo = PersonaRepository(mock_db)
-        persona_id = uuid4()
-
-        mock_db.fetchrow.return_value = MockRecord(
-            {
-                "id": persona_id,
-                "name": "Named Persona",
-                "description": None,
-                "aggression": 0.5,
-                "patience": 0.7,
-                "verbosity": 0.3,
-                "traits": [],
-                "tts_provider": "openai",
-                "tts_config": {},
-                "preview_audio_url": None,
-                "preview_audio_text": None,
-                "metadata": {},
-                "created_at": None,
-                "updated_at": None,
-                "created_by": None,
-                "is_active": True,
-            }
-        )
-
-        result = await repo.get_by_name("Named Persona")
-
-        assert result is not None
-        assert result.name == "Named Persona"
-        assert "WHERE name = $1 AND is_active = true" in mock_db.fetchrow.call_args[0][0]
-
-    @pytest.mark.asyncio
-    async def test_get_by_name_not_found(self, mock_db):
-        """Test getting a persona by name that doesn't exist."""
-        repo = PersonaRepository(mock_db)
-        mock_db.fetchrow.return_value = None
-
-        result = await repo.get_by_name("Nonexistent")
+        result = await repo.get(uuid4(), org_id=TEST_ORG_ID)
 
         assert result is None
 
@@ -252,6 +215,9 @@ class TestPersonaRepository:
                     "updated_at": None,
                     "created_by": None,
                     "is_active": True,
+                    "is_default": False,
+                    "org_id": TEST_ORG_ID,
+                    "persona_type": "custom",
                 }
             ),
             MockRecord(
@@ -272,17 +238,21 @@ class TestPersonaRepository:
                     "updated_at": None,
                     "created_by": None,
                     "is_active": False,
+                    "is_default": False,
+                    "org_id": TEST_ORG_ID,
+                    "persona_type": "custom",
                 }
             ),
         ]
 
-        result = await repo.list_all()
+        result = await repo.list_all(org_id=TEST_ORG_ID)
 
         assert len(result) == 2
         assert all(isinstance(p, PersonaRow) for p in result)
-        # Default is None, so no WHERE clause for is_active
+        # Should have WHERE clause for org_id
         query = mock_db.fetch.call_args[0][0]
-        assert "WHERE" not in query or "is_active" not in query
+        assert "WHERE" in query
+        assert "org_id" in query
 
     @pytest.mark.asyncio
     async def test_list_all_include_inactive(self, mock_db):
@@ -290,11 +260,13 @@ class TestPersonaRepository:
         repo = PersonaRepository(mock_db)
         mock_db.fetch.return_value = []
 
-        result = await repo.list_all(is_active=None)
+        result = await repo.list_all(org_id=TEST_ORG_ID, is_active=None)
 
         assert result == []
-        # Should not filter by is_active when None
-        assert "WHERE is_active" not in mock_db.fetch.call_args[0][0]
+        # Should filter by org_id but not by is_active when None
+        query = mock_db.fetch.call_args[0][0]
+        assert "org_id" in query
+        assert "WHERE is_active" not in query
 
     @pytest.mark.asyncio
     async def test_list_all_with_pagination(self, mock_db):
@@ -302,7 +274,7 @@ class TestPersonaRepository:
         repo = PersonaRepository(mock_db)
         mock_db.fetch.return_value = []
 
-        result = await repo.list_all(limit=10, offset=5)
+        result = await repo.list_all(org_id=TEST_ORG_ID, limit=10, offset=5)
 
         assert result == []
         sql = mock_db.fetch.call_args[0][0]
@@ -334,10 +306,13 @@ class TestPersonaRepository:
                 "updated_at": None,
                 "created_by": None,
                 "is_active": True,
+                "is_default": False,
+                "org_id": TEST_ORG_ID,
+                "persona_type": "custom",
             }
         )
 
-        result = await repo.update(persona_id, name="Updated Name")
+        result = await repo.update(persona_id, org_id=TEST_ORG_ID, name="Updated Name")
 
         assert result is not None
         assert result.name == "Updated Name"
@@ -368,11 +343,15 @@ class TestPersonaRepository:
                 "updated_at": None,
                 "created_by": None,
                 "is_active": True,
+                "is_default": False,
+                "org_id": TEST_ORG_ID,
+                "persona_type": "custom",
             }
         )
 
         result = await repo.update(
             persona_id,
+            org_id=TEST_ORG_ID,
             name="Updated",
             description="New description",
             aggression=0.9,
@@ -396,7 +375,7 @@ class TestPersonaRepository:
         repo = PersonaRepository(mock_db)
         mock_db.fetchrow.return_value = None
 
-        result = await repo.update(uuid4(), name="Updated")
+        result = await repo.update(uuid4(), org_id=TEST_ORG_ID, name="Updated")
 
         assert result is None
 
@@ -424,10 +403,13 @@ class TestPersonaRepository:
                 "updated_at": None,
                 "created_by": None,
                 "is_active": True,
+                "is_default": False,
+                "org_id": TEST_ORG_ID,
+                "persona_type": "custom",
             }
         )
 
-        result = await repo.update(persona_id)
+        result = await repo.update(persona_id, org_id=TEST_ORG_ID)
 
         assert result is not None
         assert result.name == "Original"
@@ -459,10 +441,13 @@ class TestPersonaRepository:
                 "updated_at": None,
                 "created_by": None,
                 "is_active": True,
+                "is_default": False,
+                "org_id": TEST_ORG_ID,
+                "persona_type": "custom",
             }
         )
 
-        result = await repo.update(persona_id, metadata={"key": "value"})
+        result = await repo.update(persona_id, org_id=TEST_ORG_ID, metadata={"key": "value"})
 
         assert result is not None
         assert result.metadata == {"key": "value"}
@@ -492,10 +477,13 @@ class TestPersonaRepository:
                 "updated_at": None,
                 "created_by": None,
                 "is_active": True,
+                "is_default": False,
+                "org_id": TEST_ORG_ID,
+                "persona_type": "custom",
             }
         )
 
-        result = await repo.get(persona_id)
+        result = await repo.get(persona_id, org_id=TEST_ORG_ID)
 
         assert result is not None
         assert result.traits == ["friendly", "calm"]
@@ -527,10 +515,13 @@ class TestPersonaRepository:
                 "updated_at": None,
                 "created_by": None,
                 "is_active": True,
+                "is_default": False,
+                "org_id": TEST_ORG_ID,
+                "persona_type": "custom",
             }
         )
 
-        result = await repo.get(persona_id)
+        result = await repo.get(persona_id, org_id=TEST_ORG_ID)
 
         assert result is not None
         assert result.traits == ["friendly", "calm"]  # Should extract "key" values
@@ -559,10 +550,13 @@ class TestPersonaRepository:
                 "updated_at": None,
                 "created_by": None,
                 "is_active": True,
+                "is_default": False,
+                "org_id": TEST_ORG_ID,
+                "persona_type": "custom",
             }
         )
 
-        result = await repo.get(persona_id)
+        result = await repo.get(persona_id, org_id=TEST_ORG_ID)
 
         assert result is not None
         assert result.traits == []
@@ -595,10 +589,13 @@ class TestPersonaRepository:
                 "updated_at": None,
                 "created_by": None,
                 "is_active": False,
+                "is_default": False,
+                "org_id": TEST_ORG_ID,
+                "persona_type": "custom",
             }
         )
 
-        result = await repo.update(persona_id, is_active=False)
+        result = await repo.update(persona_id, org_id=TEST_ORG_ID, is_active=False)
 
         assert result is not None
         assert result.is_active is False
@@ -619,7 +616,7 @@ class TestPersonaRepository:
         repo = PersonaRepository(mock_db)
 
         with pytest.raises(ValueError, match="Unsupported TTS provider"):
-            await repo.update(uuid4(), tts_provider="invalid")
+            await repo.update(uuid4(), org_id=TEST_ORG_ID, tts_provider="invalid")
 
         mock_db.execute.assert_not_called()
 
@@ -630,7 +627,7 @@ class TestPersonaRepository:
         persona_id = uuid4()
         mock_db.execute.return_value = "DELETE 1"
 
-        result = await repo.delete(persona_id)
+        result = await repo.delete(persona_id, org_id=TEST_ORG_ID)
 
         assert result is True
         mock_db.execute.assert_called_once()
@@ -643,7 +640,7 @@ class TestPersonaRepository:
         repo = PersonaRepository(mock_db)
         mock_db.execute.return_value = "DELETE 0"
 
-        result = await repo.delete(uuid4())
+        result = await repo.delete(uuid4(), org_id=TEST_ORG_ID)
 
         assert result is False
 
@@ -653,12 +650,12 @@ class TestPersonaRepository:
         repo = PersonaRepository(mock_db)
         mock_db.fetchval.return_value = 5
 
-        count = await repo.count()
+        count = await repo.count(org_id=TEST_ORG_ID)
 
         assert count == 5
         sql = mock_db.fetchval.call_args[0][0]
         assert "COUNT(*)" in sql
-        assert "WHERE is_active = $1" in sql
+        assert "org_id" in sql
 
     @pytest.mark.asyncio
     async def test_count_all(self, mock_db):
@@ -666,12 +663,12 @@ class TestPersonaRepository:
         repo = PersonaRepository(mock_db)
         mock_db.fetchval.return_value = 10
 
-        count = await repo.count(is_active=None)
+        count = await repo.count(org_id=TEST_ORG_ID, is_active=None)
 
         assert count == 10
         sql = mock_db.fetchval.call_args[0][0]
         assert "COUNT(*)" in sql
-        assert "WHERE is_active" not in sql
+        assert "org_id" in sql
 
     @pytest.mark.asyncio
     async def test_count_inactive(self, mock_db):
@@ -679,11 +676,11 @@ class TestPersonaRepository:
         repo = PersonaRepository(mock_db)
         mock_db.fetchval.return_value = 3
 
-        count = await repo.count(is_active=False)
+        count = await repo.count(org_id=TEST_ORG_ID, is_active=False)
 
         assert count == 3
         sql = mock_db.fetchval.call_args[0][0]
-        assert "WHERE is_active = $1" in sql
+        assert "org_id" in sql
 
     @pytest.mark.asyncio
     async def test_create_persona_with_preview_audio_status(self, mock_db):
@@ -754,11 +751,14 @@ class TestPersonaRepository:
                 "created_by": None,
                 "is_active": True,
                 "is_default": False,
+                "org_id": TEST_ORG_ID,
+                "persona_type": "custom",
             }
         )
 
         result = await repo.update(
             persona_id,
+            org_id=TEST_ORG_ID,
             preview_audio_status="failed",
             preview_audio_error="TTS service unavailable",
         )
@@ -770,3 +770,415 @@ class TestPersonaRepository:
         update_query = mock_db.execute.call_args[0][0]
         assert "preview_audio_status" in update_query
         assert "preview_audio_error" in update_query
+
+
+class TestPersonaRepositoryOrgScoped:
+    """Tests for org-scoped persona repository methods."""
+
+    @pytest.mark.asyncio
+    async def test_create_with_org_id_and_persona_type(self, mock_db):
+        """create() accepts org_id and persona_type params."""
+        repo = PersonaRepository(mock_db)
+        org_id = uuid4()
+
+        mock_db.fetchrow.return_value = MockRecord(
+            {
+                "id": uuid4(),
+                "name": "Test",
+                "description": None,
+                "aggression": 0.5,
+                "patience": 0.5,
+                "verbosity": 0.5,
+                "traits": "[]",
+                "tts_provider": "openai",
+                "tts_config": "{}",
+                "preview_audio_url": None,
+                "preview_audio_text": None,
+                "preview_audio_status": None,
+                "preview_audio_error": None,
+                "metadata": "{}",
+                "created_at": None,
+                "updated_at": None,
+                "created_by": None,
+                "is_active": True,
+                "is_default": False,
+                "org_id": org_id,
+                "persona_type": "system",
+            }
+        )
+
+        result = await repo.create(
+            name="Test",
+            aggression=0.5,
+            patience=0.5,
+            verbosity=0.5,
+            tts_provider="openai",
+            org_id=org_id,
+            persona_type="system",
+        )
+
+        assert result.org_id == org_id
+        assert result.persona_type == "system"
+        # Verify SQL includes org_id and persona_type
+        insert_sql = mock_db.execute.call_args[0][0]
+        assert "org_id" in insert_sql
+        assert "persona_type" in insert_sql
+
+    @pytest.mark.asyncio
+    async def test_create_with_is_default_true(self, mock_db):
+        """create() respects is_default parameter."""
+        repo = PersonaRepository(mock_db)
+        org_id = uuid4()
+
+        mock_db.fetchrow.return_value = MockRecord(
+            {
+                "id": uuid4(),
+                "name": "Test",
+                "description": None,
+                "aggression": 0.5,
+                "patience": 0.5,
+                "verbosity": 0.5,
+                "traits": "[]",
+                "tts_provider": "openai",
+                "tts_config": "{}",
+                "preview_audio_url": None,
+                "preview_audio_text": None,
+                "preview_audio_status": None,
+                "preview_audio_error": None,
+                "metadata": "{}",
+                "created_at": None,
+                "updated_at": None,
+                "created_by": None,
+                "is_active": True,
+                "is_default": True,
+                "org_id": org_id,
+                "persona_type": "system",
+            }
+        )
+
+        result = await repo.create(
+            name="Test",
+            aggression=0.5,
+            patience=0.5,
+            verbosity=0.5,
+            tts_provider="openai",
+            org_id=org_id,
+            persona_type="system",
+            is_default=True,
+        )
+
+        assert result.is_default is True
+
+    @pytest.mark.asyncio
+    async def test_list_all_filters_by_org_id(self, mock_db):
+        """list_all() includes org_id in WHERE clause."""
+        repo = PersonaRepository(mock_db)
+        org_id = uuid4()
+        mock_db.fetch.return_value = []
+
+        await repo.list_all(org_id=org_id)
+
+        sql = mock_db.fetch.call_args[0][0]
+        assert "org_id" in sql
+
+    @pytest.mark.asyncio
+    async def test_get_checks_org_id(self, mock_db):
+        """get() includes org_id filter when provided."""
+        repo = PersonaRepository(mock_db)
+        org_id = uuid4()
+        mock_db.fetchrow.return_value = None
+
+        await repo.get(uuid4(), org_id=org_id)
+
+        sql = mock_db.fetchrow.call_args[0][0]
+        assert "org_id" in sql
+
+    @pytest.mark.asyncio
+    async def test_delete_checks_org_id(self, mock_db):
+        """delete() includes org_id filter when provided."""
+        repo = PersonaRepository(mock_db)
+        org_id = uuid4()
+        mock_db.execute.return_value = "DELETE 1"
+
+        await repo.delete(uuid4(), org_id=org_id)
+
+        sql = mock_db.execute.call_args[0][0]
+        assert "org_id" in sql
+
+    @pytest.mark.asyncio
+    async def test_count_filters_by_org_id(self, mock_db):
+        """count() includes org_id filter when provided."""
+        repo = PersonaRepository(mock_db)
+        org_id = uuid4()
+        mock_db.fetchval.return_value = 3
+
+        result = await repo.count(org_id=org_id)
+
+        sql = mock_db.fetchval.call_args[0][0]
+        assert "org_id" in sql
+        assert result == 3
+
+    @pytest.mark.asyncio
+    async def test_get_default_with_org_id(self, mock_db):
+        """get_default() scopes to org when org_id is provided."""
+        repo = PersonaRepository(mock_db)
+        org_id = uuid4()
+        mock_db.fetchrow.return_value = None
+
+        await repo.get_default(org_id=org_id)
+
+        sql = mock_db.fetchrow.call_args[0][0]
+        assert "org_id" in sql
+
+    @pytest.mark.asyncio
+    async def test_update_with_org_id(self, mock_db):
+        """update() includes org_id in WHERE clause when provided."""
+        repo = PersonaRepository(mock_db)
+        persona_id = uuid4()
+        org_id = uuid4()
+
+        mock_db.fetchrow.return_value = MockRecord(
+            {
+                "id": persona_id,
+                "name": "Updated",
+                "description": None,
+                "aggression": 0.5,
+                "patience": 0.5,
+                "verbosity": 0.5,
+                "traits": "[]",
+                "tts_provider": "openai",
+                "tts_config": "{}",
+                "preview_audio_url": None,
+                "preview_audio_text": None,
+                "preview_audio_status": None,
+                "preview_audio_error": None,
+                "metadata": "{}",
+                "created_at": None,
+                "updated_at": None,
+                "created_by": None,
+                "is_active": True,
+                "is_default": False,
+                "org_id": org_id,
+                "persona_type": "custom",
+            }
+        )
+
+        await repo.update(persona_id, name="Updated", org_id=org_id)
+
+        update_sql = mock_db.execute.call_args[0][0]
+        assert "org_id" in update_sql
+
+    @pytest.mark.asyncio
+    async def test_list_all_with_is_active_and_org_id(self, mock_db):
+        """list_all() includes both is_active and org_id in WHERE clause."""
+        repo = PersonaRepository(mock_db)
+        org_id = uuid4()
+        mock_db.fetch.return_value = []
+
+        await repo.list_all(is_active=True, org_id=org_id)
+
+        sql = mock_db.fetch.call_args[0][0]
+        assert "is_active" in sql
+        assert "org_id" in sql
+
+    @pytest.mark.asyncio
+    async def test_set_default_with_org_id(self, mock_db):
+        """set_default() scopes unset query to org when org_id provided."""
+        from contextlib import asynccontextmanager
+        from unittest.mock import AsyncMock
+
+        repo = PersonaRepository(mock_db)
+        persona_id = uuid4()
+        org_id = uuid4()
+
+        # Mock transaction context manager
+        mock_conn = AsyncMock()
+
+        @asynccontextmanager
+        async def mock_transaction():
+            yield mock_conn
+
+        mock_db.transaction = mock_transaction
+
+        mock_db.fetchrow.return_value = MockRecord(
+            {
+                "id": persona_id,
+                "name": "Default",
+                "description": None,
+                "aggression": 0.5,
+                "patience": 0.5,
+                "verbosity": 0.5,
+                "traits": "[]",
+                "tts_provider": "openai",
+                "tts_config": "{}",
+                "preview_audio_url": None,
+                "preview_audio_text": None,
+                "preview_audio_status": None,
+                "preview_audio_error": None,
+                "metadata": "{}",
+                "created_at": None,
+                "updated_at": None,
+                "created_by": None,
+                "is_active": True,
+                "is_default": True,
+                "org_id": org_id,
+                "persona_type": "custom",
+            }
+        )
+
+        result = await repo.set_default(persona_id, org_id=org_id)
+
+        assert result is not None
+        # Verify the unset query includes org_id
+        unset_call = mock_conn.execute.call_args_list[0]
+        assert "org_id" in unset_call[0][0]
+
+    @pytest.mark.asyncio
+    async def test_create_with_none_tts_provider(self, mock_db):
+        """create() skips TTS validation when provider is None."""
+        repo = PersonaRepository(mock_db)
+
+        mock_db.fetchrow.return_value = MockRecord(
+            {
+                "id": uuid4(),
+                "name": "Test",
+                "description": None,
+                "aggression": 0.5,
+                "patience": 0.5,
+                "verbosity": 0.5,
+                "traits": "[]",
+                "tts_provider": None,
+                "tts_config": "{}",
+                "preview_audio_url": None,
+                "preview_audio_text": None,
+                "preview_audio_status": None,
+                "preview_audio_error": None,
+                "metadata": "{}",
+                "created_at": None,
+                "updated_at": None,
+                "created_by": None,
+                "is_active": True,
+                "is_default": False,
+                "org_id": None,
+                "persona_type": "custom",
+            }
+        )
+
+        result = await repo.create(
+            name="Test",
+            aggression=0.5,
+            patience=0.5,
+            verbosity=0.5,
+            tts_provider=None,
+        )
+
+        assert result is not None
+        assert result.tts_provider is None
+
+    @pytest.mark.asyncio
+    async def test_row_to_persona_with_value_dict_traits(self, mock_db):
+        """_row_to_persona handles dict traits with 'value' key."""
+        repo = PersonaRepository(mock_db)
+
+        mock_db.fetchrow.return_value = MockRecord(
+            {
+                "id": uuid4(),
+                "name": "Test",
+                "description": None,
+                "aggression": 0.5,
+                "patience": 0.5,
+                "verbosity": 0.5,
+                "traits": [{"value": "friendly"}, {"value": "calm"}],
+                "tts_provider": "openai",
+                "tts_config": {},
+                "preview_audio_url": None,
+                "preview_audio_text": None,
+                "preview_audio_status": None,
+                "preview_audio_error": None,
+                "metadata": {},
+                "created_at": None,
+                "updated_at": None,
+                "created_by": None,
+                "is_active": True,
+                "is_default": False,
+                "org_id": TEST_ORG_ID,
+                "persona_type": "custom",
+            }
+        )
+
+        result = await repo.get(uuid4(), org_id=TEST_ORG_ID)
+
+        assert result is not None
+        assert result.traits == ["friendly", "calm"]
+
+    @pytest.mark.asyncio
+    async def test_row_to_persona_with_unknown_dict_traits(self, mock_db):
+        """_row_to_persona handles dict traits without 'key' or 'value'."""
+        repo = PersonaRepository(mock_db)
+
+        mock_db.fetchrow.return_value = MockRecord(
+            {
+                "id": uuid4(),
+                "name": "Test",
+                "description": None,
+                "aggression": 0.5,
+                "patience": 0.5,
+                "verbosity": 0.5,
+                "traits": [{"other": "data"}],
+                "tts_provider": "openai",
+                "tts_config": {},
+                "preview_audio_url": None,
+                "preview_audio_text": None,
+                "preview_audio_status": None,
+                "preview_audio_error": None,
+                "metadata": {},
+                "created_at": None,
+                "updated_at": None,
+                "created_by": None,
+                "is_active": True,
+                "is_default": False,
+                "org_id": TEST_ORG_ID,
+                "persona_type": "custom",
+            }
+        )
+
+        result = await repo.get(uuid4(), org_id=TEST_ORG_ID)
+
+        assert result is not None
+        assert result.traits == ["{'other': 'data'}"]
+
+    @pytest.mark.asyncio
+    async def test_row_to_persona_with_numeric_traits(self, mock_db):
+        """_row_to_persona handles non-string, non-dict traits."""
+        repo = PersonaRepository(mock_db)
+
+        mock_db.fetchrow.return_value = MockRecord(
+            {
+                "id": uuid4(),
+                "name": "Test",
+                "description": None,
+                "aggression": 0.5,
+                "patience": 0.5,
+                "verbosity": 0.5,
+                "traits": [42, True],
+                "tts_provider": "openai",
+                "tts_config": {},
+                "preview_audio_url": None,
+                "preview_audio_text": None,
+                "preview_audio_status": None,
+                "preview_audio_error": None,
+                "metadata": {},
+                "created_at": None,
+                "updated_at": None,
+                "created_by": None,
+                "is_active": True,
+                "is_default": False,
+                "org_id": TEST_ORG_ID,
+                "persona_type": "custom",
+            }
+        )
+
+        result = await repo.get(uuid4(), org_id=TEST_ORG_ID)
+
+        assert result is not None
+        assert result.traits == ["42", "True"]

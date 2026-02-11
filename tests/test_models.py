@@ -292,6 +292,7 @@ class TestPersonaRow:
             verbosity=0.6,
             traits=["friendly", "helpful", "patient"],
             tts_provider="openai",
+            org_id=uuid4(),
             tts_config={"model": "tts-1", "voice": "alloy", "speed": 1.0},
             preview_audio_url="https://example.com/audio/preview.mp3",
             preview_audio_text="Hello, this is how I sound.",
@@ -330,6 +331,7 @@ class TestPersonaRow:
             patience=0.5,
             verbosity=0.5,
             tts_provider="elevenlabs",
+            org_id=uuid4(),
         )
 
         assert row.id == persona_id
@@ -362,6 +364,7 @@ class TestPersonaRow:
             patience=0.7,
             verbosity=0.5,
             tts_provider="openai",
+            org_id=uuid4(),
         )
 
         row2 = PersonaRow(
@@ -371,6 +374,7 @@ class TestPersonaRow:
             patience=0.6,
             verbosity=0.5,
             tts_provider="deepgram",
+            org_id=uuid4(),
         )
 
         # Modify row1's list/dict fields
@@ -394,6 +398,7 @@ class TestPersonaRow:
             patience=1.0,
             verbosity=0.5,
             tts_provider="openai",
+            org_id=uuid4(),
             traits=[],
             tts_config={},
             metadata={},
@@ -413,6 +418,7 @@ class TestPersonaRow:
             patience=0.5,
             verbosity=0.5,
             tts_provider="openai",
+            org_id=uuid4(),
             tts_config={"model": "tts-1-hd", "voice": "nova", "speed": 1.2},
         )
         assert openai_row.tts_provider == "openai"
@@ -426,6 +432,7 @@ class TestPersonaRow:
             patience=0.7,
             verbosity=0.6,
             tts_provider="elevenlabs",
+            org_id=uuid4(),
             tts_config={
                 "voice_id": "pNInz6obpgDQGcFmaJgB",
                 "model_id": "eleven_monolingual_v1",
@@ -444,6 +451,7 @@ class TestPersonaRow:
             patience=0.3,
             verbosity=0.8,
             tts_provider="deepgram",
+            org_id=uuid4(),
             tts_config={
                 "model": "aura-asteria-en",
                 "encoding": "linear16",
@@ -462,6 +470,7 @@ class TestPersonaRow:
             patience=0.5,
             verbosity=0.5,
             tts_provider="openai",
+            org_id=uuid4(),
             is_active=True,
         )
         assert active_persona.is_active is True
@@ -473,6 +482,7 @@ class TestPersonaRow:
             patience=0.5,
             verbosity=0.5,
             tts_provider="openai",
+            org_id=uuid4(),
             is_active=False,
         )
         assert inactive_persona.is_active is False

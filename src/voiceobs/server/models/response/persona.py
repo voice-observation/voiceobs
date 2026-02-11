@@ -36,6 +36,7 @@ class PersonaResponse(BaseModel):
     created_by: str | None = Field(None, description="User who created the persona")
     is_active: bool = Field(True, description="Whether the persona is active")
     is_default: bool = Field(False, description="Whether this is the default fallback persona")
+    persona_type: str = Field("custom", description="Persona type: 'system' or 'custom'")
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -81,6 +82,7 @@ class PersonaListItem(BaseModel):
     )
     is_active: bool = Field(True, description="Whether the persona is active")
     is_default: bool = Field(False, description="Whether this is the default fallback persona")
+    persona_type: str = Field("custom", description="Persona type: 'system' or 'custom'")
 
     model_config = ConfigDict(
         json_schema_extra={

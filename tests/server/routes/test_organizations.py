@@ -174,6 +174,8 @@ class TestCreateOrg:
         mock_member_repo = AsyncMock()
         mock_member_repo.add.return_value = mock_member
 
+        mock_persona_service = AsyncMock()
+
         with patch(
             "voiceobs.server.auth.dependencies.decode_supabase_jwt",
             return_value=payload,
@@ -190,11 +192,15 @@ class TestCreateOrg:
                         "voiceobs.server.routes.organizations.get_organization_member_repository",
                         return_value=mock_member_repo,
                     ):
-                        response = client.post(
-                            "/api/v1/orgs",
-                            headers={"Authorization": f"Bearer {token}"},
-                            json={"name": "New Org"},
-                        )
+                        with patch(
+                            "voiceobs.server.routes.organizations.get_persona_service",
+                            return_value=mock_persona_service,
+                        ):
+                            response = client.post(
+                                "/api/v1/orgs",
+                                headers={"Authorization": f"Bearer {token}"},
+                                json={"name": "New Org"},
+                            )
 
         assert response.status_code == 201
         data = response.json()
@@ -203,6 +209,7 @@ class TestCreateOrg:
         assert data["role"] == "owner"
         mock_org_repo.create.assert_called_once_with(name="New Org", created_by=user_id)
         mock_member_repo.add.assert_called_once_with(org_id=org_id, user_id=user_id, role="owner")
+        mock_persona_service.seed_org_personas.assert_called_once_with(org_id)
 
     def test_create_org_unauthenticated(self, client):
         """Test creating organization without token returns 401."""

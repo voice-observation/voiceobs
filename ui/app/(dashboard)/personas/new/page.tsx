@@ -19,6 +19,7 @@ import {
 } from "@/components/primitives/select";
 import { api } from "@/lib/api";
 import { logger } from "@/lib/logger";
+import { useAuth } from "@/contexts/auth-context";
 import { toast } from "sonner";
 import { TraitSelect } from "@/components/personas/TraitSelect";
 import type { PersonaCreateRequest } from "@/lib/types";
@@ -32,6 +33,8 @@ const DEFAULT_VERBOSITY = 0.4;
 
 export default function NewPersonaPage() {
   const router = useRouter();
+  const { activeOrg } = useAuth();
+  const orgId = activeOrg?.id ?? "";
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [aggression, setAggression] = useState([DEFAULT_AGGRESSION]);
@@ -46,6 +49,7 @@ export default function NewPersonaPage() {
 
   // Load TTS models on mount
   useEffect(() => {
+    if (!orgId) return;
     const loadTTSModels = async () => {
       try {
         setLoadingModels(true);
@@ -68,7 +72,7 @@ export default function NewPersonaPage() {
     };
 
     loadTTSModels();
-  }, []);
+  }, [orgId]);
 
   const handleSubmit = async () => {
     if (!name.trim() || !description.trim()) {
@@ -95,7 +99,7 @@ export default function NewPersonaPage() {
         }
       }
 
-      const newPersona = await api.personas.createPersona(requestData);
+      const newPersona = await api.personas.createPersona(orgId, requestData);
       toast("Persona created", {
         description: `"${newPersona.name}" has been created successfully.`,
       });

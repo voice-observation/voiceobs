@@ -26,7 +26,8 @@ async def resolve_persona_for_scenario(
     Raises:
         ValueError: If persona is not found or is not active.
     """
-    persona_row = await persona_repo.get(scenario.persona_id)
+    # TODO: Once test scenarios are org-scoped, pass org_id here
+    persona_row = await persona_repo._get_by_id_unchecked(scenario.persona_id)
 
     if not persona_row:
         raise ValueError(f"Persona {scenario.persona_id} not found")

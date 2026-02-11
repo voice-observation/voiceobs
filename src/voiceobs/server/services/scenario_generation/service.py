@@ -230,7 +230,8 @@ class ScenarioGenerationService:
             raise ValueError(f"Agent {suite.agent_id} not found")
 
         # Fetch active personas
-        personas = await self._persona_repo.list_all(is_active=True)
+        # TODO: Once test suites are org-scoped, pass org_id here
+        personas = await self._persona_repo._list_all_active_unchecked()
         if not personas:
             raise ValueError("No active personas available for scenario generation")
 

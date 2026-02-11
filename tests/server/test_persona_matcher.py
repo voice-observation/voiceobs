@@ -21,6 +21,7 @@ def make_persona(
         patience=0.5,
         verbosity=0.5,
         tts_provider="deepgram",
+        org_id=uuid4(),
         traits=traits,
         is_default=is_default,
     )

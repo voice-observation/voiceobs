@@ -19,6 +19,8 @@ export interface UseTestScenariosFilters {
 }
 
 export interface UseTestScenariosOptions {
+  /** Organization ID for scoping persona queries */
+  orgId?: string;
   initialFilters?: UseTestScenariosFilters;
   debounceMs?: number;
   pageSize?: number;
@@ -59,7 +61,12 @@ export interface UseTestScenariosReturn {
 }
 
 export function useTestScenarios(options: UseTestScenariosOptions = {}): UseTestScenariosReturn {
-  const { initialFilters = {}, debounceMs = 300, pageSize: initialPageSize = 20 } = options;
+  const {
+    orgId = "",
+    initialFilters = {},
+    debounceMs = 300,
+    pageSize: initialPageSize = 20,
+  } = options;
 
   // State
   const [scenarios, setScenarios] = useState<TestScenario[]>([]);
@@ -133,10 +140,11 @@ export function useTestScenarios(options: UseTestScenariosOptions = {}): UseTest
 
   // Fetch reference data (suites and personas) - called once on mount
   const fetchReferenceData = useCallback(async () => {
+    if (!orgId) return;
     try {
       const [suitesResponse, personasResponse] = await Promise.all([
         api.testSuites.listTestSuites(),
-        api.personas.listPersonas(true), // active personas only
+        api.personas.listPersonas(orgId, true), // active personas only
       ]);
       setTestSuites(suitesResponse.suites);
       setPersonas(personasResponse.personas);
@@ -144,7 +152,7 @@ export function useTestScenarios(options: UseTestScenariosOptions = {}): UseTest
       logger.error("Failed to fetch reference data", err);
       // Non-critical error - don't set error state, filters will still work
     }
-  }, []);
+  }, [orgId]);
 
   // Initial fetch on mount
   useEffect(() => {

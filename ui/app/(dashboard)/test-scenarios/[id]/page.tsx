@@ -16,6 +16,7 @@ import { ScenarioRunHistory } from "@/components/tests/ScenarioRunHistory";
 import { ArrowLeft, Pencil, Trash2, AlertCircle, Play } from "lucide-react";
 import { api } from "@/lib/api";
 import { logger } from "@/lib/logger";
+import { useAuth } from "@/contexts/auth-context";
 import { toast } from "sonner";
 import type { TestScenario, TestSuite, PersonaListItem } from "@/lib/types";
 
@@ -23,6 +24,8 @@ export default function TestScenarioDetailPage() {
   const router = useRouter();
   const params = useParams();
   const scenarioId = params.id as string;
+  const { activeOrg } = useAuth();
+  const orgId = activeOrg?.id ?? "";
 
   const [scenario, setScenario] = useState<TestScenario | null>(null);
   const [testSuite, setTestSuite] = useState<TestSuite | null>(null);
@@ -55,7 +58,7 @@ export default function TestScenarioDetailPage() {
 
       // Fetch the persona
       try {
-        const personaData = await api.personas.getPersona(scenarioData.persona_id);
+        const personaData = await api.personas.getPersona(orgId, scenarioData.persona_id);
         setPersona(personaData as PersonaListItem);
       } catch (err) {
         logger.warn("Failed to fetch persona", { error: err });
@@ -68,13 +71,13 @@ export default function TestScenarioDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [scenarioId]);
+  }, [scenarioId, orgId]);
 
   useEffect(() => {
-    if (scenarioId) {
+    if (scenarioId && orgId) {
       fetchData();
     }
-  }, [scenarioId, fetchData]);
+  }, [scenarioId, fetchData, orgId]);
 
   const handleScenarioUpdated = async (updatedScenario: TestScenario) => {
     setScenario(updatedScenario);
@@ -220,6 +223,7 @@ export default function TestScenarioDetailPage() {
       <TestScenarioDialog
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
+        orgId={orgId}
         scenario={scenario}
         onUpdate={handleScenarioUpdated}
       />

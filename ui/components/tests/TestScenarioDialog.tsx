@@ -32,6 +32,8 @@ import type {
 interface TestScenarioDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Organization ID for scoping persona queries */
+  orgId: string;
   /** When provided, dialog is in edit mode with pre-populated values */
   scenario?: TestScenario;
   /** Pre-select suite (hides selector in create mode if provided) */
@@ -45,6 +47,7 @@ interface TestScenarioDialogProps {
 export function TestScenarioDialog({
   open,
   onOpenChange,
+  orgId,
   scenario,
   suiteId,
   onCreate,
@@ -86,7 +89,7 @@ export function TestScenarioDialog({
   useEffect(() => {
     if (open) {
       setLoading(true);
-      Promise.all([api.testSuites.listTestSuites(), api.personas.listPersonas()])
+      Promise.all([api.testSuites.listTestSuites(), api.personas.listPersonas(orgId)])
         .then(([suitesResponse, personasResponse]) => {
           setAvailableSuites(suitesResponse.suites);
           setAvailablePersonas(personasResponse.personas);
@@ -116,7 +119,7 @@ export function TestScenarioDialog({
           setLoading(false);
         });
     }
-  }, [open, scenario, isEditMode]);
+  }, [open, scenario, isEditMode, orgId]);
 
   const resetForm = () => {
     setTitle("");

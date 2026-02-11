@@ -26,22 +26,28 @@ import type { PersonaListItem } from "@/lib/types";
 import { api } from "@/lib/api";
 
 interface PersonaCardProps {
+  orgId: string;
   persona: PersonaListItem;
   onToggleEnabled: (id: string, enabled: boolean) => void;
   onListenVoice: (id: string) => void;
   onSetDefault: (id: string) => void;
   onDelete: (persona: PersonaListItem) => void;
+  playingPersonaId: string | null;
+  onPlayingChange: (personaId: string | null) => void;
 }
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_MS = 60000;
 
 export function PersonaCard({
+  orgId,
   persona,
   onToggleEnabled,
   onListenVoice,
   onSetDefault,
   onDelete,
+  playingPersonaId,
+  onPlayingChange,
 }: PersonaCardProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [previewStatus, setPreviewStatus] = useState<"generating" | "ready" | "failed" | null>(
@@ -63,16 +69,36 @@ export function PersonaCard({
     };
   }, []);
 
+  // Stop audio when another persona starts playing
+  useEffect(() => {
+    if (playingPersonaId !== null && playingPersonaId !== persona.id) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      setIsPlaying(false);
+    }
+  }, [playingPersonaId, persona.id]);
+
   const playAudio = (url: string) => {
     if (audioRef.current) {
       audioRef.current.pause();
     }
     const audio = new Audio(url);
     audioRef.current = audio;
-    audio.onended = () => setIsPlaying(false);
-    audio.onerror = () => setIsPlaying(false);
-    audio.play().catch(() => setIsPlaying(false));
+    audio.onended = () => {
+      setIsPlaying(false);
+      onPlayingChange(null);
+    };
+    audio.onerror = () => {
+      setIsPlaying(false);
+      onPlayingChange(null);
+    };
+    audio.play().catch(() => {
+      setIsPlaying(false);
+      onPlayingChange(null);
+    });
     setIsPlaying(true);
+    onPlayingChange(persona.id);
   };
 
   const handleTryVoice = async () => {
@@ -80,6 +106,7 @@ export function PersonaCard({
     if (isPlaying && audioRef.current) {
       audioRef.current.pause();
       setIsPlaying(false);
+      onPlayingChange(null);
       return;
     }
 
@@ -91,7 +118,7 @@ export function PersonaCard({
 
     // Start generation
     try {
-      await api.personas.generatePersonaPreviewAudio(persona.id);
+      await api.personas.generatePersonaPreviewAudio(orgId, persona.id);
       setPreviewStatus("generating");
 
       // Start polling
@@ -108,7 +135,7 @@ export function PersonaCard({
         }
 
         try {
-          const result = await api.personas.getPreviewAudioStatus(persona.id);
+          const result = await api.personas.getPreviewAudioStatus(orgId, persona.id);
           setPreviewStatus(result.status);
 
           if (result.status === "ready" && result.audio_url) {
