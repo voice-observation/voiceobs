@@ -8,7 +8,8 @@
     "test:ui": "playwright test --ui",
     "test:debug": "playwright test --debug",
     "test:auth": "playwright test specs/auth.spec.ts",
-    "test:org": "playwright test specs/organization.spec.ts"
+    "test:org": "playwright test specs/organization.spec.ts",
+    "test:personas": "playwright test specs/personas/"
   },
   "devDependencies": {
     "@playwright/test": "^1.50.0",

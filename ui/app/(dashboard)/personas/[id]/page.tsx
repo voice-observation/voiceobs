@@ -19,9 +19,15 @@ import { Slider } from "@/components/primitives/slider";
 import { api } from "@/lib/api";
 import { logger } from "@/lib/logger";
 import { useAuth } from "@/contexts/auth-context";
-import { AlertCircle, ArrowLeft, Pencil, Play, Trash2, Volume2 } from "lucide-react";
+import { AlertCircle, ArrowLeft, Pencil, Play, Star, Trash2, Volume2 } from "lucide-react";
 import { AudioPlayer } from "@/components/shared/audio/AudioPlayer";
 import { DeletePersonaDialog } from "@/components/personas/DeletePersonaDialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/primitives/tooltip";
 import { toast } from "sonner";
 import type { Persona } from "@/lib/types";
 
@@ -129,6 +135,22 @@ export default function PersonaDetailPage({ params }: { params: { id: string } }
     } catch (err) {
       logger.error("Failed to get or generate preview audio", err, { personaId: persona.id });
       setIsPlaying(false);
+    }
+  };
+
+  const handleSetDefault = async () => {
+    if (!persona) return;
+
+    try {
+      await api.personas.setDefault(orgId, persona.id);
+      const updatedPersona = await api.personas.getPersona(orgId, persona.id);
+      setPersona(updatedPersona);
+      toast("Default updated", {
+        description: `"${persona.name}" is now the default persona.`,
+      });
+    } catch (err) {
+      logger.error("Failed to set persona as default", err, { personaId: persona.id });
+      toast.error("Failed to set default");
     }
   };
 
@@ -284,31 +306,71 @@ export default function PersonaDetailPage({ params }: { params: { id: string } }
           </Link>
         </Button>
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">{persona.name}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-bold tracking-tight" data-testid="persona-name">
+              {persona.name}
+            </h1>
+            {persona.persona_type && (
+              <Badge variant="outline" data-testid="persona-type">
+                {persona.persona_type === "system" ? "System" : "Custom"}
+              </Badge>
+            )}
+            {persona.is_default && (
+              <Badge variant="secondary" data-testid="default-badge">
+                <Star className="mr-1 h-3 w-3" />
+                Default
+              </Badge>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <Button variant="outline" size="sm" asChild>
-              <Link href={`/personas/${params.id}/edit`}>
+              <Link href={`/personas/${params.id}/edit`} data-testid="edit-persona-link">
                 <Pencil className="mr-2 h-4 w-4" />
                 Edit
               </Link>
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setDeleteDialogOpen(true)}
-              className="text-destructive hover:text-destructive"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </Button>
+            {!persona.is_default && (
+              <Button
+                variant="outline"
+                size="sm"
+                data-testid="set-default-button"
+                onClick={handleSetDefault}
+              >
+                <Star className="mr-2 h-4 w-4" />
+                Set as Default
+              </Button>
+            )}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      data-testid="delete-persona-button"
+                      onClick={() => persona.persona_type !== "system" && setDeleteDialogOpen(true)}
+                      disabled={persona.persona_type === "system"}
+                      className="text-destructive hover:text-destructive disabled:opacity-50"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {persona.persona_type === "system"
+                    ? "System personas cannot be deleted"
+                    : "Delete this persona"}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <div className="flex items-center gap-2">
-              <Label htmlFor="active-toggle" className="text-sm">
+              <Label htmlFor="active-toggle" className="text-sm" data-testid="active-indicator">
                 {persona.is_active ? "Active" : "Inactive"}
               </Label>
               <Switch
                 id="active-toggle"
+                data-testid="toggle-active-button"
                 checked={persona.is_active}
                 onCheckedChange={handleToggleActive}
               />
@@ -332,7 +394,9 @@ export default function PersonaDetailPage({ params }: { params: { id: string } }
                   <Label className="w-28 flex-shrink-0 text-xs text-muted-foreground">
                     Description
                   </Label>
-                  <p className="text-sm font-medium">{persona.description}</p>
+                  <p className="text-sm font-medium" data-testid="persona-description">
+                    {persona.description}
+                  </p>
                 </div>
               )}
               <div className="flex items-center gap-2">
@@ -360,6 +424,7 @@ export default function PersonaDetailPage({ params }: { params: { id: string } }
                 <div className="space-y-4">
                   {audioUrl && <AudioPlayer audioUrl={audioUrl} />}
                   <Button
+                    data-testid="preview-audio-button"
                     onClick={handlePlayPreview}
                     disabled={isPlaying}
                     variant={audioUrl ? "outline" : "default"}
@@ -385,7 +450,11 @@ export default function PersonaDetailPage({ params }: { params: { id: string } }
               ) : (
                 <div className="py-8 text-center">
                   <p className="mb-4 text-muted-foreground">No preview audio available</p>
-                  <Button onClick={handlePlayPreview} disabled={isPlaying}>
+                  <Button
+                    data-testid="preview-audio-button"
+                    onClick={handlePlayPreview}
+                    disabled={isPlaying}
+                  >
                     {isPlaying ? (
                       <>
                         <Volume2 className="mr-2 h-4 w-4 animate-pulse" />
@@ -513,9 +582,9 @@ export default function PersonaDetailPage({ params }: { params: { id: string } }
                 <CardTitle>Traits</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2" data-testid="persona-traits">
                   {persona.traits.map((trait, idx) => (
-                    <Badge key={idx} variant="secondary">
+                    <Badge key={idx} variant="secondary" data-testid={`trait-${trait}`}>
                       {trait}
                     </Badge>
                   ))}
