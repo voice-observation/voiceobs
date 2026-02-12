@@ -117,6 +117,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
       }
 
+      // Persist active org to localStorage so getOrgIdFromPage (e2e) and page reloads work
+      if (effectiveActiveOrg) {
+        localStorage.setItem(ORG_STORAGE_KEY, effectiveActiveOrg.id);
+      }
+
       setActiveOrg(effectiveActiveOrg);
     } catch (err) {
       // Don't log "Unauthorized" errors - those are handled by redirect

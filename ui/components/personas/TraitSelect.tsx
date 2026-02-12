@@ -233,7 +233,7 @@ export function TraitSelect({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" data-testid="trait-select">
       <Select<TraitOption, true, GroupBase<TraitOption>>
         isMulti
         options={groupedOptions}

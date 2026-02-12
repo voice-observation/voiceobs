@@ -91,6 +91,9 @@ test('should create organization', async ({ authenticatedPage }) => {
 **Tests fail with connection errors:**
 - Verify frontend (port 3000) and backend (port 8765) are running
 
+**API calls fail (e.g. 405 Method Not Allowed, 422):**
+- ApiClient calls the backend directly (default: http://localhost:8765). Next.js rewrites do not properly proxy POST/PUT/DELETE. Set `API_URL` in `.env.test` if your backend runs on a different port.
+
 **Auth tests fail:**
 - Check that test user exists in Supabase and credentials are correct
 - Delete `.auth/user.json` to force re-login

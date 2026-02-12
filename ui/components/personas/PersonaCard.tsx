@@ -198,19 +198,31 @@ export function PersonaCard({
   const isButtonDisabled = previewStatus === "generating";
 
   return (
-    <Link href={`/personas/${persona.id}`} className="block">
+    <Link href={`/personas/${persona.id}`} className="block" data-testid="persona-card">
       <Card className="relative cursor-pointer transition-colors hover:border-primary">
         <CardContent className="p-5">
           <div className="mb-3 flex items-start justify-between">
             <div className="flex-1 pr-4">
               <div className="mb-1 flex items-center gap-2">
-                <h3 className="text-base font-semibold transition-colors hover:text-primary">
+                <h3
+                  className="text-base font-semibold transition-colors hover:text-primary"
+                  data-testid="persona-name"
+                >
                   {persona.name}
                 </h3>
                 {persona.is_default && (
-                  <Badge variant="secondary" className="flex items-center gap-1">
+                  <Badge
+                    variant="secondary"
+                    className="flex items-center gap-1"
+                    data-testid="default-badge"
+                  >
                     <Star className="h-3 w-3" />
                     Default
+                  </Badge>
+                )}
+                {persona.persona_type && (
+                  <Badge variant="outline" data-testid="persona-type">
+                    {persona.persona_type === "system" ? "System" : "Custom"}
                   </Badge>
                 )}
               </div>
@@ -225,6 +237,7 @@ export function PersonaCard({
                     variant="ghost"
                     size="sm"
                     className="h-8 w-8 p-0"
+                    data-testid="persona-card-menu"
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -246,6 +259,7 @@ export function PersonaCard({
                   </DropdownMenuItem>
                   {!persona.is_default && (
                     <DropdownMenuItem
+                      data-testid="set-default-menu-item"
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
@@ -257,12 +271,16 @@ export function PersonaCard({
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuItem
+                    data-testid="delete-menu-item"
+                    disabled={persona.persona_type === "system"}
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      onDelete(persona);
+                      if (persona.persona_type !== "system") {
+                        onDelete(persona);
+                      }
                     }}
-                    className="text-destructive focus:text-destructive"
+                    className="text-destructive focus:text-destructive disabled:opacity-50"
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
                     Delete
@@ -270,6 +288,7 @@ export function PersonaCard({
                 </DropdownMenuContent>
               </DropdownMenu>
               <Switch
+                data-testid="toggle-active-button"
                 checked={persona.is_active}
                 onCheckedChange={(checked) => onToggleEnabled(persona.id, checked)}
               />
@@ -314,6 +333,7 @@ export function PersonaCard({
               <Button
                 size="sm"
                 variant="secondary"
+                data-testid="preview-audio-button"
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();

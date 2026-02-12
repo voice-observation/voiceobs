@@ -75,8 +75,10 @@ export class SidebarPage {
 
   async openCreateOrgDialog() {
     await this.orgSwitcher.click();
-    await this.page.locator('[role="menu"]').waitFor({ state: 'visible' });
-    await this.createOrgButton.click();
+    const menu = this.page.locator('[role="menu"]');
+    await menu.waitFor({ state: 'visible' });
+    // Scope to menu to avoid matching other menuitems on the page
+    await menu.getByRole('menuitem', { name: 'Create organization' }).click();
   }
 
   async createOrg(name: string): Promise<void> {
