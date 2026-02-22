@@ -28,6 +28,7 @@ import {
 } from "@/lib/constants/testSuiteConstants";
 
 interface CreateTestSuiteDialogProps {
+  orgId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Callback when test suite is created - receives the full TestSuite from API */
@@ -39,6 +40,7 @@ interface CreateTestSuiteDialogProps {
 }
 
 export function CreateTestSuiteDialog({
+  orgId,
   open,
   onOpenChange,
   onCreate,
@@ -60,17 +62,18 @@ export function CreateTestSuiteDialog({
   // Fetch verified agents when dialog opens
   useEffect(() => {
     const fetchAgents = async () => {
+      if (!orgId) return;
       try {
-        const response = await api.agents.listAgents("verified");
+        const response = await api.agents.listAgents(orgId, "verified");
         setAgents(response.agents);
       } catch (err) {
         logger.error("Failed to fetch agents", err);
       }
     };
-    if (open) {
+    if (open && orgId) {
       fetchAgents();
     }
-  }, [open]);
+  }, [open, orgId]);
 
   // Pre-populate form when editing
   useEffect(() => {
@@ -121,7 +124,7 @@ export function CreateTestSuiteDialog({
         // Update existing suite - only name and description can be changed
         // Other fields (agent_id, test_scopes, thoroughness, etc.) are immutable
         // because changing them would invalidate existing generated scenarios
-        const updatedSuite = await api.testSuites.updateTestSuite(testSuite.id, {
+        const updatedSuite = await api.testSuites.updateTestSuite(orgId, testSuite.id, {
           name: suiteName,
           description: description || null,
         });
@@ -146,7 +149,7 @@ export function CreateTestSuiteDialog({
           evaluation_strictness: evaluationStrictness,
         };
 
-        const newSuite = await api.testSuites.createTestSuite(requestData);
+        const newSuite = await api.testSuites.createTestSuite(orgId, requestData);
 
         logger.info("Test suite created", { suiteId: newSuite.id, suiteName: newSuite.name });
 

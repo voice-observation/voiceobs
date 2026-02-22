@@ -31,7 +31,7 @@ describe("useVerificationPolling", () => {
 
   describe("initial state", () => {
     it("returns initial state correctly", () => {
-      const { result } = renderHook(() => useVerificationPolling());
+      const { result } = renderHook(() => useVerificationPolling({ orgId: "org-123" }));
 
       expect(result.current.status).toBeNull();
       expect(result.current.isPolling).toBe(false);
@@ -51,7 +51,7 @@ describe("useVerificationPolling", () => {
         verification_reasoning: null,
       });
 
-      const { result } = renderHook(() => useVerificationPolling());
+      const { result } = renderHook(() => useVerificationPolling({ orgId: "org-123" }));
 
       await act(async () => {
         result.current.startPolling("agent-123");
@@ -69,13 +69,13 @@ describe("useVerificationPolling", () => {
         verification_reasoning: null,
       });
 
-      const { result } = renderHook(() => useVerificationPolling());
+      const { result } = renderHook(() => useVerificationPolling({ orgId: "org-123" }));
 
       await act(async () => {
         result.current.startPolling("agent-123");
       });
 
-      expect(api.agents.getVerificationStatus).toHaveBeenCalledWith("agent-123");
+      expect(api.agents.getVerificationStatus).toHaveBeenCalledWith("org-123", "agent-123");
     });
 
     it("updates status after successful poll", async () => {
@@ -88,7 +88,7 @@ describe("useVerificationPolling", () => {
       };
       (api.agents.getVerificationStatus as jest.Mock).mockResolvedValue(mockStatus);
 
-      const { result } = renderHook(() => useVerificationPolling());
+      const { result } = renderHook(() => useVerificationPolling({ orgId: "org-123" }));
 
       await act(async () => {
         result.current.startPolling("agent-123");
@@ -108,7 +108,7 @@ describe("useVerificationPolling", () => {
         verification_reasoning: null,
       });
 
-      const { result } = renderHook(() => useVerificationPolling());
+      const { result } = renderHook(() => useVerificationPolling({ orgId: "org-123" }));
 
       await act(async () => {
         result.current.startPolling("agent-123");
@@ -133,7 +133,7 @@ describe("useVerificationPolling", () => {
         verification_reasoning: null,
       });
 
-      const { result } = renderHook(() => useVerificationPolling());
+      const { result } = renderHook(() => useVerificationPolling({ orgId: "org-123" }));
 
       await act(async () => {
         result.current.startPolling("agent-123");
@@ -157,7 +157,9 @@ describe("useVerificationPolling", () => {
         verification_reasoning: null,
       });
 
-      const { result } = renderHook(() => useVerificationPolling({ interval: 1000 }));
+      const { result } = renderHook(() =>
+        useVerificationPolling({ orgId: "org-123", interval: 1000 })
+      );
 
       await act(async () => {
         result.current.startPolling("agent-123");
@@ -190,7 +192,7 @@ describe("useVerificationPolling", () => {
       });
 
       const onComplete = jest.fn();
-      const { result } = renderHook(() => useVerificationPolling({ onComplete }));
+      const { result } = renderHook(() => useVerificationPolling({ orgId: "org-123", onComplete }));
 
       await act(async () => {
         result.current.startPolling("agent-123");
@@ -213,7 +215,7 @@ describe("useVerificationPolling", () => {
       });
 
       const onComplete = jest.fn();
-      const { result } = renderHook(() => useVerificationPolling({ onComplete }));
+      const { result } = renderHook(() => useVerificationPolling({ orgId: "org-123", onComplete }));
 
       await act(async () => {
         result.current.startPolling("agent-123");
@@ -236,7 +238,9 @@ describe("useVerificationPolling", () => {
       });
 
       const onComplete = jest.fn();
-      const { result } = renderHook(() => useVerificationPolling({ onComplete, interval: 1000 }));
+      const { result } = renderHook(() =>
+        useVerificationPolling({ orgId: "org-123", onComplete, interval: 1000 })
+      );
 
       await act(async () => {
         result.current.startPolling("agent-123");
@@ -255,7 +259,7 @@ describe("useVerificationPolling", () => {
         .mockRejectedValueOnce(new Error("Network error"));
 
       const { result } = renderHook(() =>
-        useVerificationPolling({ maxRetries: 3, interval: 1000 })
+        useVerificationPolling({ orgId: "org-123", maxRetries: 3, interval: 1000 })
       );
 
       await act(async () => {
@@ -306,7 +310,7 @@ describe("useVerificationPolling", () => {
         });
 
       const { result } = renderHook(() =>
-        useVerificationPolling({ maxRetries: 3, interval: 1000 })
+        useVerificationPolling({ orgId: "org-123", maxRetries: 3, interval: 1000 })
       );
 
       await act(async () => {
@@ -336,7 +340,7 @@ describe("useVerificationPolling", () => {
       (api.agents.getVerificationStatus as jest.Mock).mockRejectedValue(new Error("Network error"));
 
       const { result } = renderHook(() =>
-        useVerificationPolling({ maxRetries: 3, interval: 1000 })
+        useVerificationPolling({ orgId: "org-123", maxRetries: 3, interval: 1000 })
       );
 
       await act(async () => {
@@ -381,7 +385,7 @@ describe("useVerificationPolling", () => {
       });
 
       const { result } = renderHook(() =>
-        useVerificationPolling({ maxDuration: 5000, interval: 1000 })
+        useVerificationPolling({ orgId: "org-123", maxDuration: 5000, interval: 1000 })
       );
 
       await act(async () => {
@@ -415,7 +419,9 @@ describe("useVerificationPolling", () => {
         verification_reasoning: null,
       });
 
-      const { result } = renderHook(() => useVerificationPolling({ interval: 1000 }));
+      const { result } = renderHook(() =>
+        useVerificationPolling({ orgId: "org-123", interval: 1000 })
+      );
 
       await act(async () => {
         result.current.startPolling("agent-123");
@@ -426,7 +432,7 @@ describe("useVerificationPolling", () => {
       });
 
       // Should have called with agent-456
-      expect(api.agents.getVerificationStatus).toHaveBeenLastCalledWith("agent-456");
+      expect(api.agents.getVerificationStatus).toHaveBeenLastCalledWith("org-123", "agent-456");
     });
   });
 
@@ -440,7 +446,9 @@ describe("useVerificationPolling", () => {
         verification_reasoning: null,
       });
 
-      const { result, unmount } = renderHook(() => useVerificationPolling({ interval: 1000 }));
+      const { result, unmount } = renderHook(() =>
+        useVerificationPolling({ orgId: "org-123", interval: 1000 })
+      );
 
       await act(async () => {
         result.current.startPolling("agent-123");

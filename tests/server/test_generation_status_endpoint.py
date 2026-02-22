@@ -1,10 +1,11 @@
 """Tests for generation status endpoint."""
 
 from unittest.mock import AsyncMock, MagicMock
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 
+from voiceobs.server.auth.context import AuthContext
 from voiceobs.server.models import GenerationStatusResponse
 
 
@@ -66,6 +67,16 @@ class TestGenerationStatusEndpoint:
     """Tests for the generation status endpoint."""
 
     @pytest.fixture
+    def org_id(self):
+        """Organization ID for org-scoped endpoints."""
+        return uuid4()
+
+    @pytest.fixture
+    def mock_auth(self):
+        """Mock auth context for route handlers."""
+        return MagicMock(spec=AuthContext)
+
+    @pytest.fixture
     def mock_test_suite_row(self):
         """Create a mock test suite row."""
         return MagicMock(
@@ -84,7 +95,9 @@ class TestGenerationStatusEndpoint:
         ]
 
     @pytest.mark.asyncio
-    async def test_get_generation_status_generating(self, mock_test_suite_row, mock_scenario_rows):
+    async def test_get_generation_status_generating(
+        self, org_id, mock_auth, mock_test_suite_row, mock_scenario_rows
+    ):
         """Test getting generation status for a suite in generating status."""
         from voiceobs.server.routes.test_suites import get_generation_status
 
@@ -95,7 +108,9 @@ class TestGenerationStatusEndpoint:
         mock_scenario_repo.list_all = AsyncMock(return_value=mock_scenario_rows)
 
         result = await get_generation_status(
+            org_id=org_id,
             suite_id="550e8400-e29b-41d4-a716-446655440000",
+            auth=mock_auth,
             suite_repo=mock_suite_repo,
             scenario_repo=mock_scenario_repo,
         )
@@ -106,7 +121,9 @@ class TestGenerationStatusEndpoint:
         assert result.error is None
 
     @pytest.mark.asyncio
-    async def test_get_generation_status_ready(self, mock_test_suite_row, mock_scenario_rows):
+    async def test_get_generation_status_ready(
+        self, org_id, mock_auth, mock_test_suite_row, mock_scenario_rows
+    ):
         """Test getting generation status for a suite in ready status."""
         from voiceobs.server.routes.test_suites import get_generation_status
 
@@ -119,7 +136,9 @@ class TestGenerationStatusEndpoint:
         mock_scenario_repo.list_all = AsyncMock(return_value=mock_scenario_rows)
 
         result = await get_generation_status(
+            org_id=org_id,
             suite_id="550e8400-e29b-41d4-a716-446655440000",
+            auth=mock_auth,
             suite_repo=mock_suite_repo,
             scenario_repo=mock_scenario_repo,
         )
@@ -128,7 +147,7 @@ class TestGenerationStatusEndpoint:
         assert result.scenario_count == 2
 
     @pytest.mark.asyncio
-    async def test_get_generation_status_failed(self, mock_test_suite_row):
+    async def test_get_generation_status_failed(self, org_id, mock_auth, mock_test_suite_row):
         """Test getting generation status for a suite with failed generation."""
         from voiceobs.server.routes.test_suites import get_generation_status
 
@@ -142,7 +161,9 @@ class TestGenerationStatusEndpoint:
         mock_scenario_repo.list_all = AsyncMock(return_value=[])
 
         result = await get_generation_status(
+            org_id=org_id,
             suite_id="550e8400-e29b-41d4-a716-446655440000",
+            auth=mock_auth,
             suite_repo=mock_suite_repo,
             scenario_repo=mock_scenario_repo,
         )
@@ -152,7 +173,7 @@ class TestGenerationStatusEndpoint:
         assert result.scenario_count == 0
 
     @pytest.mark.asyncio
-    async def test_get_generation_status_not_found(self):
+    async def test_get_generation_status_not_found(self, org_id, mock_auth):
         """Test getting generation status for non-existent suite."""
         from fastapi import HTTPException
 
@@ -165,7 +186,9 @@ class TestGenerationStatusEndpoint:
 
         with pytest.raises(HTTPException) as exc_info:
             await get_generation_status(
+                org_id=org_id,
                 suite_id="550e8400-e29b-41d4-a716-446655440000",
+                auth=mock_auth,
                 suite_repo=mock_suite_repo,
                 scenario_repo=mock_scenario_repo,
             )
@@ -174,7 +197,7 @@ class TestGenerationStatusEndpoint:
         assert "not found" in exc_info.value.detail
 
     @pytest.mark.asyncio
-    async def test_get_generation_status_invalid_uuid(self):
+    async def test_get_generation_status_invalid_uuid(self, org_id, mock_auth):
         """Test getting generation status with invalid UUID."""
         from fastapi import HTTPException
 
@@ -185,7 +208,9 @@ class TestGenerationStatusEndpoint:
 
         with pytest.raises(HTTPException) as exc_info:
             await get_generation_status(
+                org_id=org_id,
                 suite_id="invalid-uuid",
+                auth=mock_auth,
                 suite_repo=mock_suite_repo,
                 scenario_repo=mock_scenario_repo,
             )

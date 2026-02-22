@@ -33,7 +33,7 @@ class AgentVerificationService:
         self._settings = get_verification_settings()
         self._retry_tasks: dict[UUID, asyncio.Task] = {}
 
-    async def verify_agent(self, agent_id: UUID, force: bool = False) -> None:
+    async def verify_agent(self, agent_id: UUID, org_id: UUID, force: bool = False) -> None:
         """Verify an agent's connection asynchronously.
 
         This method updates the agent's connection status based on verification results.
@@ -41,6 +41,7 @@ class AgentVerificationService:
 
         Args:
             agent_id: UUID of the agent to verify
+            org_id: UUID of the organization the agent belongs to
             force: If True, re-verify even if already verified
         """
         try:
@@ -48,7 +49,7 @@ class AgentVerificationService:
             self._settings = get_verification_settings()
 
             # Get agent from repository
-            agent = await self._agent_repo.get(agent_id)
+            agent = await self._agent_repo.get(agent_id, org_id)
             if not agent:
                 logger.error(f"Agent {agent_id} not found for verification")
                 return
@@ -62,7 +63,8 @@ class AgentVerificationService:
 
             # Update status to "connecting"
             await self._agent_repo.update(
-                agent_id=agent_id,
+                agent_id,
+                org_id,
                 connection_status="connecting",
                 verification_attempts=current_attempt,
                 last_verification_at=datetime.now(timezone.utc),
@@ -76,7 +78,8 @@ class AgentVerificationService:
                 error_msg = f"Unsupported agent type: {agent.agent_type}"
                 logger.error(f"{error_msg} for agent {agent_id}")
                 await self._agent_repo.update(
-                    agent_id=agent_id,
+                    agent_id,
+                    org_id,
                     connection_status="failed",
                     verification_error=error_msg,
                 )
@@ -89,7 +92,8 @@ class AgentVerificationService:
                 if is_verified:
                     # Update to verified status
                     await self._agent_repo.update(
-                        agent_id=agent_id,
+                        agent_id,
+                        org_id,
                         connection_status="verified",
                         verification_error=None,
                         verification_reasoning="Agent answered and responded successfully",
@@ -100,6 +104,7 @@ class AgentVerificationService:
                     # Handle failure with retry logic
                     await self._handle_verification_failure(
                         agent_id=agent_id,
+                        org_id=org_id,
                         current_attempt=current_attempt,
                         error_message=error_message or "Verification failed",
                         transcript=transcript,
@@ -111,6 +116,7 @@ class AgentVerificationService:
                 logger.error(f"Error verifying agent {agent_id}: {e}", exc_info=True)
                 await self._handle_verification_failure(
                     agent_id=agent_id,
+                    org_id=org_id,
                     current_attempt=current_attempt,
                     error_message=error_msg,
                 )
@@ -124,6 +130,7 @@ class AgentVerificationService:
     async def _handle_verification_failure(
         self,
         agent_id: UUID,
+        org_id: UUID,
         current_attempt: int,
         error_message: str,
         transcript: list[dict[str, str]] | None = None,
@@ -135,6 +142,7 @@ class AgentVerificationService:
 
         Args:
             agent_id: UUID of the agent
+            org_id: UUID of the organization the agent belongs to
             current_attempt: Current attempt number (1-based)
             error_message: Error message from the failed verification
             transcript: Conversation transcript from the verification attempt
@@ -144,7 +152,8 @@ class AgentVerificationService:
         if current_attempt < max_retries:
             # Schedule retry
             await self._agent_repo.update(
-                agent_id=agent_id,
+                agent_id,
+                org_id,
                 connection_status="pending_retry",
                 verification_error=error_message,
                 verification_transcript=transcript,
@@ -153,11 +162,12 @@ class AgentVerificationService:
                 f"Agent {agent_id} verification failed (attempt {current_attempt}/{max_retries}), "
                 "scheduling retry"
             )
-            self._schedule_retry(agent_id, current_attempt)
+            self._schedule_retry(agent_id, org_id, current_attempt)
         else:
             # Max retries exceeded
             await self._agent_repo.update(
-                agent_id=agent_id,
+                agent_id,
+                org_id,
                 connection_status="failed",
                 verification_error=error_message,
                 verification_transcript=transcript,
@@ -167,13 +177,14 @@ class AgentVerificationService:
                 f"{error_message}"
             )
 
-    def _schedule_retry(self, agent_id: UUID, current_attempt: int) -> None:
+    def _schedule_retry(self, agent_id: UUID, org_id: UUID, current_attempt: int) -> None:
         """Schedule a retry verification after a delay.
 
         The delay is calculated using exponential backoff.
 
         Args:
             agent_id: UUID of the agent to retry
+            org_id: UUID of the organization the agent belongs to
             current_attempt: Current attempt number (used for backoff calculation)
         """
         delay = self._settings.get_retry_delay(current_attempt)
@@ -181,14 +192,16 @@ class AgentVerificationService:
 
         async def retry_after_delay() -> None:
             await asyncio.sleep(delay)
-            await self.verify_agent(agent_id)
+            await self.verify_agent(agent_id, org_id)
             # Clean up task reference after completion
             self._retry_tasks.pop(agent_id, None)
 
         task = asyncio.create_task(retry_after_delay())
         self._retry_tasks[agent_id] = task
 
-    async def verify_agent_background(self, agent_id: UUID, force: bool = False) -> None:
+    async def verify_agent_background(
+        self, agent_id: UUID, org_id: UUID, force: bool = False
+    ) -> None:
         """Start agent verification in a background task.
 
         This is a convenience method that creates a background task for verification.
@@ -196,12 +209,13 @@ class AgentVerificationService:
 
         Args:
             agent_id: UUID of the agent to verify
+            org_id: UUID of the organization the agent belongs to
             force: If True, re-verify even if already verified
         """
         logger.info(
             f"Creating background task for agent verification: agent_id={agent_id}, force={force}"
         )
-        task = asyncio.create_task(self.verify_agent(agent_id, force=force))
+        task = asyncio.create_task(self.verify_agent(agent_id, org_id, force=force))
         logger.debug(f"Background verification task created: {task}")
 
     def cancel_retry(self, agent_id: UUID) -> bool:

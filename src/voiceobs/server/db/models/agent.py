@@ -13,6 +13,7 @@ class AgentRow:
     """Represents an agent row in the database."""
 
     id: UUID
+    org_id: UUID  # Organization this agent belongs to
     name: str
     goal: str
     agent_type: str = "phone"  # "phone", "web", "email", etc.

@@ -49,7 +49,7 @@ export default function TestScenarioDetailPage() {
 
       // Fetch the parent test suite
       try {
-        const suiteData = await api.testSuites.getTestSuite(scenarioData.suite_id);
+        const suiteData = await api.testSuites.getTestSuite(orgId, scenarioData.suite_id);
         setTestSuite(suiteData);
       } catch (err) {
         logger.warn("Failed to fetch test suite", { error: err });
@@ -91,8 +91,8 @@ export default function TestScenarioDetailPage() {
       await api.testScenarios.deleteTestScenario(scenario.id);
       toast("Scenario Deleted", { description: `"${scenario.name}" has been deleted.` });
       // Navigate back to list or suite detail
-      if (testSuite) {
-        router.push(`/test-suites/${testSuite.id}`);
+      if (testSuite && orgId) {
+        router.push(`/orgs/${orgId}/test-suites/${testSuite.id}`);
       } else {
         router.push("/test-scenarios");
       }
@@ -161,8 +161,8 @@ export default function TestScenarioDetailPage() {
             size="icon"
             className="mt-1"
             onClick={() => {
-              if (testSuite) {
-                router.push(`/test-suites/${testSuite.id}`);
+              if (testSuite && orgId) {
+                router.push(`/orgs/${orgId}/test-suites/${testSuite.id}`);
               } else {
                 router.push("/test-scenarios");
               }
@@ -179,7 +179,7 @@ export default function TestScenarioDetailPage() {
               <p className="mt-1 text-sm text-muted-foreground">
                 Part of{" "}
                 <Link
-                  href={`/test-suites/${testSuite.id}`}
+                  href={orgId ? `/orgs/${orgId}/test-suites/${testSuite.id}` : "/test-suites"}
                   className="font-medium text-primary hover:underline"
                 >
                   {testSuite.name}

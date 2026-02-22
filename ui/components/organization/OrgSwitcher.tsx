@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import { Building2, ChevronDown, Check, Plus } from "lucide-react";
 import { Button } from "@/components/primitives/button";
@@ -14,8 +15,20 @@ import {
 import { CreateOrgDialog } from "./CreateOrgDialog";
 
 export function OrgSwitcher() {
+  const router = useRouter();
+  const pathname = usePathname();
   const { activeOrg, orgs, isLoading, switchOrg } = useAuth();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+
+  const handleSwitchOrg = (orgId: string) => {
+    switchOrg(orgId);
+    // Redirect if currently on org-scoped path (agents, test-suites)
+    const orgScopedMatch = pathname?.match(/^\/orgs\/([^/]+)(\/.*)?$/);
+    if (orgScopedMatch) {
+      const newPath = `/orgs/${orgId}${orgScopedMatch[2] || ""}`;
+      router.replace(newPath);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -46,7 +59,7 @@ export function OrgSwitcher() {
           {orgs.map((org) => (
             <DropdownMenuItem
               key={org.id}
-              onClick={() => switchOrg(org.id)}
+              onClick={() => handleSwitchOrg(org.id)}
               className="flex items-center justify-between"
             >
               <span className="truncate">{org.name}</span>

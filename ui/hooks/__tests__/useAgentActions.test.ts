@@ -46,7 +46,7 @@ describe("useAgentActions", () => {
 
   describe("initial state", () => {
     it("returns empty sets for all loading states", () => {
-      const { result } = renderHook(() => useAgentActions());
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123" }));
 
       expect(result.current.verifyingIds.size).toBe(0);
       expect(result.current.deletingIds.size).toBe(0);
@@ -54,7 +54,7 @@ describe("useAgentActions", () => {
     });
 
     it("returns action functions", () => {
-      const { result } = renderHook(() => useAgentActions());
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123" }));
 
       expect(typeof result.current.verifyAgent).toBe("function");
       expect(typeof result.current.resumePolling).toBe("function");
@@ -71,7 +71,7 @@ describe("useAgentActions", () => {
         verification_attempts: 1,
       });
 
-      const { result } = renderHook(() => useAgentActions());
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123" }));
 
       act(() => {
         result.current.resumePolling("agent-123");
@@ -82,7 +82,7 @@ describe("useAgentActions", () => {
       expect(api.agents.verifyAgent).not.toHaveBeenCalled();
       // But getVerificationStatus should be called (polling started)
       await waitFor(() => {
-        expect(api.agents.getVerificationStatus).toHaveBeenCalledWith("agent-123");
+        expect(api.agents.getVerificationStatus).toHaveBeenCalledWith("org-123", "agent-123");
       });
     });
 
@@ -92,7 +92,7 @@ describe("useAgentActions", () => {
         verification_attempts: 1,
       });
 
-      const { result } = renderHook(() => useAgentActions());
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123" }));
 
       act(() => {
         result.current.resumePolling("agent-123");
@@ -116,7 +116,7 @@ describe("useAgentActions", () => {
       });
 
       const onVerified = jest.fn();
-      const { result } = renderHook(() => useAgentActions({ onVerified }));
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123", onVerified }));
 
       act(() => {
         result.current.resumePolling("agent-123");
@@ -140,7 +140,7 @@ describe("useAgentActions", () => {
         verification_attempts: 1,
       });
 
-      const { result } = renderHook(() => useAgentActions());
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123" }));
 
       await act(async () => {
         result.current.verifyAgent("agent-123");
@@ -160,13 +160,13 @@ describe("useAgentActions", () => {
         verification_attempts: 1,
       });
 
-      const { result } = renderHook(() => useAgentActions());
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123" }));
 
       await act(async () => {
         result.current.verifyAgent("agent-123");
       });
 
-      expect(api.agents.verifyAgent).toHaveBeenCalledWith("agent-123", true);
+      expect(api.agents.verifyAgent).toHaveBeenCalledWith("org-123", "agent-123", true);
     });
 
     it("shows verification started toast on success", async () => {
@@ -180,7 +180,7 @@ describe("useAgentActions", () => {
         verification_attempts: 1,
       });
 
-      const { result } = renderHook(() => useAgentActions());
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123" }));
 
       await act(async () => {
         result.current.verifyAgent("agent-123");
@@ -208,7 +208,7 @@ describe("useAgentActions", () => {
         verification_attempts: 1,
       });
 
-      const { result } = renderHook(() => useAgentActions());
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123" }));
 
       await act(async () => {
         const verifyPromise = result.current.verifyAgent("agent-123");
@@ -228,7 +228,7 @@ describe("useAgentActions", () => {
     it("shows error toast after all retries fail", async () => {
       (api.agents.verifyAgent as jest.Mock).mockRejectedValue(new Error("Network error"));
 
-      const { result } = renderHook(() => useAgentActions());
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123" }));
 
       await act(async () => {
         const verifyPromise = result.current.verifyAgent("agent-123");
@@ -250,7 +250,7 @@ describe("useAgentActions", () => {
     it("removes agent from verifyingIds after all retries fail", async () => {
       (api.agents.verifyAgent as jest.Mock).mockRejectedValue(new Error("Network error"));
 
-      const { result } = renderHook(() => useAgentActions());
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123" }));
 
       await act(async () => {
         const verifyPromise = result.current.verifyAgent("agent-123");
@@ -277,7 +277,7 @@ describe("useAgentActions", () => {
       });
 
       const onVerified = jest.fn();
-      const { result } = renderHook(() => useAgentActions({ onVerified }));
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123", onVerified }));
 
       await act(async () => {
         result.current.verifyAgent("agent-123");
@@ -295,7 +295,7 @@ describe("useAgentActions", () => {
         () => new Promise((resolve) => setTimeout(resolve, 100))
       );
 
-      const { result } = renderHook(() => useAgentActions());
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123" }));
 
       act(() => {
         result.current.deleteAgent("agent-123");
@@ -307,19 +307,19 @@ describe("useAgentActions", () => {
     it("calls deleteAgent API", async () => {
       (api.agents.deleteAgent as jest.Mock).mockResolvedValue(undefined);
 
-      const { result } = renderHook(() => useAgentActions());
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123" }));
 
       await act(async () => {
         await result.current.deleteAgent("agent-123");
       });
 
-      expect(api.agents.deleteAgent).toHaveBeenCalledWith("agent-123");
+      expect(api.agents.deleteAgent).toHaveBeenCalledWith("org-123", "agent-123");
     });
 
     it("shows success toast after deletion", async () => {
       (api.agents.deleteAgent as jest.Mock).mockResolvedValue(undefined);
 
-      const { result } = renderHook(() => useAgentActions());
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123" }));
 
       await act(async () => {
         await result.current.deleteAgent("agent-123");
@@ -332,7 +332,7 @@ describe("useAgentActions", () => {
       (api.agents.deleteAgent as jest.Mock).mockResolvedValue(undefined);
       const onDeleted = jest.fn();
 
-      const { result } = renderHook(() => useAgentActions({ onDeleted }));
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123", onDeleted }));
 
       await act(async () => {
         await result.current.deleteAgent("agent-123");
@@ -344,7 +344,7 @@ describe("useAgentActions", () => {
     it("shows error toast when deletion fails", async () => {
       (api.agents.deleteAgent as jest.Mock).mockRejectedValue(new Error("Delete failed"));
 
-      const { result } = renderHook(() => useAgentActions());
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123" }));
 
       await act(async () => {
         await result.current.deleteAgent("agent-123");
@@ -356,7 +356,7 @@ describe("useAgentActions", () => {
     it("removes agent from deletingIds after completion", async () => {
       (api.agents.deleteAgent as jest.Mock).mockResolvedValue(undefined);
 
-      const { result } = renderHook(() => useAgentActions());
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123" }));
 
       await act(async () => {
         await result.current.deleteAgent("agent-123");
@@ -368,7 +368,7 @@ describe("useAgentActions", () => {
     it("removes agent from deletingIds after failure", async () => {
       (api.agents.deleteAgent as jest.Mock).mockRejectedValue(new Error("Delete failed"));
 
-      const { result } = renderHook(() => useAgentActions());
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123" }));
 
       await act(async () => {
         await result.current.deleteAgent("agent-123");
@@ -393,7 +393,7 @@ describe("useAgentActions", () => {
         () => new Promise((resolve) => setTimeout(() => resolve(mockUpdatedAgent), 100))
       );
 
-      const { result } = renderHook(() => useAgentActions());
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123" }));
 
       act(() => {
         result.current.updateAgent("agent-123", { name: "Updated Agent" });
@@ -405,19 +405,21 @@ describe("useAgentActions", () => {
     it("calls updateAgent API with correct parameters", async () => {
       (api.agents.updateAgent as jest.Mock).mockResolvedValue(mockUpdatedAgent);
 
-      const { result } = renderHook(() => useAgentActions());
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123" }));
 
       await act(async () => {
         await result.current.updateAgent("agent-123", { name: "Updated Agent" });
       });
 
-      expect(api.agents.updateAgent).toHaveBeenCalledWith("agent-123", { name: "Updated Agent" });
+      expect(api.agents.updateAgent).toHaveBeenCalledWith("org-123", "agent-123", {
+        name: "Updated Agent",
+      });
     });
 
     it("shows success toast when phone number unchanged", async () => {
       (api.agents.updateAgent as jest.Mock).mockResolvedValue(mockUpdatedAgent);
 
-      const { result } = renderHook(() => useAgentActions());
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123" }));
 
       await act(async () => {
         await result.current.updateAgent("agent-123", { name: "Updated Agent" }, "+14155551234");
@@ -436,7 +438,7 @@ describe("useAgentActions", () => {
         verification_attempts: 1,
       });
 
-      const { result } = renderHook(() => useAgentActions());
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123" }));
 
       await act(async () => {
         await result.current.updateAgent(
@@ -464,7 +466,7 @@ describe("useAgentActions", () => {
         verification_attempts: 1,
       });
 
-      const { result } = renderHook(() => useAgentActions());
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123" }));
 
       // We need to check the state during the update, not after
       // The verifyingIds is set but polling will eventually complete and remove it
@@ -491,7 +493,7 @@ describe("useAgentActions", () => {
       (api.agents.updateAgent as jest.Mock).mockResolvedValue(mockUpdatedAgent);
       const onUpdated = jest.fn();
 
-      const { result } = renderHook(() => useAgentActions({ onUpdated }));
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123", onUpdated }));
 
       await act(async () => {
         await result.current.updateAgent("agent-123", { name: "Updated Agent" });
@@ -503,7 +505,7 @@ describe("useAgentActions", () => {
     it("returns updated agent on success", async () => {
       (api.agents.updateAgent as jest.Mock).mockResolvedValue(mockUpdatedAgent);
 
-      const { result } = renderHook(() => useAgentActions());
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123" }));
 
       let returnedAgent;
       await act(async () => {
@@ -516,7 +518,7 @@ describe("useAgentActions", () => {
     it("returns null on failure", async () => {
       (api.agents.updateAgent as jest.Mock).mockRejectedValue(new Error("Update failed"));
 
-      const { result } = renderHook(() => useAgentActions());
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123" }));
 
       let returnedAgent;
       await act(async () => {
@@ -529,7 +531,7 @@ describe("useAgentActions", () => {
     it("shows error toast when update fails", async () => {
       (api.agents.updateAgent as jest.Mock).mockRejectedValue(new Error("Update failed"));
 
-      const { result } = renderHook(() => useAgentActions());
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123" }));
 
       await act(async () => {
         await result.current.updateAgent("agent-123", { name: "Updated Agent" });
@@ -560,7 +562,7 @@ describe("useAgentActions", () => {
           )
       );
 
-      const { result } = renderHook(() => useAgentActions());
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123" }));
 
       act(() => {
         result.current.toggleActive("agent-123", true);
@@ -575,13 +577,15 @@ describe("useAgentActions", () => {
         is_active: false,
       });
 
-      const { result } = renderHook(() => useAgentActions());
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123" }));
 
       await act(async () => {
         await result.current.toggleActive("agent-123", true);
       });
 
-      expect(api.agents.updateAgent).toHaveBeenCalledWith("agent-123", { is_active: false });
+      expect(api.agents.updateAgent).toHaveBeenCalledWith("org-123", "agent-123", {
+        is_active: false,
+      });
     });
 
     it("shows activated toast when activating", async () => {
@@ -590,7 +594,7 @@ describe("useAgentActions", () => {
         is_active: true,
       });
 
-      const { result } = renderHook(() => useAgentActions());
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123" }));
 
       await act(async () => {
         await result.current.toggleActive("agent-123", false);
@@ -605,7 +609,7 @@ describe("useAgentActions", () => {
         is_active: false,
       });
 
-      const { result } = renderHook(() => useAgentActions());
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123" }));
 
       await act(async () => {
         await result.current.toggleActive("agent-123", true);
@@ -621,7 +625,7 @@ describe("useAgentActions", () => {
       });
       const onActiveToggled = jest.fn();
 
-      const { result } = renderHook(() => useAgentActions({ onActiveToggled }));
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123", onActiveToggled }));
 
       await act(async () => {
         await result.current.toggleActive("agent-123", true);
@@ -633,7 +637,7 @@ describe("useAgentActions", () => {
     it("throws error when toggle fails (for optimistic update revert)", async () => {
       (api.agents.updateAgent as jest.Mock).mockRejectedValue(new Error("Toggle failed"));
 
-      const { result } = renderHook(() => useAgentActions());
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123" }));
 
       await expect(
         act(async () => {
@@ -648,7 +652,7 @@ describe("useAgentActions", () => {
         is_active: false,
       });
 
-      const { result } = renderHook(() => useAgentActions());
+      const { result } = renderHook(() => useAgentActions({ orgId: "org-123" }));
 
       await act(async () => {
         await result.current.toggleActive("agent-123", true);

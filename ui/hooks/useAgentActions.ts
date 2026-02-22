@@ -8,6 +8,8 @@ import { useVerificationPolling } from "@/hooks/useVerificationPolling";
 import type { Agent, AgentUpdateRequest } from "@/lib/types";
 
 interface UseAgentActionsOptions {
+  /** Organization ID for org-scoped agent API calls (required) */
+  orgId?: string;
   /** Called when verification completes successfully */
   onVerified?: (agentId: string) => void;
   /** Called when an agent is deleted */
@@ -46,7 +48,7 @@ interface UseAgentActionsResult {
  * Tracks loading states per agent ID to support concurrent operations.
  */
 export function useAgentActions(options: UseAgentActionsOptions = {}): UseAgentActionsResult {
-  const { onVerified, onDeleted, onUpdated, onActiveToggled } = options;
+  const { orgId = "", onVerified, onDeleted, onUpdated, onActiveToggled } = options;
   const [verifyingIds, setVerifyingIds] = useState<Set<string>>(new Set());
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const [updatingIds, setUpdatingIds] = useState<Set<string>>(new Set());
@@ -86,6 +88,7 @@ export function useAgentActions(options: UseAgentActionsOptions = {}): UseAgentA
   const currentVerifyingAgentRef = useRef<string | null>(null);
 
   const { startPolling } = useVerificationPolling({
+    orgId,
     onComplete: (status, verificationError) => {
       const agentId = currentVerifyingAgentRef.current;
       if (agentId) {
@@ -121,49 +124,54 @@ export function useAgentActions(options: UseAgentActionsOptions = {}): UseAgentA
    * This calls the /verify endpoint and then starts polling.
    * Use this when user explicitly clicks "Verify" button.
    */
-  const verifyAgent = useCallback(async (agentId: string) => {
-    const maxRetries = 3;
-    let lastError: Error | null = null;
+  const verifyAgent = useCallback(
+    async (agentId: string) => {
+      const maxRetries = 3;
+      let lastError: Error | null = null;
 
-    setVerifyingIds((prev) => new Set(prev).add(agentId));
-    currentVerifyingAgentRef.current = agentId;
+      setVerifyingIds((prev) => new Set(prev).add(agentId));
+      currentVerifyingAgentRef.current = agentId;
 
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        await api.agents.verifyAgent(agentId, true);
-        toast("Verification started", { description: "Verifying agent..." });
-        startPollingRef.current?.(agentId);
-        return; // Success, exit the function
-      } catch (err) {
-        lastError = err instanceof Error ? err : new Error("Unknown error");
-        logger.error(`Failed to start verification (attempt ${attempt}/${maxRetries})`, err);
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          if (!orgId) return;
+          await api.agents.verifyAgent(orgId, agentId, true);
+          toast("Verification started", { description: "Verifying agent..." });
+          startPollingRef.current?.(agentId);
+          return; // Success, exit the function
+        } catch (err) {
+          lastError = err instanceof Error ? err : new Error("Unknown error");
+          logger.error(`Failed to start verification (attempt ${attempt}/${maxRetries})`, err);
 
-        if (attempt < maxRetries) {
-          // Exponential backoff: 1s, 2s, 4s
-          const backoffDelay = 1000 * Math.pow(2, attempt - 1);
-          logger.info(`Retrying in ${backoffDelay}ms...`);
-          await new Promise((resolve) => setTimeout(resolve, backoffDelay));
+          if (attempt < maxRetries) {
+            // Exponential backoff: 1s, 2s, 4s
+            const backoffDelay = 1000 * Math.pow(2, attempt - 1);
+            logger.info(`Retrying in ${backoffDelay}ms...`);
+            await new Promise((resolve) => setTimeout(resolve, backoffDelay));
+          }
         }
       }
-    }
 
-    // All retries failed
-    setVerifyingIds((prev) => {
-      const next = new Set(prev);
-      next.delete(agentId);
-      return next;
-    });
-    currentVerifyingAgentRef.current = null;
-    toast.error("Failed to start verification", {
-      description: lastError?.message || "Unknown error",
-    });
-  }, []);
+      // All retries failed
+      setVerifyingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(agentId);
+        return next;
+      });
+      currentVerifyingAgentRef.current = null;
+      toast.error("Failed to start verification", {
+        description: lastError?.message || "Unknown error",
+      });
+    },
+    [orgId]
+  );
 
   const deleteAgent = useCallback(
     async (agentId: string) => {
       try {
         setDeletingIds((prev) => new Set(prev).add(agentId));
-        await api.agents.deleteAgent(agentId);
+        if (!orgId) return;
+        await api.agents.deleteAgent(orgId, agentId);
         toast("Agent deleted");
         onDeleted?.(agentId);
       } catch (err) {
@@ -179,7 +187,7 @@ export function useAgentActions(options: UseAgentActionsOptions = {}): UseAgentA
         });
       }
     },
-    [onDeleted]
+    [orgId, onDeleted]
   );
 
   const updateAgent = useCallback(
@@ -195,7 +203,8 @@ export function useAgentActions(options: UseAgentActionsOptions = {}): UseAgentA
         const phoneChanged =
           data.phone_number !== undefined && data.phone_number !== currentPhoneNumber;
 
-        const updatedAgent = await api.agents.updateAgent(agentId, data);
+        if (!orgId) return null;
+        const updatedAgent = await api.agents.updateAgent(orgId, agentId, data);
 
         if (phoneChanged) {
           toast("Agent updated", { description: "Re-verification in progress..." });
@@ -223,7 +232,7 @@ export function useAgentActions(options: UseAgentActionsOptions = {}): UseAgentA
         });
       }
     },
-    [onUpdated]
+    [orgId, onUpdated]
   );
 
   const toggleActive = useCallback(
@@ -231,7 +240,8 @@ export function useAgentActions(options: UseAgentActionsOptions = {}): UseAgentA
       const newIsActive = !currentIsActive;
       try {
         setUpdatingIds((prev) => new Set(prev).add(agentId));
-        await api.agents.updateAgent(agentId, { is_active: newIsActive });
+        if (!orgId) return;
+        await api.agents.updateAgent(orgId, agentId, { is_active: newIsActive });
         toast(newIsActive ? "Agent activated" : "Agent deactivated", {
           description: newIsActive
             ? "The agent is now active and can receive calls."
@@ -252,7 +262,7 @@ export function useAgentActions(options: UseAgentActionsOptions = {}): UseAgentA
         });
       }
     },
-    [onActiveToggled]
+    [orgId, onActiveToggled]
   );
 
   return {

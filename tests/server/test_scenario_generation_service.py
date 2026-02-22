@@ -1,7 +1,7 @@
 """Tests for the ScenarioGenerationService."""
 
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -18,10 +18,12 @@ def make_agent(
     goal: str = "Help customers",
     context: str | None = "E-commerce support",
     supported_intents: list[str] | None = None,
+    org_id: UUID | None = None,
 ) -> AgentRow:
     """Create an AgentRow for testing."""
     return AgentRow(
         id=uuid4(),
+        org_id=org_id or uuid4(),
         name=name,
         goal=goal,
         agent_type="phone",
@@ -38,11 +40,14 @@ def make_test_suite(
     test_scopes: list[str] | None = None,
     edge_cases: list[str] | None = None,
     status: str = "pending",
+    org_id: UUID | None = None,
 ) -> TestSuiteRow:
     """Create a TestSuiteRow for testing."""
     return TestSuiteRow(
         id=uuid4(),
+        org_id=org_id or uuid4(),
         name=name,
+        description=None,
         agent_id=agent_id,
         thoroughness=thoroughness,
         test_scopes=test_scopes or ["core_flows"],
@@ -349,6 +354,7 @@ class TestGenerateScenarios:
             ]
         )
 
+        org_id = suite.org_id
         test_suite_repo = AsyncMock()
         test_suite_repo.get.return_value = suite
 
@@ -357,7 +363,7 @@ class TestGenerateScenarios:
         test_scenario_repo.create.return_value = make_scenario(suite.id)
 
         persona_repo = AsyncMock()
-        persona_repo._list_all_active_unchecked.return_value = [persona]
+        persona_repo.list_all = AsyncMock(return_value=[persona])
 
         agent_repo = AsyncMock()
         agent_repo.get.return_value = agent
@@ -370,7 +376,7 @@ class TestGenerateScenarios:
             agent_repo=agent_repo,
         )
 
-        scenarios = await service.generate_scenarios(suite.id)
+        scenarios = await service.generate_scenarios(suite.id, org_id)
 
         # Verify LLM was called
         llm_service.generate_structured.assert_called_once()
@@ -394,7 +400,7 @@ class TestGenerateScenarios:
         )
 
         with pytest.raises(ValueError, match="Test suite .* not found"):
-            await service.generate_scenarios(uuid4())
+            await service.generate_scenarios(uuid4(), uuid4())
 
     @pytest.mark.asyncio
     async def test_raises_value_error_if_suite_has_no_agent(self):
@@ -404,6 +410,7 @@ class TestGenerateScenarios:
         test_suite_repo = AsyncMock()
         test_suite_repo.get.return_value = suite
 
+        org_id = suite.org_id
         service = ScenarioGenerationService(
             llm_service=AsyncMock(),
             test_suite_repo=test_suite_repo,
@@ -413,13 +420,14 @@ class TestGenerateScenarios:
         )
 
         with pytest.raises(ValueError, match="has no agent assigned"):
-            await service.generate_scenarios(suite.id)
+            await service.generate_scenarios(suite.id, org_id)
 
     @pytest.mark.asyncio
     async def test_raises_value_error_if_agent_not_found(self):
         """Test that ValueError is raised if agent not found."""
         suite = make_test_suite(agent_id=uuid4())
 
+        org_id = suite.org_id
         test_suite_repo = AsyncMock()
         test_suite_repo.get.return_value = suite
 
@@ -435,7 +443,7 @@ class TestGenerateScenarios:
         )
 
         with pytest.raises(ValueError, match="Agent .* not found"):
-            await service.generate_scenarios(suite.id)
+            await service.generate_scenarios(suite.id, org_id)
 
     @pytest.mark.asyncio
     async def test_raises_value_error_if_no_personas_available(self):
@@ -446,11 +454,12 @@ class TestGenerateScenarios:
         test_suite_repo = AsyncMock()
         test_suite_repo.get.return_value = suite
 
+        org_id = suite.org_id
         agent_repo = AsyncMock()
         agent_repo.get.return_value = agent
 
         persona_repo = AsyncMock()
-        persona_repo._list_all_active_unchecked.return_value = []
+        persona_repo.list_all = AsyncMock(return_value=[])
 
         service = ScenarioGenerationService(
             llm_service=AsyncMock(),
@@ -461,7 +470,7 @@ class TestGenerateScenarios:
         )
 
         with pytest.raises(ValueError, match="No active personas available"):
-            await service.generate_scenarios(suite.id)
+            await service.generate_scenarios(suite.id, org_id)
 
     @pytest.mark.asyncio
     async def test_calculates_timeout_from_max_turns(self):
@@ -483,6 +492,7 @@ class TestGenerateScenarios:
             ]
         )
 
+        org_id = suite.org_id
         test_suite_repo = AsyncMock()
         test_suite_repo.get.return_value = suite
 
@@ -491,7 +501,7 @@ class TestGenerateScenarios:
         test_scenario_repo.create.return_value = make_scenario(suite.id)
 
         persona_repo = AsyncMock()
-        persona_repo._list_all_active_unchecked.return_value = [persona]
+        persona_repo.list_all = AsyncMock(return_value=[persona])
 
         agent_repo = AsyncMock()
         agent_repo.get.return_value = agent
@@ -504,7 +514,7 @@ class TestGenerateScenarios:
             agent_repo=agent_repo,
         )
 
-        await service.generate_scenarios(suite.id)
+        await service.generate_scenarios(suite.id, org_id)
 
         # Verify scenario was created with correct timeout
         call_kwargs = test_scenario_repo.create.call_args.kwargs
@@ -534,6 +544,7 @@ class TestGenerateScenariosBackground:
             ]
         )
 
+        org_id = suite.org_id
         test_suite_repo = AsyncMock()
         test_suite_repo.get.return_value = suite
         test_suite_repo.update.return_value = suite
@@ -543,7 +554,7 @@ class TestGenerateScenariosBackground:
         test_scenario_repo.create.return_value = make_scenario(suite.id)
 
         persona_repo = AsyncMock()
-        persona_repo._list_all_active_unchecked.return_value = [persona]
+        persona_repo.list_all = AsyncMock(return_value=[persona])
 
         agent_repo = AsyncMock()
         agent_repo.get.return_value = agent
@@ -556,12 +567,12 @@ class TestGenerateScenariosBackground:
             agent_repo=agent_repo,
         )
 
-        await service.generate_scenarios_background(suite.id)
+        await service.generate_scenarios_background(suite.id, org_id)
 
         # Verify status was updated to ready
         test_suite_repo.update.assert_called()
         final_update = test_suite_repo.update.call_args
-        assert final_update.kwargs["updates"]["status"] == "ready"
+        assert final_update[0][2]["status"] == "ready"
 
     @pytest.mark.asyncio
     async def test_updates_status_to_generation_failed_on_error(self):
@@ -573,11 +584,12 @@ class TestGenerateScenariosBackground:
         test_suite_repo.get.return_value = suite
         test_suite_repo.update.return_value = suite
 
+        org_id = suite.org_id
         agent_repo = AsyncMock()
         agent_repo.get.return_value = agent
 
         persona_repo = AsyncMock()
-        persona_repo._list_all_active_unchecked.return_value = []  # This will cause an error
+        persona_repo.list_all = AsyncMock(return_value=[])  # This will cause an error
 
         service = ScenarioGenerationService(
             llm_service=AsyncMock(),
@@ -587,13 +599,13 @@ class TestGenerateScenariosBackground:
             agent_repo=agent_repo,
         )
 
-        await service.generate_scenarios_background(suite.id)
+        await service.generate_scenarios_background(suite.id, org_id)
 
         # Verify status was updated to generation_failed
         test_suite_repo.update.assert_called()
         final_update = test_suite_repo.update.call_args
-        assert final_update.kwargs["updates"]["status"] == "generation_failed"
-        assert "generation_error" in final_update.kwargs["updates"]
+        assert final_update[0][2]["status"] == "generation_failed"
+        assert "generation_error" in final_update[0][2]
 
 
 class TestStartBackgroundGeneration:
@@ -611,8 +623,9 @@ class TestStartBackgroundGeneration:
         )
 
         suite_id = uuid4()
+        org_id = uuid4()
         with patch("asyncio.create_task") as mock_create_task:
-            service.start_background_generation(suite_id)
+            service.start_background_generation(suite_id, org_id)
             mock_create_task.assert_called_once()
 
     @pytest.mark.asyncio
@@ -627,10 +640,11 @@ class TestStartBackgroundGeneration:
         )
 
         suite_id = uuid4()
+        org_id = uuid4()
         additional_prompt = "Focus on edge cases"
 
         with patch("asyncio.create_task") as mock_create_task:
-            service.start_background_generation(suite_id, additional_prompt)
+            service.start_background_generation(suite_id, org_id, additional_prompt)
             mock_create_task.assert_called_once()
 
 
@@ -718,6 +732,7 @@ class TestGenerateScenariosTraitSanitization:
             ]
         )
 
+        org_id = suite.org_id
         test_suite_repo = AsyncMock()
         test_suite_repo.get.return_value = suite
 
@@ -726,7 +741,7 @@ class TestGenerateScenariosTraitSanitization:
         test_scenario_repo.create.return_value = make_scenario(suite.id)
 
         persona_repo = AsyncMock()
-        persona_repo._list_all_active_unchecked.return_value = [persona]
+        persona_repo.list_all = AsyncMock(return_value=[persona])
 
         agent_repo = AsyncMock()
         agent_repo.get.return_value = agent
@@ -739,7 +754,7 @@ class TestGenerateScenariosTraitSanitization:
             agent_repo=agent_repo,
         )
 
-        await service.generate_scenarios(suite.id)
+        await service.generate_scenarios(suite.id, org_id)
 
         # Verify scenario was created with sanitized traits (without made_up_trait)
         call_kwargs = test_scenario_repo.create.call_args.kwargs

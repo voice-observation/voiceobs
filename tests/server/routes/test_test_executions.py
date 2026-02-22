@@ -31,6 +31,7 @@ class TestTestExecution:
 
         mock_suite = TestSuiteRow(
             id=suite_id,
+            org_id=uuid4(),
             name="Test Suite",
             description="Test description",
             status="pending",
@@ -57,7 +58,7 @@ class TestTestExecution:
         )
 
         mock_suite_repo = AsyncMock()
-        mock_suite_repo.get.return_value = mock_suite
+        mock_suite_repo.get_by_id.return_value = mock_suite
         mock_get_suite_repository.return_value = mock_suite_repo
 
         mock_scenario_repo = AsyncMock()
@@ -173,7 +174,7 @@ class TestTestExecution:
     ):
         """Test running tests when suite not found."""
         mock_suite_repo = AsyncMock()
-        mock_suite_repo.get.return_value = None
+        mock_suite_repo.get_by_id.return_value = None
         mock_get_suite_repository.return_value = mock_suite_repo
 
         mock_scenario_repo = AsyncMock()

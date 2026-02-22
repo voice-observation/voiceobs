@@ -89,6 +89,7 @@ class TestScenarioResponse(BaseModel):
     name: str = Field(..., description="Test scenario name")
     goal: str = Field(..., description="Test scenario goal")
     persona_id: str = Field(..., description="Persona UUID reference")
+    persona_name: str | None = Field(None, description="Persona display name (resolved from DB)")
     max_turns: int | None = Field(None, description="Maximum number of turns")
     timeout: int | None = Field(None, description="Timeout in seconds")
     intent: str | None = Field(None, description="LLM-identified intent for this scenario")

@@ -19,10 +19,12 @@ class TestTestSuiteRepository:
         repo = TestSuiteRepository(mock_db)
         suite_id = uuid4()
         agent_id = uuid4()
+        org_id = uuid4()
 
         mock_db.fetchrow.return_value = MockRecord(
             {
                 "id": suite_id,
+                "org_id": org_id,
                 "name": "Test Suite",
                 "description": None,
                 "status": "pending",
@@ -36,7 +38,7 @@ class TestTestSuiteRepository:
             }
         )
 
-        result = await repo.create(name="Test Suite", agent_id=agent_id)
+        result = await repo.create(org_id=org_id, name="Test Suite", agent_id=agent_id)
 
         assert result.id == suite_id
         assert result.name == "Test Suite"
@@ -56,10 +58,12 @@ class TestTestSuiteRepository:
         repo = TestSuiteRepository(mock_db)
         suite_id = uuid4()
         agent_id = uuid4()
+        org_id = uuid4()
 
         mock_db.fetchrow.return_value = MockRecord(
             {
                 "id": suite_id,
+                "org_id": org_id,
                 "name": "Test Suite",
                 "description": "Test description",
                 "status": "pending",
@@ -74,7 +78,10 @@ class TestTestSuiteRepository:
         )
 
         result = await repo.create(
-            name="Test Suite", description="Test description", agent_id=agent_id
+            org_id=org_id,
+            name="Test Suite",
+            description="Test description",
+            agent_id=agent_id,
         )
 
         assert result.id == suite_id
@@ -90,7 +97,7 @@ class TestTestSuiteRepository:
         mock_db.fetchrow.return_value = None
 
         with pytest.raises(RuntimeError, match="Failed to create test suite"):
-            await repo.create(name="Test Suite")
+            await repo.create(org_id=uuid4(), name="Test Suite")
 
     @pytest.mark.asyncio
     async def test_get_suite_found(self, mock_db):
@@ -98,10 +105,12 @@ class TestTestSuiteRepository:
         repo = TestSuiteRepository(mock_db)
         suite_id = uuid4()
         agent_id = uuid4()
+        org_id = uuid4()
 
         mock_db.fetchrow.return_value = MockRecord(
             {
                 "id": suite_id,
+                "org_id": org_id,
                 "name": "Test Suite",
                 "description": "Test description",
                 "status": "pending",
@@ -115,7 +124,7 @@ class TestTestSuiteRepository:
             }
         )
 
-        result = await repo.get(suite_id)
+        result = await repo.get(suite_id, org_id)
 
         assert result is not None
         assert result.id == suite_id
@@ -129,6 +138,7 @@ class TestTestSuiteRepository:
         assert result.evaluation_strictness == "strict"
         mock_db.fetchrow.assert_called_once()
         assert suite_id in mock_db.fetchrow.call_args[0]
+        assert org_id in mock_db.fetchrow.call_args[0]
 
     @pytest.mark.asyncio
     async def test_get_suite_not_found(self, mock_db):
@@ -137,7 +147,7 @@ class TestTestSuiteRepository:
         suite_id = uuid4()
         mock_db.fetchrow.return_value = None
 
-        result = await repo.get(suite_id)
+        result = await repo.get(suite_id, uuid4())
 
         assert result is None
 
@@ -147,7 +157,7 @@ class TestTestSuiteRepository:
         repo = TestSuiteRepository(mock_db)
         mock_db.fetch.return_value = []
 
-        result = await repo.list_all()
+        result = await repo.list_all(org_id=uuid4())
 
         assert result == []
         mock_db.fetch.assert_called_once()
@@ -162,11 +172,13 @@ class TestTestSuiteRepository:
         suite2_id = uuid4()
         agent1_id = uuid4()
         agent2_id = uuid4()
+        org_id = uuid4()
 
         mock_db.fetch.return_value = [
             MockRecord(
                 {
                     "id": suite1_id,
+                    "org_id": org_id,
                     "name": "Suite 1",
                     "description": "Description 1",
                     "status": "pending",
@@ -182,6 +194,7 @@ class TestTestSuiteRepository:
             MockRecord(
                 {
                     "id": suite2_id,
+                    "org_id": org_id,
                     "name": "Suite 2",
                     "description": "Description 2",
                     "status": "completed",
@@ -196,7 +209,7 @@ class TestTestSuiteRepository:
             ),
         ]
 
-        result = await repo.list_all()
+        result = await repo.list_all(org_id=org_id)
 
         assert len(result) == 2
         assert result[0].id == suite1_id
@@ -214,11 +227,13 @@ class TestTestSuiteRepository:
         repo = TestSuiteRepository(mock_db)
         suite_id = uuid4()
         agent_id = uuid4()
+        org_id = uuid4()
 
         # Mock get() call after update
         mock_db.fetchrow.return_value = MockRecord(
             {
                 "id": suite_id,
+                "org_id": org_id,
                 "name": "Updated Suite",
                 "description": "Original description",
                 "status": "pending",
@@ -232,7 +247,7 @@ class TestTestSuiteRepository:
             }
         )
 
-        result = await repo.update(suite_id, {"name": "Updated Suite"})
+        result = await repo.update(suite_id, org_id, {"name": "Updated Suite"})
 
         assert result is not None
         assert result.name == "Updated Suite"
@@ -246,10 +261,12 @@ class TestTestSuiteRepository:
         repo = TestSuiteRepository(mock_db)
         suite_id = uuid4()
         agent_id = uuid4()
+        org_id = uuid4()
 
         mock_db.fetchrow.return_value = MockRecord(
             {
                 "id": suite_id,
+                "org_id": org_id,
                 "name": "Test Suite",
                 "description": "Updated description",
                 "status": "pending",
@@ -263,7 +280,7 @@ class TestTestSuiteRepository:
             }
         )
 
-        result = await repo.update(suite_id, {"description": "Updated description"})
+        result = await repo.update(suite_id, org_id, {"description": "Updated description"})
 
         assert result is not None
         assert result.description == "Updated description"
@@ -275,10 +292,12 @@ class TestTestSuiteRepository:
         repo = TestSuiteRepository(mock_db)
         suite_id = uuid4()
         agent_id = uuid4()
+        org_id = uuid4()
 
         mock_db.fetchrow.return_value = MockRecord(
             {
                 "id": suite_id,
+                "org_id": org_id,
                 "name": "Test Suite",
                 "description": "Description",
                 "status": "running",
@@ -292,7 +311,7 @@ class TestTestSuiteRepository:
             }
         )
 
-        result = await repo.update(suite_id, {"status": "running"})
+        result = await repo.update(suite_id, org_id, {"status": "running"})
 
         assert result is not None
         assert result.status == "running"
@@ -304,10 +323,12 @@ class TestTestSuiteRepository:
         repo = TestSuiteRepository(mock_db)
         suite_id = uuid4()
         agent_id = uuid4()
+        org_id = uuid4()
 
         mock_db.fetchrow.return_value = MockRecord(
             {
                 "id": suite_id,
+                "org_id": org_id,
                 "name": "Updated Suite",
                 "description": "Updated description",
                 "status": "completed",
@@ -323,7 +344,12 @@ class TestTestSuiteRepository:
 
         result = await repo.update(
             suite_id,
-            {"name": "Updated Suite", "description": "Updated description", "status": "completed"},
+            org_id,
+            {
+                "name": "Updated Suite",
+                "description": "Updated description",
+                "status": "completed",
+            },
         )
 
         assert result is not None
@@ -342,10 +368,12 @@ class TestTestSuiteRepository:
         repo = TestSuiteRepository(mock_db)
         suite_id = uuid4()
         agent_id = uuid4()
+        org_id = uuid4()
 
         mock_db.fetchrow.return_value = MockRecord(
             {
                 "id": suite_id,
+                "org_id": org_id,
                 "name": "Test Suite",
                 "description": "Description",
                 "status": "pending",
@@ -359,7 +387,7 @@ class TestTestSuiteRepository:
             }
         )
 
-        result = await repo.update(suite_id, {})
+        result = await repo.update(suite_id, org_id, {})
 
         assert result is not None
         # Should call get() but not execute()
@@ -372,11 +400,12 @@ class TestTestSuiteRepository:
         """Test updating a test suite that doesn't exist."""
         repo = TestSuiteRepository(mock_db)
         suite_id = uuid4()
+        org_id = uuid4()
 
         # First call for update, second call for get()
         mock_db.fetchrow.side_effect = [None]
 
-        result = await repo.update(suite_id, {"name": "Updated"})
+        result = await repo.update(suite_id, org_id, {"name": "Updated"})
 
         assert result is None
 
@@ -385,9 +414,10 @@ class TestTestSuiteRepository:
         """Test successfully deleting a test suite."""
         repo = TestSuiteRepository(mock_db)
         suite_id = uuid4()
+        org_id = uuid4()
         mock_db.execute.return_value = "DELETE 1"
 
-        result = await repo.delete(suite_id)
+        result = await repo.delete(suite_id, org_id)
 
         assert result is True
         mock_db.execute.assert_called_once()
@@ -399,8 +429,9 @@ class TestTestSuiteRepository:
         """Test deleting a test suite that doesn't exist."""
         repo = TestSuiteRepository(mock_db)
         suite_id = uuid4()
+        org_id = uuid4()
         mock_db.execute.return_value = "DELETE 0"
 
-        result = await repo.delete(suite_id)
+        result = await repo.delete(suite_id, org_id)
 
         assert result is False

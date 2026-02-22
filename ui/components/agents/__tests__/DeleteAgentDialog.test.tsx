@@ -35,6 +35,7 @@ describe("DeleteAgentDialog", () => {
     it("does not render when agentId is null", () => {
       render(
         <DeleteAgentDialog
+          orgId="org-123"
           agentId={null}
           onOpenChange={mockOnOpenChange}
           onDeleted={mockOnDeleted}
@@ -47,6 +48,7 @@ describe("DeleteAgentDialog", () => {
     it("renders when agentId is provided", () => {
       render(
         <DeleteAgentDialog
+          orgId="org-123"
           agentId="agent-123"
           onOpenChange={mockOnOpenChange}
           onDeleted={mockOnDeleted}
@@ -61,6 +63,7 @@ describe("DeleteAgentDialog", () => {
     it("displays delete confirmation title", () => {
       render(
         <DeleteAgentDialog
+          orgId="org-123"
           agentId="agent-123"
           onOpenChange={mockOnOpenChange}
           onDeleted={mockOnDeleted}
@@ -73,6 +76,7 @@ describe("DeleteAgentDialog", () => {
     it("displays agent name in confirmation message when provided", () => {
       render(
         <DeleteAgentDialog
+          orgId="org-123"
           agentId="agent-123"
           agentName="Test Agent"
           onOpenChange={mockOnOpenChange}
@@ -88,6 +92,7 @@ describe("DeleteAgentDialog", () => {
     it("displays generic message when agent name is not provided", () => {
       render(
         <DeleteAgentDialog
+          orgId="org-123"
           agentId="agent-123"
           onOpenChange={mockOnOpenChange}
           onDeleted={mockOnDeleted}
@@ -100,6 +105,7 @@ describe("DeleteAgentDialog", () => {
     it("shows warning about irreversible action", () => {
       render(
         <DeleteAgentDialog
+          orgId="org-123"
           agentId="agent-123"
           onOpenChange={mockOnOpenChange}
           onDeleted={mockOnDeleted}
@@ -114,6 +120,7 @@ describe("DeleteAgentDialog", () => {
     it("renders cancel button", () => {
       render(
         <DeleteAgentDialog
+          orgId="org-123"
           agentId="agent-123"
           onOpenChange={mockOnOpenChange}
           onDeleted={mockOnDeleted}
@@ -126,6 +133,7 @@ describe("DeleteAgentDialog", () => {
     it("calls onOpenChange with false when cancel is clicked", () => {
       render(
         <DeleteAgentDialog
+          orgId="org-123"
           agentId="agent-123"
           onOpenChange={mockOnOpenChange}
           onDeleted={mockOnDeleted}
@@ -142,6 +150,7 @@ describe("DeleteAgentDialog", () => {
     it("renders delete button", () => {
       render(
         <DeleteAgentDialog
+          orgId="org-123"
           agentId="agent-123"
           onOpenChange={mockOnOpenChange}
           onDeleted={mockOnDeleted}
@@ -156,6 +165,7 @@ describe("DeleteAgentDialog", () => {
 
       render(
         <DeleteAgentDialog
+          orgId="org-123"
           agentId="agent-123"
           onOpenChange={mockOnOpenChange}
           onDeleted={mockOnDeleted}
@@ -165,7 +175,7 @@ describe("DeleteAgentDialog", () => {
       fireEvent.click(screen.getByRole("button", { name: /^delete$/i }));
 
       await waitFor(() => {
-        expect(api.agents.deleteAgent).toHaveBeenCalledWith("agent-123");
+        expect(api.agents.deleteAgent).toHaveBeenCalledWith("org-123", "agent-123");
       });
     });
 
@@ -176,6 +186,7 @@ describe("DeleteAgentDialog", () => {
 
       render(
         <DeleteAgentDialog
+          orgId="org-123"
           agentId="agent-123"
           onOpenChange={mockOnOpenChange}
           onDeleted={mockOnDeleted}
@@ -196,6 +207,7 @@ describe("DeleteAgentDialog", () => {
 
       render(
         <DeleteAgentDialog
+          orgId="org-123"
           agentId="agent-123"
           onOpenChange={mockOnOpenChange}
           onDeleted={mockOnDeleted}
@@ -214,6 +226,7 @@ describe("DeleteAgentDialog", () => {
 
       render(
         <DeleteAgentDialog
+          orgId="org-123"
           agentId="agent-123"
           onOpenChange={mockOnOpenChange}
           onDeleted={mockOnDeleted}
@@ -232,6 +245,7 @@ describe("DeleteAgentDialog", () => {
 
       render(
         <DeleteAgentDialog
+          orgId="org-123"
           agentId="agent-123"
           onOpenChange={mockOnOpenChange}
           onDeleted={mockOnDeleted}
@@ -250,6 +264,7 @@ describe("DeleteAgentDialog", () => {
 
       render(
         <DeleteAgentDialog
+          orgId="org-123"
           agentId="agent-123"
           onOpenChange={mockOnOpenChange}
           onDeleted={mockOnDeleted}
@@ -268,6 +283,7 @@ describe("DeleteAgentDialog", () => {
 
       render(
         <DeleteAgentDialog
+          orgId="org-123"
           agentId="agent-123"
           onOpenChange={mockOnOpenChange}
           onDeleted={mockOnDeleted}
@@ -286,6 +302,7 @@ describe("DeleteAgentDialog", () => {
 
       render(
         <DeleteAgentDialog
+          orgId="org-123"
           agentId="agent-123"
           onOpenChange={mockOnOpenChange}
           onDeleted={mockOnDeleted}
@@ -305,6 +322,7 @@ describe("DeleteAgentDialog", () => {
       // This shouldn't normally happen but tests the guard
       const { rerender } = render(
         <DeleteAgentDialog
+          orgId="org-123"
           agentId="agent-123"
           onOpenChange={mockOnOpenChange}
           onDeleted={mockOnDeleted}
@@ -317,6 +335,7 @@ describe("DeleteAgentDialog", () => {
       // Rerender with null agentId (simulating dialog closing)
       rerender(
         <DeleteAgentDialog
+          orgId="org-123"
           agentId={null}
           onOpenChange={mockOnOpenChange}
           onDeleted={mockOnDeleted}

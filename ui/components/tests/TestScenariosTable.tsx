@@ -67,24 +67,6 @@ export function TestScenariosTable({
     return personas.find((p) => p.id === personaId)?.name || "Unknown";
   };
 
-  // Helper: Get persona badge color
-  const getPersonaColor = (personaName: string): string => {
-    const name = personaName.toLowerCase();
-    if (name.includes("neutral") || name.includes("calm"))
-      return "bg-blue-500/10 text-blue-600 border-blue-200";
-    if (name.includes("rush") || name.includes("hurr") || name.includes("urgent"))
-      return "bg-orange-500/10 text-orange-600 border-orange-200";
-    if (name.includes("confus") || name.includes("uncertain"))
-      return "bg-purple-500/10 text-purple-600 border-purple-200";
-    if (name.includes("frustrat") || name.includes("angry") || name.includes("upset"))
-      return "bg-red-500/10 text-red-600 border-red-200";
-    if (name.includes("elder") || name.includes("senior"))
-      return "bg-amber-500/10 text-amber-600 border-amber-200";
-    if (name.includes("non-native") || name.includes("accent"))
-      return "bg-teal-500/10 text-teal-600 border-teal-200";
-    return "bg-muted text-muted-foreground border-muted";
-  };
-
   // Filter handlers
   const handleSearchChange = (value: string) => {
     onFiltersChange({ ...filters, search: value || undefined });
@@ -204,7 +186,7 @@ export function TestScenariosTable({
               <TableRow>
                 <TableHead className="w-[300px]">Scenario</TableHead>
                 {showSuiteColumn && <TableHead>Test Suite</TableHead>}
-                <TableHead className="text-center">Persona</TableHead>
+                <TableHead>Persona</TableHead>
                 <TableHead className="text-center">Status</TableHead>
                 <TableHead className="w-[100px] text-center">Pass %</TableHead>
                 <TableHead className="w-[160px]">Last Run</TableHead>
@@ -213,7 +195,7 @@ export function TestScenariosTable({
             </TableHeader>
             <TableBody>
               {scenarios.map((scenario) => {
-                const personaName = getPersonaName(scenario.persona_id);
+                const personaName = scenario.persona_name ?? getPersonaName(scenario.persona_id);
                 return (
                   <TableRow
                     key={scenario.id}
@@ -244,14 +226,7 @@ export function TestScenariosTable({
                         {getSuiteName(scenario.suite_id)}
                       </TableCell>
                     )}
-                    <TableCell className="text-center">
-                      <Badge
-                        variant="outline"
-                        className={cn("capitalize", getPersonaColor(personaName))}
-                      >
-                        {personaName}
-                      </Badge>
-                    </TableCell>
+                    <TableCell className="capitalize">{personaName}</TableCell>
                     <TableCell className="text-center">
                       <Badge
                         variant="outline"

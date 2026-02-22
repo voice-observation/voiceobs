@@ -143,7 +143,7 @@ export function useTestScenarios(options: UseTestScenariosOptions = {}): UseTest
     if (!orgId) return;
     try {
       const [suitesResponse, personasResponse] = await Promise.all([
-        api.testSuites.listTestSuites(),
+        api.testSuites.listTestSuites(orgId),
         api.personas.listPersonas(orgId, true), // active personas only
       ]);
       setTestSuites(suitesResponse.suites);

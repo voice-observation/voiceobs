@@ -1,10 +1,11 @@
 """Tests for triggering scenario generation on test suite creation."""
 
 from unittest.mock import MagicMock, patch
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 
+from voiceobs.server.auth.context import AuthContext
 from voiceobs.server.dependencies import (
     get_scenario_generation_service,
 )
@@ -55,6 +56,9 @@ class TestCreateTestSuiteTriggersGeneration:
         from voiceobs.server.models import TestSuiteCreateRequest
         from voiceobs.server.routes.test_suites import create_test_suite
 
+        org_id = uuid4()
+        mock_auth = MagicMock(spec=AuthContext)
+
         # Create mock repositories
         mock_suite_repo = MagicMock()
         mock_agent_repo = MagicMock()
@@ -102,21 +106,23 @@ class TestCreateTestSuiteTriggersGeneration:
             async def mock_create(*args, **kwargs):
                 return mock_suite
 
-            async def mock_get_agent(agent_id):
+            async def mock_get_agent(agent_id, org_id_param):
                 return mock_agent
 
             mock_suite_repo.create = mock_create
             mock_agent_repo.get = mock_get_agent
 
             response = await create_test_suite(
+                org_id=org_id,
                 request=request,
+                auth=mock_auth,
                 repo=mock_suite_repo,
                 agent_repo=mock_agent_repo,
             )
 
             # Verify generation was triggered
             mock_generation_service.start_background_generation.assert_called_once_with(
-                mock_suite.id
+                mock_suite.id, org_id
             )
 
             # Verify response is correct
@@ -130,6 +136,9 @@ class TestCreateTestSuiteTriggersGeneration:
         """Test that suite creation succeeds even if generation service is unavailable."""
         from voiceobs.server.models import TestSuiteCreateRequest
         from voiceobs.server.routes.test_suites import create_test_suite
+
+        org_id = uuid4()
+        mock_auth = MagicMock(spec=AuthContext)
 
         # Create mock repositories
         mock_suite_repo = MagicMock()
@@ -167,7 +176,7 @@ class TestCreateTestSuiteTriggersGeneration:
             async def mock_create(*args, **kwargs):
                 return mock_suite
 
-            async def mock_get_agent(agent_id):
+            async def mock_get_agent(agent_id, org_id_param):
                 return mock_agent
 
             mock_suite_repo.create = mock_create
@@ -175,7 +184,9 @@ class TestCreateTestSuiteTriggersGeneration:
 
             # Should not raise an exception
             response = await create_test_suite(
+                org_id=org_id,
                 request=request,
+                auth=mock_auth,
                 repo=mock_suite_repo,
                 agent_repo=mock_agent_repo,
             )
@@ -191,6 +202,9 @@ class TestCreateTestSuiteTriggersGeneration:
         """Test that suite creation succeeds even if generation service raises."""
         from voiceobs.server.models import TestSuiteCreateRequest
         from voiceobs.server.routes.test_suites import create_test_suite
+
+        org_id = uuid4()
+        mock_auth = MagicMock(spec=AuthContext)
 
         # Create mock repositories
         mock_suite_repo = MagicMock()
@@ -234,7 +248,7 @@ class TestCreateTestSuiteTriggersGeneration:
             async def mock_create(*args, **kwargs):
                 return mock_suite
 
-            async def mock_get_agent(agent_id):
+            async def mock_get_agent(agent_id, org_id_param):
                 return mock_agent
 
             mock_suite_repo.create = mock_create
@@ -242,7 +256,9 @@ class TestCreateTestSuiteTriggersGeneration:
 
             # Should not raise an exception
             response = await create_test_suite(
+                org_id=org_id,
                 request=request,
+                auth=mock_auth,
                 repo=mock_suite_repo,
                 agent_repo=mock_agent_repo,
             )

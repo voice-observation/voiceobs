@@ -1,10 +1,11 @@
-"""Test suite management routes."""
+"""Test suite management routes (org-scoped)."""
 
 import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from voiceobs.server.auth.context import AuthContext, require_org_membership
 from voiceobs.server.db.repositories.agent import AgentRepository
 from voiceobs.server.db.repositories.test_scenario import TestScenarioRepository
 from voiceobs.server.db.repositories.test_suite import TestSuiteRepository
@@ -27,7 +28,7 @@ from voiceobs.server.routes.test_dependencies import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/tests/suites", tags=["Test Suites"])
+router = APIRouter(prefix="/api/v1/orgs/{org_id}/test-suites", tags=["Test Suites"])
 
 
 def get_agent_repo() -> AgentRepository:
@@ -49,18 +50,19 @@ def get_agent_repo() -> AgentRepository:
     return repo
 
 
-async def validate_agent_exists(agent_id: str, agent_repo: AgentRepository) -> UUID:
-    """Validate that an agent exists and return its UUID.
+async def validate_agent_exists(agent_id: str, org_id: UUID, agent_repo: AgentRepository) -> UUID:
+    """Validate that an agent exists within the organization and return its UUID.
 
     Args:
         agent_id: Agent ID string to validate.
+        org_id: Organization UUID.
         agent_repo: Agent repository.
 
     Returns:
         Parsed UUID of the agent.
 
     Raises:
-        HTTPException: If UUID format is invalid or agent not found.
+        HTTPException: If UUID format is invalid, agent not found, or belongs to different org.
     """
     try:
         agent_uuid = UUID(agent_id)
@@ -70,11 +72,11 @@ async def validate_agent_exists(agent_id: str, agent_repo: AgentRepository) -> U
             detail=f"Invalid agent ID format: {agent_id}",
         )
 
-    agent = await agent_repo.get(agent_uuid)
+    agent = await agent_repo.get(agent_uuid, org_id)
     if agent is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Agent '{agent_id}' not found",
+            detail=f"Agent '{agent_id}' not found in organization",
         )
 
     return agent_uuid
@@ -85,23 +87,27 @@ async def validate_agent_exists(agent_id: str, agent_repo: AgentRepository) -> U
     response_model=TestSuiteResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create test suite",
-    description="Create a new test suite.",
+    description="Create a new test suite within an organization.",
     responses={
         400: {"model": ErrorResponse, "description": "Invalid request"},
-        404: {"model": ErrorResponse, "description": "Agent not found"},
+        403: {"model": ErrorResponse, "description": "Not a member of this organization"},
+        404: {"model": ErrorResponse, "description": "Agent not found or organization not found"},
         501: {"model": ErrorResponse, "description": "Test API requires PostgreSQL database"},
     },
 )
 async def create_test_suite(
+    org_id: UUID,
     request: TestSuiteCreateRequest,
+    auth: AuthContext = Depends(require_org_membership),
     repo: TestSuiteRepository = Depends(get_test_suite_repo),
     agent_repo: AgentRepository = Depends(get_agent_repo),
 ) -> TestSuiteResponse:
-    """Create a new test suite."""
-    # Validate that the agent exists
-    agent_uuid = await validate_agent_exists(request.agent_id, agent_repo)
+    """Create a new test suite within an organization."""
+    # Validate that the agent exists in the org
+    agent_uuid = await validate_agent_exists(request.agent_id, org_id, agent_repo)
 
     suite = await repo.create(
+        org_id=org_id,
         name=request.name,
         description=request.description,
         agent_id=agent_uuid,
@@ -115,7 +121,7 @@ async def create_test_suite(
     try:
         service = get_scenario_generation_service()
         if service is not None:
-            service.start_background_generation(suite.id)
+            service.start_background_generation(suite.id, org_id)
             logger.info(f"Started background generation for test suite {suite.id}")
     except Exception as e:
         logger.warning(f"Failed to start scenario generation for suite {suite.id}: {e}")
@@ -140,17 +146,21 @@ async def create_test_suite(
     "",
     response_model=TestSuitesListResponse,
     summary="List test suites",
-    description="Get a list of all test suites.",
+    description="Get a list of all test suites within an organization.",
     responses={
+        403: {"model": ErrorResponse, "description": "Not a member of this organization"},
+        404: {"model": ErrorResponse, "description": "Organization not found"},
         501: {"model": ErrorResponse, "description": "Test API requires PostgreSQL database"},
     },
 )
 async def list_test_suites(
+    org_id: UUID,
+    auth: AuthContext = Depends(require_org_membership),
     repo: TestSuiteRepository = Depends(get_test_suite_repo),
     scenario_repo: TestScenarioRepository = Depends(get_test_scenario_repo),
 ) -> TestSuitesListResponse:
-    """List all test suites."""
-    suites = await repo.list_all()
+    """List all test suites within an organization."""
+    suites = await repo.list_all(org_id)
 
     # Get all scenarios to count per suite efficiently
     all_scenarios = await scenario_repo.list_all()
@@ -184,20 +194,26 @@ async def list_test_suites(
     "/{suite_id}",
     response_model=TestSuiteResponse,
     summary="Get test suite details",
-    description="Get detailed information about a specific test suite.",
+    description="Get detailed information about a specific test suite within an organization.",
     responses={
-        404: {"model": ErrorResponse, "description": "Test suite not found"},
+        403: {"model": ErrorResponse, "description": "Not a member of this organization"},
+        404: {
+            "model": ErrorResponse,
+            "description": "Test suite not found or organization not found",
+        },
         501: {"model": ErrorResponse, "description": "Test API requires PostgreSQL database"},
     },
 )
 async def get_test_suite(
+    org_id: UUID,
     suite_id: str,
+    auth: AuthContext = Depends(require_org_membership),
     repo: TestSuiteRepository = Depends(get_test_suite_repo),
     scenario_repo: TestScenarioRepository = Depends(get_test_scenario_repo),
 ) -> TestSuiteResponse:
     """Get test suite details."""
     suite_uuid = parse_suite_id(suite_id)
-    suite = await repo.get(suite_uuid)
+    suite = await repo.get(suite_uuid, org_id)
     if suite is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -226,20 +242,26 @@ async def get_test_suite(
     "/{suite_id}",
     response_model=TestSuiteResponse,
     summary="Update test suite",
-    description="Update an existing test suite.",
+    description="Update an existing test suite within an organization.",
     responses={
-        404: {"model": ErrorResponse, "description": "Test suite not found"},
+        403: {"model": ErrorResponse, "description": "Not a member of this organization"},
+        404: {
+            "model": ErrorResponse,
+            "description": "Test suite not found or organization not found",
+        },
         501: {"model": ErrorResponse, "description": "Test API requires PostgreSQL database"},
     },
 )
 async def update_test_suite(
+    org_id: UUID,
     suite_id: str,
     request: TestSuiteUpdateRequest,
+    auth: AuthContext = Depends(require_org_membership),
     repo: TestSuiteRepository = Depends(get_test_suite_repo),
 ) -> TestSuiteResponse:
     """Update a test suite."""
     suite_uuid = parse_suite_id(suite_id)
-    suite = await repo.update(suite_uuid, request.model_dump(exclude_unset=True))
+    suite = await repo.update(suite_uuid, org_id, request.model_dump(exclude_unset=True))
 
     if suite is None:
         raise HTTPException(
@@ -265,19 +287,25 @@ async def update_test_suite(
     "/{suite_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete test suite",
-    description="Delete a test suite.",
+    description="Delete a test suite within an organization.",
     responses={
-        404: {"model": ErrorResponse, "description": "Test suite not found"},
+        403: {"model": ErrorResponse, "description": "Not a member of this organization"},
+        404: {
+            "model": ErrorResponse,
+            "description": "Test suite not found or organization not found",
+        },
         501: {"model": ErrorResponse, "description": "Test API requires PostgreSQL database"},
     },
 )
 async def delete_test_suite(
+    org_id: UUID,
     suite_id: str,
+    auth: AuthContext = Depends(require_org_membership),
     repo: TestSuiteRepository = Depends(get_test_suite_repo),
 ) -> None:
     """Delete a test suite."""
     suite_uuid = parse_suite_id(suite_id)
-    deleted = await repo.delete(suite_uuid)
+    deleted = await repo.delete(suite_uuid, org_id)
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -289,15 +317,21 @@ async def delete_test_suite(
     "/{suite_id}/generation-status",
     response_model=GenerationStatusResponse,
     summary="Get generation status",
-    description="Get the scenario generation status for a test suite.",
+    description="Get the scenario generation status for a test suite within an organization.",
     responses={
         400: {"model": ErrorResponse, "description": "Invalid suite ID format"},
-        404: {"model": ErrorResponse, "description": "Test suite not found"},
+        403: {"model": ErrorResponse, "description": "Not a member of this organization"},
+        404: {
+            "model": ErrorResponse,
+            "description": "Test suite not found or organization not found",
+        },
         501: {"model": ErrorResponse, "description": "Test API requires PostgreSQL database"},
     },
 )
 async def get_generation_status(
+    org_id: UUID,
     suite_id: str,
+    auth: AuthContext = Depends(require_org_membership),
     suite_repo: TestSuiteRepository = Depends(get_test_suite_repo),
     scenario_repo: TestScenarioRepository = Depends(get_test_scenario_repo),
 ) -> GenerationStatusResponse:
@@ -320,12 +354,12 @@ async def get_generation_status(
         HTTPException: If suite not found or invalid UUID format.
     """
     suite_uuid = parse_suite_id(suite_id)
-    suite = await suite_repo.get(suite_uuid)
+    suite = await suite_repo.get(suite_uuid, org_id)
 
     if suite is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Test suite '{suite_id}' not found",
+            detail=f"Test suite '{suite_id}' not found in organization",
         )
 
     scenarios = await scenario_repo.list_all(suite_id=suite_uuid)
@@ -343,16 +377,22 @@ async def get_generation_status(
     response_model=GenerationStatusResponse,
     status_code=status.HTTP_202_ACCEPTED,
     summary="Generate more scenarios",
-    description="Trigger generation of additional scenarios for a test suite.",
+    description="Trigger generation of scenarios for a test suite (org-scoped).",
     responses={
         400: {"model": ErrorResponse, "description": "Suite is already generating or invalid ID"},
-        404: {"model": ErrorResponse, "description": "Test suite not found"},
+        403: {"model": ErrorResponse, "description": "Not a member of this organization"},
+        404: {
+            "model": ErrorResponse,
+            "description": "Test suite not found or organization not found",
+        },
         501: {"model": ErrorResponse, "description": "Test API requires PostgreSQL database"},
     },
 )
 async def generate_more_scenarios(
+    org_id: UUID,
     suite_id: str,
     request: GenerateScenariosRequest,
+    auth: AuthContext = Depends(require_org_membership),
     suite_repo: TestSuiteRepository = Depends(get_test_suite_repo),
     scenario_repo: TestScenarioRepository = Depends(get_test_scenario_repo),
 ) -> GenerationStatusResponse:
@@ -375,12 +415,12 @@ async def generate_more_scenarios(
         HTTPException: If suite not found, already generating, or invalid UUID.
     """
     suite_uuid = parse_suite_id(suite_id)
-    suite = await suite_repo.get(suite_uuid)
+    suite = await suite_repo.get(suite_uuid, org_id)
 
     if suite is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Test suite '{suite_id}' not found",
+            detail=f"Test suite '{suite_id}' not found in organization",
         )
 
     if suite.status == "generating":
@@ -391,8 +431,9 @@ async def generate_more_scenarios(
 
     # Update status to "generating"
     await suite_repo.update(
-        suite_id=suite_uuid,
-        updates={"status": "generating", "generation_error": None},
+        suite_uuid,
+        org_id,
+        {"status": "generating", "generation_error": None},
     )
 
     # Get current scenario count
@@ -402,7 +443,7 @@ async def generate_more_scenarios(
     try:
         service = get_scenario_generation_service()
         if service is not None:
-            service.start_background_generation(suite_uuid, request.prompt)
+            service.start_background_generation(suite_uuid, org_id, request.prompt)
             logger.info(
                 f"Started background generation for test suite {suite_id} "
                 f"with prompt: {request.prompt}"
@@ -411,8 +452,9 @@ async def generate_more_scenarios(
         logger.warning(f"Failed to start scenario generation for suite {suite_id}: {e}")
         # Revert status on failure
         await suite_repo.update(
-            suite_id=suite_uuid,
-            updates={"status": "generation_failed", "generation_error": str(e)},
+            suite_uuid,
+            org_id,
+            {"status": "generation_failed", "generation_error": str(e)},
         )
 
     return GenerationStatusResponse(

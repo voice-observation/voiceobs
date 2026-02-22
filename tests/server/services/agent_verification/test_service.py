@@ -28,6 +28,25 @@ def mock_settings():
     return settings
 
 
+def make_agent(agent_id=None, org_id=None, **kwargs):
+    """Create a mock AgentRow with sensible defaults."""
+
+    aid = agent_id or kwargs.pop("id", uuid4())
+    oid = org_id or kwargs.pop("org_id", uuid4())
+    defaults = dict(
+        id=aid,
+        org_id=oid,
+        name="Test Agent",
+        goal="Test goal",
+        agent_type="phone",
+        contact_info={"phone_number": "+1234567890"},
+        connection_status="saved",
+        verification_attempts=0,
+    )
+    defaults.update(kwargs)
+    return AgentRow(**defaults)
+
+
 class TestRetryLogic:
     """Tests for retry logic in verification service."""
 
@@ -35,15 +54,8 @@ class TestRetryLogic:
     async def test_schedules_retry_on_failure(self, mock_agent_repo, mock_settings):
         """Test that failed verification schedules a retry when attempts < max."""
         agent_id = uuid4()
-        mock_agent = AgentRow(
-            id=agent_id,
-            name="Test Agent",
-            goal="Test goal",
-            agent_type="phone",
-            contact_info={"phone_number": "+1234567890"},
-            connection_status="saved",
-            verification_attempts=0,
-        )
+        org_id = uuid4()
+        mock_agent = make_agent(agent_id=agent_id, org_id=org_id)
         mock_agent_repo.get.return_value = mock_agent
 
         with patch(
@@ -58,7 +70,7 @@ class TestRetryLogic:
                 mock_factory.create.return_value = mock_verifier
 
                 service = AgentVerificationService(mock_agent_repo)
-                await service.verify_agent(agent_id)
+                await service.verify_agent(agent_id, org_id)
 
         # Should update to pending_retry (not failed) since attempts < max
         calls = mock_agent_repo.update.call_args_list
@@ -70,14 +82,12 @@ class TestRetryLogic:
     async def test_marks_failed_after_max_retries(self, mock_agent_repo, mock_settings):
         """Test that verification marks as failed after max retries exceeded."""
         agent_id = uuid4()
-        mock_agent = AgentRow(
-            id=agent_id,
-            name="Test Agent",
-            goal="Test goal",
-            agent_type="phone",
-            contact_info={"phone_number": "+1234567890"},
+        org_id = uuid4()
+        mock_agent = make_agent(
+            agent_id=agent_id,
+            org_id=org_id,
             connection_status="pending_retry",
-            verification_attempts=3,  # Already at max
+            verification_attempts=3,
         )
         mock_agent_repo.get.return_value = mock_agent
 
@@ -93,7 +103,7 @@ class TestRetryLogic:
                 mock_factory.create.return_value = mock_verifier
 
                 service = AgentVerificationService(mock_agent_repo)
-                await service.verify_agent(agent_id)
+                await service.verify_agent(agent_id, org_id)
 
         # Should update to failed (max retries exceeded)
         calls = mock_agent_repo.update.call_args_list
@@ -104,15 +114,8 @@ class TestRetryLogic:
     async def test_marks_verified_on_success(self, mock_agent_repo, mock_settings):
         """Test that successful verification marks agent as verified."""
         agent_id = uuid4()
-        mock_agent = AgentRow(
-            id=agent_id,
-            name="Test Agent",
-            goal="Test goal",
-            agent_type="phone",
-            contact_info={"phone_number": "+1234567890"},
-            connection_status="saved",
-            verification_attempts=0,
-        )
+        org_id = uuid4()
+        mock_agent = make_agent(agent_id=agent_id, org_id=org_id)
         mock_agent_repo.get.return_value = mock_agent
 
         with patch(
@@ -127,7 +130,7 @@ class TestRetryLogic:
                 mock_factory.create.return_value = mock_verifier
 
                 service = AgentVerificationService(mock_agent_repo)
-                await service.verify_agent(agent_id)
+                await service.verify_agent(agent_id, org_id)
 
         # Should update to verified
         calls = mock_agent_repo.update.call_args_list
@@ -138,15 +141,8 @@ class TestRetryLogic:
     async def test_success_sets_verification_reasoning(self, mock_agent_repo, mock_settings):
         """Test that successful verification sets verification_reasoning."""
         agent_id = uuid4()
-        mock_agent = AgentRow(
-            id=agent_id,
-            name="Test Agent",
-            goal="Test goal",
-            agent_type="phone",
-            contact_info={"phone_number": "+1234567890"},
-            connection_status="saved",
-            verification_attempts=0,
-        )
+        org_id = uuid4()
+        mock_agent = make_agent(agent_id=agent_id, org_id=org_id)
         mock_agent_repo.get.return_value = mock_agent
 
         with patch(
@@ -161,7 +157,7 @@ class TestRetryLogic:
                 mock_factory.create.return_value = mock_verifier
 
                 service = AgentVerificationService(mock_agent_repo)
-                await service.verify_agent(agent_id)
+                await service.verify_agent(agent_id, org_id)
 
         # Should set verification_reasoning
         calls = mock_agent_repo.update.call_args_list
@@ -173,14 +169,11 @@ class TestRetryLogic:
     async def test_retry_delay_calculated_correctly(self, mock_agent_repo, mock_settings):
         """Test that retry delay is calculated using exponential backoff."""
         agent_id = uuid4()
-        mock_agent = AgentRow(
-            id=agent_id,
-            name="Test Agent",
-            goal="Test goal",
-            agent_type="phone",
-            contact_info={"phone_number": "+1234567890"},
-            connection_status="saved",
-            verification_attempts=1,  # Second attempt
+        org_id = uuid4()
+        mock_agent = make_agent(
+            agent_id=agent_id,
+            org_id=org_id,
+            verification_attempts=1,
         )
         mock_agent_repo.get.return_value = mock_agent
 
@@ -196,7 +189,7 @@ class TestRetryLogic:
                 mock_factory.create.return_value = mock_verifier
 
                 service = AgentVerificationService(mock_agent_repo)
-                await service.verify_agent(agent_id)
+                await service.verify_agent(agent_id, org_id)
 
         # get_retry_delay should be called with the current attempt number (after increment)
         # verification_attempts was 1 before, becomes 2 during verification
@@ -206,15 +199,8 @@ class TestRetryLogic:
     async def test_schedule_retry_creates_background_task(self, mock_agent_repo, mock_settings):
         """Test that _schedule_retry creates an asyncio task."""
         agent_id = uuid4()
-        mock_agent = AgentRow(
-            id=agent_id,
-            name="Test Agent",
-            goal="Test goal",
-            agent_type="phone",
-            contact_info={"phone_number": "+1234567890"},
-            connection_status="saved",
-            verification_attempts=0,
-        )
+        org_id = uuid4()
+        mock_agent = make_agent(agent_id=agent_id, org_id=org_id)
         mock_agent_repo.get.return_value = mock_agent
 
         with patch(
@@ -230,7 +216,7 @@ class TestRetryLogic:
 
                 with patch("asyncio.create_task") as mock_create_task:
                     service = AgentVerificationService(mock_agent_repo)
-                    await service.verify_agent(agent_id)
+                    await service.verify_agent(agent_id, org_id)
 
                     # Should have created a background task for retry
                     mock_create_task.assert_called()
@@ -239,15 +225,8 @@ class TestRetryLogic:
     async def test_retry_task_stored_in_service(self, mock_agent_repo, mock_settings):
         """Test that retry task is stored in _retry_tasks dict."""
         agent_id = uuid4()
-        mock_agent = AgentRow(
-            id=agent_id,
-            name="Test Agent",
-            goal="Test goal",
-            agent_type="phone",
-            contact_info={"phone_number": "+1234567890"},
-            connection_status="saved",
-            verification_attempts=0,
-        )
+        org_id = uuid4()
+        mock_agent = make_agent(agent_id=agent_id, org_id=org_id)
         mock_agent_repo.get.return_value = mock_agent
 
         with patch(
@@ -262,7 +241,7 @@ class TestRetryLogic:
                 mock_factory.create.return_value = mock_verifier
 
                 service = AgentVerificationService(mock_agent_repo)
-                await service.verify_agent(agent_id)
+                await service.verify_agent(agent_id, org_id)
 
                 # Should have stored task in _retry_tasks
                 assert agent_id in service._retry_tasks
@@ -271,15 +250,8 @@ class TestRetryLogic:
     async def test_handles_exception_during_verification(self, mock_agent_repo, mock_settings):
         """Test that exceptions during verification trigger retry logic."""
         agent_id = uuid4()
-        mock_agent = AgentRow(
-            id=agent_id,
-            name="Test Agent",
-            goal="Test goal",
-            agent_type="phone",
-            contact_info={"phone_number": "+1234567890"},
-            connection_status="saved",
-            verification_attempts=0,
-        )
+        org_id = uuid4()
+        mock_agent = make_agent(agent_id=agent_id, org_id=org_id)
         mock_agent_repo.get.return_value = mock_agent
 
         with patch(
@@ -294,7 +266,7 @@ class TestRetryLogic:
                 mock_factory.create.return_value = mock_verifier
 
                 service = AgentVerificationService(mock_agent_repo)
-                await service.verify_agent(agent_id)
+                await service.verify_agent(agent_id, org_id)
 
         # Should still schedule retry on exception (attempts < max)
         calls = mock_agent_repo.update.call_args_list
@@ -305,6 +277,7 @@ class TestRetryLogic:
     async def test_agent_not_found_does_not_crash(self, mock_agent_repo, mock_settings):
         """Test that verification handles agent not found gracefully."""
         agent_id = uuid4()
+        org_id = uuid4()
         mock_agent_repo.get.return_value = None
 
         with patch(
@@ -313,7 +286,7 @@ class TestRetryLogic:
         ):
             service = AgentVerificationService(mock_agent_repo)
             # Should not raise
-            await service.verify_agent(agent_id)
+            await service.verify_agent(agent_id, org_id)
 
         # No status updates should be called
         mock_agent_repo.update.assert_not_called()
@@ -322,12 +295,10 @@ class TestRetryLogic:
     async def test_skips_already_verified_agent(self, mock_agent_repo, mock_settings):
         """Test that already verified agents are skipped."""
         agent_id = uuid4()
-        mock_agent = AgentRow(
-            id=agent_id,
-            name="Test Agent",
-            goal="Test goal",
-            agent_type="phone",
-            contact_info={"phone_number": "+1234567890"},
+        org_id = uuid4()
+        mock_agent = make_agent(
+            agent_id=agent_id,
+            org_id=org_id,
             connection_status="verified",
             verification_attempts=1,
         )
@@ -338,7 +309,7 @@ class TestRetryLogic:
             return_value=mock_settings,
         ):
             service = AgentVerificationService(mock_agent_repo)
-            await service.verify_agent(agent_id)
+            await service.verify_agent(agent_id, org_id)
 
         # No status updates should be called
         mock_agent_repo.update.assert_not_called()
@@ -347,12 +318,10 @@ class TestRetryLogic:
     async def test_force_reverifies_verified_agent(self, mock_agent_repo, mock_settings):
         """Test that force=True re-verifies already verified agents."""
         agent_id = uuid4()
-        mock_agent = AgentRow(
-            id=agent_id,
-            name="Test Agent",
-            goal="Test goal",
-            agent_type="phone",
-            contact_info={"phone_number": "+1234567890"},
+        org_id = uuid4()
+        mock_agent = make_agent(
+            agent_id=agent_id,
+            org_id=org_id,
             connection_status="verified",
             verification_attempts=1,
         )
@@ -370,7 +339,7 @@ class TestRetryLogic:
                 mock_factory.create.return_value = mock_verifier
 
                 service = AgentVerificationService(mock_agent_repo)
-                await service.verify_agent(agent_id, force=True)
+                await service.verify_agent(agent_id, org_id, force=True)
 
         # Should have made status updates
         assert mock_agent_repo.update.call_count >= 1
@@ -379,14 +348,12 @@ class TestRetryLogic:
     async def test_unsupported_agent_type_fails_immediately(self, mock_agent_repo, mock_settings):
         """Test that unsupported agent types fail without retry."""
         agent_id = uuid4()
-        mock_agent = AgentRow(
-            id=agent_id,
-            name="Test Agent",
-            goal="Test goal",
+        org_id = uuid4()
+        mock_agent = make_agent(
+            agent_id=agent_id,
+            org_id=org_id,
             agent_type="unknown",
             contact_info={},
-            connection_status="saved",
-            verification_attempts=0,
         )
         mock_agent_repo.get.return_value = mock_agent
 
@@ -400,7 +367,7 @@ class TestRetryLogic:
                 mock_factory.create.side_effect = ValueError("Unsupported agent type")
 
                 service = AgentVerificationService(mock_agent_repo)
-                await service.verify_agent(agent_id)
+                await service.verify_agent(agent_id, org_id)
 
         # Should fail immediately, not pending_retry
         calls = mock_agent_repo.update.call_args_list
@@ -415,15 +382,8 @@ class TestCancelRetry:
     async def test_cancel_retry_returns_true_when_task_exists(self, mock_agent_repo, mock_settings):
         """Test that cancel_retry returns True when a retry task exists."""
         agent_id = uuid4()
-        mock_agent = AgentRow(
-            id=agent_id,
-            name="Test Agent",
-            goal="Test goal",
-            agent_type="phone",
-            contact_info={"phone_number": "+1234567890"},
-            connection_status="saved",
-            verification_attempts=0,
-        )
+        org_id = uuid4()
+        mock_agent = make_agent(agent_id=agent_id, org_id=org_id)
         mock_agent_repo.get.return_value = mock_agent
 
         with patch(
@@ -438,7 +398,7 @@ class TestCancelRetry:
                 mock_factory.create.return_value = mock_verifier
 
                 service = AgentVerificationService(mock_agent_repo)
-                await service.verify_agent(agent_id)
+                await service.verify_agent(agent_id, org_id)
 
                 # Task should be stored
                 assert agent_id in service._retry_tasks
@@ -482,7 +442,7 @@ class TestEdgeCases:
         ):
             service = AgentVerificationService(mock_agent_repo)
             # Should not raise
-            await service.verify_agent(agent_id)
+            await service.verify_agent(agent_id, uuid4())
 
         # No status updates should be called since we crashed early
         mock_agent_repo.update.assert_not_called()
@@ -495,15 +455,8 @@ class TestTranscriptStorage:
     async def test_success_stores_transcript(self, mock_agent_repo, mock_settings):
         """Test that successful verification stores the transcript."""
         agent_id = uuid4()
-        mock_agent = AgentRow(
-            id=agent_id,
-            name="Test Agent",
-            goal="Test goal",
-            agent_type="phone",
-            contact_info={"phone_number": "+1234567890"},
-            connection_status="saved",
-            verification_attempts=0,
-        )
+        org_id = uuid4()
+        mock_agent = make_agent(agent_id=agent_id, org_id=org_id)
         mock_agent_repo.get.return_value = mock_agent
 
         expected_transcript = [
@@ -523,7 +476,7 @@ class TestTranscriptStorage:
                 mock_factory.create.return_value = mock_verifier
 
                 service = AgentVerificationService(mock_agent_repo)
-                await service.verify_agent(agent_id)
+                await service.verify_agent(agent_id, org_id)
 
         # Should store transcript in update_status call
         calls = mock_agent_repo.update.call_args_list
@@ -534,15 +487,8 @@ class TestTranscriptStorage:
     async def test_failure_stores_transcript(self, mock_agent_repo, mock_settings):
         """Test that failed verification stores the transcript."""
         agent_id = uuid4()
-        mock_agent = AgentRow(
-            id=agent_id,
-            name="Test Agent",
-            goal="Test goal",
-            agent_type="phone",
-            contact_info={"phone_number": "+1234567890"},
-            connection_status="saved",
-            verification_attempts=0,
-        )
+        org_id = uuid4()
+        mock_agent = make_agent(agent_id=agent_id, org_id=org_id)
         mock_agent_repo.get.return_value = mock_agent
 
         expected_transcript = [
@@ -563,7 +509,7 @@ class TestTranscriptStorage:
                 mock_factory.create.return_value = mock_verifier
 
                 service = AgentVerificationService(mock_agent_repo)
-                await service.verify_agent(agent_id)
+                await service.verify_agent(agent_id, org_id)
 
         # Should store transcript even on failure
         calls = mock_agent_repo.update.call_args_list
@@ -574,15 +520,8 @@ class TestTranscriptStorage:
     async def test_stores_none_transcript_when_not_available(self, mock_agent_repo, mock_settings):
         """Test that None transcript is stored when not available."""
         agent_id = uuid4()
-        mock_agent = AgentRow(
-            id=agent_id,
-            name="Test Agent",
-            goal="Test goal",
-            agent_type="phone",
-            contact_info={"phone_number": "+1234567890"},
-            connection_status="saved",
-            verification_attempts=0,
-        )
+        org_id = uuid4()
+        mock_agent = make_agent(agent_id=agent_id, org_id=org_id)
         mock_agent_repo.get.return_value = mock_agent
 
         with patch(
@@ -597,7 +536,7 @@ class TestTranscriptStorage:
                 mock_factory.create.return_value = mock_verifier
 
                 service = AgentVerificationService(mock_agent_repo)
-                await service.verify_agent(agent_id)
+                await service.verify_agent(agent_id, org_id)
 
         # Should store None transcript
         calls = mock_agent_repo.update.call_args_list
@@ -608,7 +547,7 @@ class TestTranscriptStorage:
     async def test_max_retries_failure_stores_transcript(self, mock_agent_repo, mock_settings):
         """Test that transcript is stored when max retries exceeded."""
         agent_id = uuid4()
-        mock_agent = AgentRow(
+        mock_agent = make_agent(
             id=agent_id,
             name="Test Agent",
             goal="Test goal",
@@ -637,7 +576,7 @@ class TestTranscriptStorage:
                 mock_factory.create.return_value = mock_verifier
 
                 service = AgentVerificationService(mock_agent_repo)
-                await service.verify_agent(agent_id)
+                await service.verify_agent(agent_id, uuid4())
 
         # Should store transcript in final failed status
         calls = mock_agent_repo.update.call_args_list
@@ -653,15 +592,8 @@ class TestVerifyAgentBackground:
     async def test_verify_agent_background_creates_task(self, mock_agent_repo, mock_settings):
         """Test that verify_agent_background creates a background task."""
         agent_id = uuid4()
-        mock_agent = AgentRow(
-            id=agent_id,
-            name="Test Agent",
-            goal="Test goal",
-            agent_type="phone",
-            contact_info={"phone_number": "+1234567890"},
-            connection_status="saved",
-            verification_attempts=0,
-        )
+        org_id = uuid4()
+        mock_agent = make_agent(agent_id=agent_id, org_id=org_id)
         mock_agent_repo.get.return_value = mock_agent
 
         with patch(
@@ -677,19 +609,17 @@ class TestVerifyAgentBackground:
 
                 with patch("asyncio.create_task") as mock_create_task:
                     service = AgentVerificationService(mock_agent_repo)
-                    await service.verify_agent_background(agent_id)
+                    await service.verify_agent_background(agent_id, org_id)
                     mock_create_task.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_verify_agent_background_with_force(self, mock_agent_repo, mock_settings):
         """Test that verify_agent_background passes force flag correctly."""
         agent_id = uuid4()
-        mock_agent = AgentRow(
-            id=agent_id,
-            name="Test Agent",
-            goal="Test goal",
-            agent_type="phone",
-            contact_info={"phone_number": "+1234567890"},
+        org_id = uuid4()
+        mock_agent = make_agent(
+            agent_id=agent_id,
+            org_id=org_id,
             connection_status="verified",
             verification_attempts=1,
         )
@@ -707,7 +637,7 @@ class TestVerifyAgentBackground:
                 mock_factory.create.return_value = mock_verifier
 
                 service = AgentVerificationService(mock_agent_repo)
-                await service.verify_agent_background(agent_id, force=True)
+                await service.verify_agent_background(agent_id, org_id, force=True)
 
                 # Give the background task a moment to run
                 await asyncio.sleep(0.01)

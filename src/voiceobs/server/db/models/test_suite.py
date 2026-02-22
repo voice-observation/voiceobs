@@ -12,6 +12,7 @@ class TestSuiteRow:
     """Represents a test suite row in the database."""
 
     id: UUID
+    org_id: UUID  # Organization this test suite belongs to
     name: str
     description: str | None = None
     status: str = "pending"  # pending, generating, ready, generation_failed, running, completed
