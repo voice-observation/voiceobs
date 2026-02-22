@@ -14,6 +14,8 @@ import { useAgentActions } from "@/hooks/useAgentActions";
 import { Loader2 } from "lucide-react";
 
 interface DeleteAgentDialogProps {
+  /** Organization ID for org-scoped agent API calls */
+  orgId: string;
   /** Agent ID to delete. null = dialog closed, string = dialog open for that agent */
   agentId: string | null;
   /** Agent name for display in confirmation message */
@@ -29,12 +31,14 @@ interface DeleteAgentDialogProps {
  * Manages its own loading state and handles the delete API call.
  */
 export function DeleteAgentDialog({
+  orgId,
   agentId,
   agentName,
   onOpenChange,
   onDeleted,
 }: DeleteAgentDialogProps) {
   const { deleteAgent, deletingIds } = useAgentActions({
+    orgId,
     onDeleted: () => {
       onOpenChange(false);
       onDeleted?.();

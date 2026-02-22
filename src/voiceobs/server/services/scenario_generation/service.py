@@ -202,12 +202,14 @@ class ScenarioGenerationService:
     async def generate_scenarios(
         self,
         suite_id: UUID,
+        org_id: UUID,
         additional_prompt: str | None = None,
     ) -> list[TestScenarioRow]:
         """Generate test scenarios for a test suite.
 
         Args:
             suite_id: The test suite UUID.
+            org_id: The organization UUID (suite and agent must belong to this org).
             additional_prompt: Additional prompt guidance for generation.
 
         Returns:
@@ -216,8 +218,7 @@ class ScenarioGenerationService:
         Raises:
             ValueError: If test suite, agent, or personas not found.
         """
-        # Fetch the test suite
-        suite = await self._test_suite_repo.get(suite_id)
+        suite = await self._test_suite_repo.get(suite_id, org_id)
         if suite is None:
             raise ValueError(f"Test suite {suite_id} not found")
 
@@ -225,13 +226,12 @@ class ScenarioGenerationService:
         if suite.agent_id is None:
             raise ValueError(f"Test suite {suite_id} has no agent assigned")
 
-        agent = await self._agent_repo.get(suite.agent_id)
+        agent = await self._agent_repo.get(suite.agent_id, org_id)
         if agent is None:
             raise ValueError(f"Agent {suite.agent_id} not found")
 
-        # Fetch active personas
-        # TODO: Once test suites are org-scoped, pass org_id here
-        personas = await self._persona_repo._list_all_active_unchecked()
+        # Fetch active personas for the org
+        personas = await self._persona_repo.list_all(org_id=org_id, is_active=True)
         if not personas:
             raise ValueError("No active personas available for scenario generation")
 
@@ -283,6 +283,7 @@ class ScenarioGenerationService:
     async def generate_scenarios_background(
         self,
         suite_id: UUID,
+        org_id: UUID,
         additional_prompt: str | None = None,
     ) -> None:
         """Generate scenarios in the background, updating suite status.
@@ -293,15 +294,17 @@ class ScenarioGenerationService:
 
         Args:
             suite_id: The test suite UUID.
+            org_id: The organization UUID.
             additional_prompt: Additional prompt guidance for generation.
         """
         try:
-            await self.generate_scenarios(suite_id, additional_prompt)
+            await self.generate_scenarios(suite_id, org_id, additional_prompt)
 
             # Update status to ready
             await self._test_suite_repo.update(
-                suite_id=suite_id,
-                updates={"status": "ready", "generation_error": None},
+                suite_id,
+                org_id,
+                {"status": "ready", "generation_error": None},
             )
             logger.info(f"Successfully generated scenarios for suite {suite_id}")
 
@@ -309,20 +312,23 @@ class ScenarioGenerationService:
             # Update status to generation_failed
             error_message = str(e)
             await self._test_suite_repo.update(
-                suite_id=suite_id,
-                updates={"status": "generation_failed", "generation_error": error_message},
+                suite_id,
+                org_id,
+                {"status": "generation_failed", "generation_error": error_message},
             )
             logger.error(f"Failed to generate scenarios for suite {suite_id}: {error_message}")
 
     def start_background_generation(
         self,
         suite_id: UUID,
+        org_id: UUID,
         additional_prompt: str | None = None,
     ) -> None:
         """Start scenario generation as a background asyncio task.
 
         Args:
             suite_id: The test suite UUID.
+            org_id: The organization UUID.
             additional_prompt: Additional prompt guidance for generation.
         """
-        asyncio.create_task(self.generate_scenarios_background(suite_id, additional_prompt))
+        asyncio.create_task(self.generate_scenarios_background(suite_id, org_id, additional_prompt))

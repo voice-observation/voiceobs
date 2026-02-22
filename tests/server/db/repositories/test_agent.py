@@ -19,10 +19,12 @@ class TestAgentRepository:
         """Test creating an agent with minimal required fields."""
         repo = AgentRepository(mock_db)
         agent_id = uuid4()
+        org_id = uuid4()
 
         mock_db.fetchrow.return_value = MockRecord(
             {
                 "id": agent_id,
+                "org_id": org_id,
                 "name": "Test Agent",
                 "goal": "Test goal",
                 "agent_type": "phone",
@@ -44,6 +46,7 @@ class TestAgentRepository:
         )
 
         result = await repo.create(
+            org_id=org_id,
             name="Test Agent",
             agent_type="phone",
             contact_info={"phone_number": "+1234567890"},
@@ -52,6 +55,7 @@ class TestAgentRepository:
         )
 
         assert result.id == agent_id
+        assert result.org_id == org_id
         assert result.name == "Test Agent"
         assert result.agent_type == "phone"
         assert result.connection_status == "saved"
@@ -67,6 +71,7 @@ class TestAgentRepository:
 
         with pytest.raises(ValueError, match="phone_number"):
             await repo.create(
+                org_id=uuid4(),
                 name="Test Agent",
                 agent_type="phone",
                 contact_info={},  # Missing phone_number
@@ -85,6 +90,7 @@ class TestAgentRepository:
 
         with pytest.raises(RuntimeError, match="Failed to create agent"):
             await repo.create(
+                org_id=uuid4(),
                 name="Test Agent",
                 agent_type="phone",
                 contact_info={"phone_number": "+1234567890"},
@@ -99,10 +105,12 @@ class TestAgentRepository:
         """Test getting an agent by UUID."""
         repo = AgentRepository(mock_db)
         agent_id = uuid4()
+        org_id = uuid4()
 
         mock_db.fetchrow.return_value = MockRecord(
             {
                 "id": agent_id,
+                "org_id": org_id,
                 "name": "Test Agent",
                 "goal": "Test goal",
                 "agent_type": "phone",
@@ -126,7 +134,7 @@ class TestAgentRepository:
             }
         )
 
-        result = await repo.get(agent_id)
+        result = await repo.get(agent_id, org_id)
 
         assert result is not None
         assert result.id == agent_id
@@ -143,7 +151,7 @@ class TestAgentRepository:
         repo = AgentRepository(mock_db)
         mock_db.fetchrow.return_value = None
 
-        result = await repo.get(uuid4())
+        result = await repo.get(uuid4(), uuid4())
 
         assert result is None
 
@@ -153,11 +161,13 @@ class TestAgentRepository:
         repo = AgentRepository(mock_db)
         agent1_id = uuid4()
         agent2_id = uuid4()
+        org_id = uuid4()
 
         mock_db.fetch.return_value = [
             MockRecord(
                 {
                     "id": agent1_id,
+                    "org_id": org_id,
                     "name": "Agent 1",
                     "goal": "Goal 1",
                     "agent_type": "phone",
@@ -180,6 +190,7 @@ class TestAgentRepository:
             MockRecord(
                 {
                     "id": agent2_id,
+                    "org_id": org_id,
                     "name": "Agent 2",
                     "goal": "Goal 2",
                     "agent_type": "web",
@@ -201,7 +212,7 @@ class TestAgentRepository:
             ),
         ]
 
-        result = await repo.list_all()
+        result = await repo.list_all(org_id=org_id)
 
         assert len(result) == 2
         assert all(isinstance(a, AgentRow) for a in result)
@@ -215,19 +226,27 @@ class TestAgentRepository:
         repo = AgentRepository(mock_db)
         mock_db.fetch.return_value = []
 
-        await repo.list_all(connection_status="verified", is_active=True, limit=10, offset=5)
+        await repo.list_all(
+            org_id=uuid4(),
+            connection_status="verified",
+            is_active=True,
+            limit=10,
+            offset=5,
+        )
 
         sql = mock_db.fetch.call_args[0][0]
-        assert "connection_status = $1" in sql
-        assert "is_active = $2" in sql
-        assert "LIMIT $3" in sql
-        assert "OFFSET $4" in sql
+        assert "org_id = $1" in sql
+        assert "connection_status = $2" in sql
+        assert "is_active = $3" in sql
+        assert "LIMIT $4" in sql
+        assert "OFFSET $5" in sql
 
     @pytest.mark.asyncio
     async def test_update_agent_verification_fields(self, mock_db):
         """Test updating verification transcript and reasoning fields."""
         repo = AgentRepository(mock_db)
         agent_id = uuid4()
+        org_id = uuid4()
         transcript = [
             {"role": "assistant", "content": "Hello, how can I help?"},
             {"role": "user", "content": "I need support"},
@@ -237,6 +256,7 @@ class TestAgentRepository:
         mock_db.fetchrow.return_value = MockRecord(
             {
                 "id": agent_id,
+                "org_id": org_id,
                 "name": "Test Agent",
                 "goal": "Test goal",
                 "agent_type": "phone",
@@ -259,6 +279,7 @@ class TestAgentRepository:
 
         result = await repo.update(
             agent_id,
+            org_id,
             verification_transcript=transcript,
             verification_reasoning=reasoning,
         )
@@ -276,10 +297,12 @@ class TestAgentRepository:
         """Test update with no fields to update."""
         repo = AgentRepository(mock_db)
         agent_id = uuid4()
+        org_id = uuid4()
 
         mock_db.fetchrow.return_value = MockRecord(
             {
                 "id": agent_id,
+                "org_id": org_id,
                 "name": "Test Agent",
                 "goal": "Test goal",
                 "agent_type": "phone",
@@ -300,7 +323,7 @@ class TestAgentRepository:
             }
         )
 
-        result = await repo.update(agent_id)
+        result = await repo.update(agent_id, org_id)
 
         assert result is not None
         assert mock_db.fetchrow.called
@@ -311,6 +334,7 @@ class TestAgentRepository:
         """Test update with status and verification transcript and reasoning."""
         repo = AgentRepository(mock_db)
         agent_id = uuid4()
+        org_id = uuid4()
         now = datetime.now(timezone.utc)
         transcript = [{"role": "assistant", "content": "Test message"}]
         reasoning = "Verification successful"
@@ -318,6 +342,7 @@ class TestAgentRepository:
         mock_db.fetchrow.return_value = MockRecord(
             {
                 "id": agent_id,
+                "org_id": org_id,
                 "name": "Test Agent",
                 "goal": "Test goal",
                 "agent_type": "phone",
@@ -340,6 +365,7 @@ class TestAgentRepository:
 
         result = await repo.update(
             agent_id,
+            org_id,
             connection_status="verified",
             verification_attempts=1,
             last_verification_at=now,
@@ -358,10 +384,12 @@ class TestAgentRepository:
         """Test _row_to_agent handles string verification_transcript (JSONB from asyncpg)."""
         repo = AgentRepository(mock_db)
         agent_id = uuid4()
+        org_id = uuid4()
 
         mock_db.fetchrow.return_value = MockRecord(
             {
                 "id": agent_id,
+                "org_id": org_id,
                 "name": "Test Agent",
                 "goal": "Test goal",
                 "agent_type": "phone",
@@ -383,7 +411,7 @@ class TestAgentRepository:
             }
         )
 
-        result = await repo.get(agent_id)
+        result = await repo.get(agent_id, org_id)
 
         assert result is not None
         assert result.contact_info == {"phone_number": "+1234567890"}
@@ -397,10 +425,12 @@ class TestAgentRepository:
         """Test _row_to_agent handles None fields correctly."""
         repo = AgentRepository(mock_db)
         agent_id = uuid4()
+        org_id = uuid4()
 
         mock_db.fetchrow.return_value = MockRecord(
             {
                 "id": agent_id,
+                "org_id": org_id,
                 "name": "Test Agent",
                 "goal": "Test goal",
                 "agent_type": "phone",
@@ -421,7 +451,7 @@ class TestAgentRepository:
             }
         )
 
-        result = await repo.get(agent_id)
+        result = await repo.get(agent_id, org_id)
 
         assert result is not None
         assert result.contact_info == {}
@@ -435,14 +465,16 @@ class TestAgentRepository:
         """Test deleting an agent."""
         repo = AgentRepository(mock_db)
         agent_id = uuid4()
+        org_id = uuid4()
         mock_db.execute.return_value = "DELETE 1"
 
-        result = await repo.delete(agent_id)
+        result = await repo.delete(agent_id, org_id)
 
         assert result is True
         mock_db.execute.assert_called_once()
         sql = mock_db.execute.call_args[0][0]
         assert "DELETE FROM agents" in sql
+        assert "org_id" in sql
 
     @pytest.mark.asyncio
     async def test_delete_not_found(self, mock_db):
@@ -450,7 +482,7 @@ class TestAgentRepository:
         repo = AgentRepository(mock_db)
         mock_db.execute.return_value = "DELETE 0"
 
-        result = await repo.delete(uuid4())
+        result = await repo.delete(uuid4(), uuid4())
 
         assert result is False
 
@@ -458,33 +490,38 @@ class TestAgentRepository:
     async def test_count_active(self, mock_db):
         """Test counting active agents (default)."""
         repo = AgentRepository(mock_db)
+        org_id = uuid4()
         mock_db.fetchval.return_value = 5
 
-        count = await repo.count()
+        count = await repo.count(org_id)
 
         assert count == 5
         sql = mock_db.fetchval.call_args[0][0]
         assert "COUNT(*)" in sql
-        assert "WHERE is_active = $1" in sql
+        assert "WHERE org_id = $1" in sql
+        assert "is_active = $2" in sql
 
     @pytest.mark.asyncio
     async def test_count_all(self, mock_db):
         """Test counting all agents."""
         repo = AgentRepository(mock_db)
+        org_id = uuid4()
         mock_db.fetchval.return_value = 10
 
-        count = await repo.count(is_active=None)
+        count = await repo.count(org_id, is_active=None)
 
         assert count == 10
         sql = mock_db.fetchval.call_args[0][0]
         assert "COUNT(*)" in sql
-        assert "WHERE is_active" not in sql
+        assert "WHERE org_id = $1" in sql
+        assert "is_active" not in sql
 
     @pytest.mark.asyncio
     async def test_update_to_pending_retry_status(self, mock_db):
         """Test update can set pending_retry status with verification fields."""
         repo = AgentRepository(mock_db)
         agent_id = uuid4()
+        org_id = uuid4()
         now = datetime.now(timezone.utc)
         transcript = [
             {"role": "assistant", "content": "Hello, this is support."},
@@ -495,6 +532,7 @@ class TestAgentRepository:
         mock_db.fetchrow.return_value = MockRecord(
             {
                 "id": agent_id,
+                "org_id": org_id,
                 "name": "Test Agent",
                 "goal": "Test goal",
                 "agent_type": "phone",
@@ -517,6 +555,7 @@ class TestAgentRepository:
 
         result = await repo.update(
             agent_id,
+            org_id,
             connection_status="pending_retry",
             verification_attempts=1,
             last_verification_at=now,

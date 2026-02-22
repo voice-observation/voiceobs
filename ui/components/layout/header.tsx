@@ -24,6 +24,10 @@ export function Header() {
       return routeTitles[pathname];
     }
 
+    // Check for org-scoped routes: /orgs/[orgId]/agents, /orgs/[orgId]/test-suites
+    if (pathname?.includes("/agents")) return "Agents";
+    if (pathname?.includes("/test-suites")) return "Test Suites";
+
     // Check for routes that start with a known path
     for (const [route, title] of Object.entries(routeTitles)) {
       if (route !== "/" && pathname?.startsWith(route)) {

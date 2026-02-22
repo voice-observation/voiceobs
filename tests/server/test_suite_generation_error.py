@@ -12,6 +12,7 @@ class TestSuiteGenerationError:
         """Test that TestSuiteRow has generation_error field."""
         suite = TestSuiteRow(
             id=uuid4(),
+            org_id=uuid4(),
             name="Test Suite",
             status="generation_failed",
             generation_error="LLM service unavailable",
@@ -23,6 +24,7 @@ class TestSuiteGenerationError:
         """Test that generation_error is optional."""
         suite = TestSuiteRow(
             id=uuid4(),
+            org_id=uuid4(),
             name="Test Suite",
             status="ready",
         )

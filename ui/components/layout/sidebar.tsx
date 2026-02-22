@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { OrgSwitcher } from "@/components/organization";
+import { useAuth } from "@/contexts/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import {
@@ -35,37 +36,49 @@ interface NavigationSection {
   items: NavigationItem[];
 }
 
-const navigationSections: NavigationSection[] = [
-  {
-    label: "Dashboard",
-    items: [{ name: "Dashboard", href: "/", icon: LayoutDashboard }],
-  },
-  {
-    label: "Observability",
-    items: [{ name: "Conversations", href: "/conversations", icon: MessageSquare }],
-  },
-  {
-    label: "Simulations",
-    items: [
-      { name: "Test Suites", href: "/test-suites", icon: TestTube2 },
-      { name: "Test Scenarios", href: "/test-scenarios", icon: ClipboardList },
-      { name: "Results", href: "/test-results", icon: BarChart3 },
-      { name: "Personas", href: "/personas", icon: Users },
-      { name: "Agents", href: "/agents", icon: Bot },
-    ],
-  },
-  {
-    label: "Analysis",
-    items: [{ name: "Reports", href: "/reports", icon: FileText }],
-  },
-];
-
 export function Sidebar() {
   const pathname = usePathname();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const router = useRouter();
   const supabase = createClient();
+  const { activeOrg } = useAuth();
+
+  const navigationSections: NavigationSection[] = useMemo(
+    () => [
+      {
+        label: "Dashboard",
+        items: [{ name: "Dashboard", href: "/", icon: LayoutDashboard }],
+      },
+      {
+        label: "Observability",
+        items: [{ name: "Conversations", href: "/conversations", icon: MessageSquare }],
+      },
+      {
+        label: "Simulations",
+        items: [
+          {
+            name: "Test Suites",
+            href: activeOrg ? `/orgs/${activeOrg.id}/test-suites` : "/test-suites",
+            icon: TestTube2,
+          },
+          { name: "Test Scenarios", href: "/test-scenarios", icon: ClipboardList },
+          { name: "Results", href: "/test-results", icon: BarChart3 },
+          { name: "Personas", href: "/personas", icon: Users },
+          {
+            name: "Agents",
+            href: activeOrg ? `/orgs/${activeOrg.id}/agents` : "/agents",
+            icon: Bot,
+          },
+        ],
+      },
+      {
+        label: "Analysis",
+        items: [{ name: "Reports", href: "/reports", icon: FileText }],
+      },
+    ],
+    [activeOrg?.id]
+  );
 
   useEffect(() => {
     // Get initial session

@@ -7,6 +7,7 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from voiceobs.server.auth.context import AuthContext
 from voiceobs.server.models import GenerateScenariosRequest
 
 
@@ -79,6 +80,7 @@ class TestGenerateMoreEndpoint:
     ):
         """Test successful generation trigger."""
         suite_id = uuid4()
+        org_id = uuid4()
 
         # Mock suite with "ready" status (not generating)
         mock_suite = MagicMock()
@@ -95,14 +97,17 @@ class TestGenerateMoreEndpoint:
         from voiceobs.server.routes.test_suites import generate_more_scenarios
 
         request = GenerateScenariosRequest(prompt="Test edge cases")
+        mock_auth = MagicMock(spec=AuthContext)
 
         with patch(
             "voiceobs.server.routes.test_suites.get_scenario_generation_service",
             return_value=mock_generation_service,
         ):
             response = await generate_more_scenarios(
+                org_id=org_id,
                 suite_id=str(suite_id),
                 request=request,
+                auth=mock_auth,
                 suite_repo=mock_suite_repo,
                 scenario_repo=mock_scenario_repo,
             )
@@ -110,7 +115,7 @@ class TestGenerateMoreEndpoint:
         assert response.suite_id == str(suite_id)
         assert response.status == "generating"
         mock_generation_service.start_background_generation.assert_called_once_with(
-            suite_id, "Test edge cases"
+            suite_id, org_id, "Test edge cases"
         )
 
     @pytest.mark.asyncio
@@ -119,6 +124,7 @@ class TestGenerateMoreEndpoint:
     ):
         """Test 404 when suite doesn't exist."""
         suite_id = uuid4()
+        org_id = uuid4()
 
         mock_suite_repo.get = AsyncMock(return_value=None)
 
@@ -128,11 +134,14 @@ class TestGenerateMoreEndpoint:
         from voiceobs.server.routes.test_suites import generate_more_scenarios
 
         request = GenerateScenariosRequest()
+        mock_auth = MagicMock(spec=AuthContext)
 
         with pytest.raises(HTTPException) as exc_info:
             await generate_more_scenarios(
+                org_id=org_id,
                 suite_id=str(suite_id),
                 request=request,
+                auth=mock_auth,
                 suite_repo=mock_suite_repo,
                 scenario_repo=mock_scenario_repo,
             )
@@ -146,6 +155,7 @@ class TestGenerateMoreEndpoint:
     ):
         """Test 400 when suite is already generating."""
         suite_id = uuid4()
+        org_id = uuid4()
 
         # Mock suite with "generating" status
         mock_suite = MagicMock()
@@ -159,11 +169,14 @@ class TestGenerateMoreEndpoint:
         from voiceobs.server.routes.test_suites import generate_more_scenarios
 
         request = GenerateScenariosRequest()
+        mock_auth = MagicMock(spec=AuthContext)
 
         with pytest.raises(HTTPException) as exc_info:
             await generate_more_scenarios(
+                org_id=org_id,
                 suite_id=str(suite_id),
                 request=request,
+                auth=mock_auth,
                 suite_repo=mock_suite_repo,
                 scenario_repo=mock_scenario_repo,
             )
@@ -177,6 +190,7 @@ class TestGenerateMoreEndpoint:
     ):
         """Test generation without additional prompt."""
         suite_id = uuid4()
+        org_id = uuid4()
 
         mock_suite = MagicMock()
         mock_suite.id = suite_id
@@ -191,20 +205,25 @@ class TestGenerateMoreEndpoint:
         from voiceobs.server.routes.test_suites import generate_more_scenarios
 
         request = GenerateScenariosRequest()  # No prompt
+        mock_auth = MagicMock(spec=AuthContext)
 
         with patch(
             "voiceobs.server.routes.test_suites.get_scenario_generation_service",
             return_value=mock_generation_service,
         ):
             response = await generate_more_scenarios(
+                org_id=org_id,
                 suite_id=str(suite_id),
                 request=request,
+                auth=mock_auth,
                 suite_repo=mock_suite_repo,
                 scenario_repo=mock_scenario_repo,
             )
 
         assert response.status == "generating"
-        mock_generation_service.start_background_generation.assert_called_once_with(suite_id, None)
+        mock_generation_service.start_background_generation.assert_called_once_with(
+            suite_id, org_id, None
+        )
 
     @pytest.mark.asyncio
     async def test_generate_more_scenarios_updates_status_to_generating(
@@ -212,6 +231,7 @@ class TestGenerateMoreEndpoint:
     ):
         """Test that suite status is updated to 'generating' before triggering."""
         suite_id = uuid4()
+        org_id = uuid4()
 
         mock_suite = MagicMock()
         mock_suite.id = suite_id
@@ -226,14 +246,17 @@ class TestGenerateMoreEndpoint:
         from voiceobs.server.routes.test_suites import generate_more_scenarios
 
         request = GenerateScenariosRequest(prompt="Test")
+        mock_auth = MagicMock(spec=AuthContext)
 
         with patch(
             "voiceobs.server.routes.test_suites.get_scenario_generation_service",
             return_value=mock_generation_service,
         ):
             response = await generate_more_scenarios(
+                org_id=org_id,
                 suite_id=str(suite_id),
                 request=request,
+                auth=mock_auth,
                 suite_repo=mock_suite_repo,
                 scenario_repo=mock_scenario_repo,
             )
@@ -241,9 +264,9 @@ class TestGenerateMoreEndpoint:
         # Verify status was updated to "generating"
         mock_suite_repo.update.assert_called_once()
         call_args = mock_suite_repo.update.call_args
-        # Using keyword arguments: update(suite_id=..., updates=...)
-        assert call_args.kwargs["suite_id"] == suite_id
-        assert call_args.kwargs["updates"]["status"] == "generating"
+        assert call_args[0][0] == suite_id
+        assert call_args[0][1] == org_id
+        assert call_args[0][2]["status"] == "generating"
 
         # Response should include scenario count
         assert response.scenario_count == 1
@@ -257,11 +280,14 @@ class TestGenerateMoreEndpoint:
         from voiceobs.server.routes.test_suites import generate_more_scenarios
 
         request = GenerateScenariosRequest()
+        mock_auth = MagicMock(spec=AuthContext)
 
         with pytest.raises(HTTPException) as exc_info:
             await generate_more_scenarios(
+                org_id=uuid4(),
                 suite_id="not-a-valid-uuid",
                 request=request,
+                auth=mock_auth,
                 suite_repo=mock_suite_repo,
                 scenario_repo=mock_scenario_repo,
             )
@@ -274,6 +300,7 @@ class TestGenerateMoreEndpoint:
     ):
         """Test that exception during generation reverts status."""
         suite_id = uuid4()
+        org_id = uuid4()
 
         mock_suite = MagicMock()
         mock_suite.id = suite_id
@@ -294,14 +321,17 @@ class TestGenerateMoreEndpoint:
         from voiceobs.server.routes.test_suites import generate_more_scenarios
 
         request = GenerateScenariosRequest(prompt="Test")
+        mock_auth = MagicMock(spec=AuthContext)
 
         with patch(
             "voiceobs.server.routes.test_suites.get_scenario_generation_service",
             return_value=mock_service,
         ):
             response = await generate_more_scenarios(
+                org_id=org_id,
                 suite_id=str(suite_id),
                 request=request,
+                auth=mock_auth,
                 suite_repo=mock_suite_repo,
                 scenario_repo=mock_scenario_repo,
             )
@@ -310,8 +340,8 @@ class TestGenerateMoreEndpoint:
         update_calls = mock_suite_repo.update.call_args_list
         assert len(update_calls) == 2  # First to "generating", then to "generation_failed"
         second_call = update_calls[1]
-        assert second_call.kwargs["updates"]["status"] == "generation_failed"
-        assert "Service initialization failed" in second_call.kwargs["updates"]["generation_error"]
+        assert second_call[0][2]["status"] == "generation_failed"
+        assert "Service initialization failed" in second_call[0][2]["generation_error"]
 
         # Response should still be returned
         assert response.status == "generating"

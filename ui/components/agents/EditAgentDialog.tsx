@@ -6,6 +6,8 @@ import { useAgentActions } from "@/hooks/useAgentActions";
 import type { Agent, AgentCreateRequest, AgentUpdateRequest } from "@/lib/types";
 
 interface EditAgentDialogProps {
+  /** Organization ID for org-scoped agent API calls */
+  orgId: string;
   /** Agent to edit. null = dialog closed, Agent = dialog open with that agent */
   agent: Agent | null;
   /** Called when dialog open state changes */
@@ -18,8 +20,9 @@ interface EditAgentDialogProps {
  * Self-contained edit dialog for agents.
  * Wraps AgentConfigForm and handles the update API call.
  */
-export function EditAgentDialog({ agent, onOpenChange, onUpdated }: EditAgentDialogProps) {
+export function EditAgentDialog({ orgId, agent, onOpenChange, onUpdated }: EditAgentDialogProps) {
   const { updateAgent } = useAgentActions({
+    orgId,
     onUpdated: (updatedAgent) => {
       onOpenChange(false);
       onUpdated?.(updatedAgent);

@@ -1,9 +1,11 @@
-"""Agent management routes."""
+"""Agent management routes (org-scoped)."""
 
 import logging
+from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from voiceobs.server.auth.context import AuthContext, require_org_membership
 from voiceobs.server.dependencies import (
     get_agent_repository,
     get_agent_verification_service,
@@ -21,7 +23,7 @@ from voiceobs.server.utils import parse_uuid
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/agents", tags=["Agents"])
+router = APIRouter(prefix="/api/v1/orgs/{org_id}/agents", tags=["Agents"])
 
 
 @router.post(
@@ -29,9 +31,11 @@ router = APIRouter(prefix="/api/v1/agents", tags=["Agents"])
     response_model=AgentResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create agent",
-    description="Create a new agent and initiate connection verification.",
+    description="Create a new agent within an organization and initiate connection verification.",
     responses={
         400: {"model": ErrorResponse, "description": "Invalid request"},
+        403: {"model": ErrorResponse, "description": "Not a member of this organization"},
+        404: {"model": ErrorResponse, "description": "Organization not found"},
         501: {
             "model": ErrorResponse,
             "description": "Agent verification requires PostgreSQL database",
@@ -39,9 +43,11 @@ router = APIRouter(prefix="/api/v1/agents", tags=["Agents"])
     },
 )
 async def create_agent(
+    org_id: UUID,
     request: AgentCreateRequest,
+    auth: AuthContext = Depends(require_org_membership),
 ) -> AgentResponse:
-    """Create a new agent and start verification in background."""
+    """Create a new agent within an organization and start verification in background."""
     repo = get_agent_repository()
 
     # Build contact_info from request (already validated in Pydantic model)
@@ -50,6 +56,7 @@ async def create_agent(
     # Create agent with 'saved' status
     try:
         agent = await repo.create(
+            org_id=org_id,
             name=request.name,
             agent_type=request.agent_type,
             contact_info=contact_info,
@@ -66,7 +73,7 @@ async def create_agent(
         )
 
     # Start verification in background
-    logger.info(f"Starting verification for agent {agent.id} (name: {agent.name})")
+    logger.info(f"Starting verification for agent {agent.id} (name: {agent.name}) in org {org_id}")
     verification_service = get_agent_verification_service()
     if not verification_service:
         logger.error(
@@ -85,7 +92,7 @@ async def create_agent(
     logger.info(
         f"Verification service available, triggering background verification for agent {agent.id}"
     )
-    await verification_service.verify_agent_background(agent.id)
+    await verification_service.verify_agent_background(agent.id, agent.org_id)
 
     return AgentResponse(
         id=str(agent.id),
@@ -115,20 +122,25 @@ async def create_agent(
     "",
     response_model=AgentsListResponse,
     summary="List agents",
-    description="Get a list of all agents with optional filtering.",
+    description="Get a list of all agents within an organization with optional filtering.",
     responses={
+        403: {"model": ErrorResponse, "description": "Not a member of this organization"},
+        404: {"model": ErrorResponse, "description": "Organization not found"},
         501: {"model": ErrorResponse, "description": "Agent API requires PostgreSQL database"},
     },
 )
 async def list_agents(
+    org_id: UUID,
+    auth: AuthContext = Depends(require_org_membership),
     connection_status: str | None = Query(None, description="Filter by connection status"),
     is_active: bool | None = Query(None, description="Filter by active status"),
     limit: int | None = Query(None, ge=1, le=100, description="Maximum number of results"),
     offset: int | None = Query(None, ge=0, description="Number of results to skip"),
 ) -> AgentsListResponse:
-    """List all agents with optional filtering."""
+    """List all agents within an organization with optional filtering."""
     repo = get_agent_repository()
     agents = await repo.list_all(
+        org_id=org_id,
         connection_status=connection_status,
         is_active=is_active,
         limit=limit,
@@ -158,25 +170,30 @@ async def list_agents(
     "/{agent_id}",
     response_model=AgentResponse,
     summary="Get agent details",
-    description="Get detailed information about a specific agent.",
+    description="Get detailed information about a specific agent within an organization.",
     responses={
-        404: {"model": ErrorResponse, "description": "Agent not found"},
+        403: {"model": ErrorResponse, "description": "Not a member of this organization"},
+        404: {"model": ErrorResponse, "description": "Agent not found or organization not found"},
         501: {
             "model": ErrorResponse,
             "description": "Agent verification requires PostgreSQL database",
         },
     },
 )
-async def get_agent(agent_id: str) -> AgentResponse:
-    """Get agent by ID."""
+async def get_agent(
+    org_id: UUID,
+    agent_id: str,
+    auth: AuthContext = Depends(require_org_membership),
+) -> AgentResponse:
+    """Get agent by ID within an organization."""
     repo = get_agent_repository()
     agent_uuid = parse_uuid(agent_id, "agent")
-    agent = await repo.get(agent_uuid)
+    agent = await repo.get(agent_uuid, org_id)
 
     if agent is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Agent '{agent_id}' not found",
+            detail=f"Agent '{agent_id}' not found in organization",
         )
 
     return AgentResponse(
@@ -207,9 +224,10 @@ async def get_agent(agent_id: str) -> AgentResponse:
     "/{agent_id}",
     response_model=AgentResponse,
     summary="Update agent",
-    description="Update an existing agent.",
+    description="Update an existing agent within an organization.",
     responses={
-        404: {"model": ErrorResponse, "description": "Agent not found"},
+        403: {"model": ErrorResponse, "description": "Not a member of this organization"},
+        404: {"model": ErrorResponse, "description": "Agent not found or organization not found"},
         501: {
             "model": ErrorResponse,
             "description": "Agent verification requires PostgreSQL database",
@@ -217,19 +235,21 @@ async def get_agent(agent_id: str) -> AgentResponse:
     },
 )
 async def update_agent(
+    org_id: UUID,
     agent_id: str,
     request: AgentUpdateRequest,
+    auth: AuthContext = Depends(require_org_membership),
 ) -> AgentResponse:
     """Update an agent. Re-verifies if phone number or web_url changed."""
     repo = get_agent_repository()
     agent_uuid = parse_uuid(agent_id, "agent")
 
     # Get existing agent
-    existing = await repo.get(agent_uuid)
+    existing = await repo.get(agent_uuid, org_id)
     if not existing:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Agent '{agent_id}' not found",
+            detail=f"Agent '{agent_id}' not found in organization",
         )
 
     # Build contact_info update if provided
@@ -253,14 +273,14 @@ async def update_agent(
     update_kwargs.pop("web_url", None)
     update_kwargs.pop("contact_info", None)
 
-    # Add required ID and computed contact_info
-    update_kwargs["agent_id"] = agent_uuid
+    # Remove agent_id from kwargs (passed as positional)
+    update_kwargs.pop("agent_id", None)
     if contact_info_update is not None:
         update_kwargs["contact_info"] = contact_info_update
 
     # Update agent
     try:
-        agent = await repo.update(**update_kwargs)
+        agent = await repo.update(agent_uuid, org_id, **update_kwargs)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -270,7 +290,7 @@ async def update_agent(
     if agent is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Agent '{agent_id}' not found",
+            detail=f"Agent '{agent_id}' not found in organization",
         )
 
     # Re-verify if contact_info changed
@@ -298,7 +318,7 @@ async def update_agent(
         logger.info(
             f"Contact info changed, triggering background verification for agent {agent_id}"
         )
-        await verification_service.verify_agent_background(agent_uuid)
+        await verification_service.verify_agent_background(agent_uuid, org_id)
     else:
         logger.debug(f"Contact info unchanged, skipping verification for agent {agent_id}")
 
@@ -330,47 +350,57 @@ async def update_agent(
     "/{agent_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete agent",
-    description="Permanently delete an agent.",
+    description="Permanently delete an agent within an organization.",
     responses={
-        404: {"model": ErrorResponse, "description": "Agent not found"},
+        403: {"model": ErrorResponse, "description": "Not a member of this organization"},
+        404: {"model": ErrorResponse, "description": "Agent not found or organization not found"},
         501: {
             "model": ErrorResponse,
             "description": "Agent verification requires PostgreSQL database",
         },
     },
 )
-async def delete_agent(agent_id: str) -> None:
+async def delete_agent(
+    org_id: UUID,
+    agent_id: str,
+    auth: AuthContext = Depends(require_org_membership),
+) -> None:
     """Delete an agent."""
     repo = get_agent_repository()
     agent_uuid = parse_uuid(agent_id, "agent")
-    deleted = await repo.delete(agent_uuid)
+    deleted = await repo.delete(agent_uuid, org_id)
 
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Agent '{agent_id}' not found",
+            detail=f"Agent '{agent_id}' not found in organization",
         )
 
 
 @router.get(
     "/{agent_id}/verification-status",
     summary="Get verification status",
-    description="Get detailed verification status for an agent.",
+    description="Get detailed verification status for an agent within an organization.",
     responses={
-        404: {"model": ErrorResponse, "description": "Agent not found"},
+        403: {"model": ErrorResponse, "description": "Not a member of this organization"},
+        404: {"model": ErrorResponse, "description": "Agent not found or organization not found"},
         501: {"model": ErrorResponse, "description": "Requires PostgreSQL database"},
     },
 )
-async def get_verification_status(agent_id: str):
+async def get_verification_status(
+    org_id: UUID,
+    agent_id: str,
+    auth: AuthContext = Depends(require_org_membership),
+):
     """Get verification status for an agent."""
     repo = get_agent_repository()
     agent_uuid = parse_uuid(agent_id, "agent")
-    agent = await repo.get(agent_uuid)
+    agent = await repo.get(agent_uuid, org_id)
 
     if not agent:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Agent '{agent_id}' not found",
+            detail=f"Agent '{agent_id}' not found in organization",
         )
 
     return {
@@ -388,9 +418,10 @@ async def get_verification_status(agent_id: str):
     "/{agent_id}/verify",
     response_model=AgentResponse,
     summary="Verify agent connection",
-    description="Manually trigger agent connection verification.",
+    description="Manually trigger agent connection verification within an organization.",
     responses={
-        404: {"model": ErrorResponse, "description": "Agent not found"},
+        403: {"model": ErrorResponse, "description": "Not a member of this organization"},
+        404: {"model": ErrorResponse, "description": "Agent not found or organization not found"},
         501: {
             "model": ErrorResponse,
             "description": "Agent verification requires PostgreSQL database",
@@ -398,18 +429,20 @@ async def get_verification_status(agent_id: str):
     },
 )
 async def verify_agent(
+    org_id: UUID,
     agent_id: str,
     request: AgentVerificationRequest = AgentVerificationRequest(),
+    auth: AuthContext = Depends(require_org_membership),
 ) -> AgentResponse:
     """Manually trigger agent verification."""
     repo = get_agent_repository()
     agent_uuid = parse_uuid(agent_id, "agent")
-    agent = await repo.get(agent_uuid)
+    agent = await repo.get(agent_uuid, org_id)
 
     if not agent:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Agent '{agent_id}' not found",
+            detail=f"Agent '{agent_id}' not found in organization",
         )
 
     if not request.force and agent.connection_status == "verified":
@@ -457,7 +490,7 @@ async def verify_agent(
     logger.info(
         f"Verification service available, triggering background verification for agent {agent_id}"
     )
-    await verification_service.verify_agent_background(agent_uuid, force=request.force)
+    await verification_service.verify_agent_background(agent_uuid, org_id, force=request.force)
 
     # Return current status (will be updated asynchronously)
     return AgentResponse(

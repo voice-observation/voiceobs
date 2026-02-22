@@ -8,6 +8,8 @@ import type { GenerationStatusResponse } from "@/lib/types";
  * Options for the useGenerationPolling hook.
  */
 export interface UseGenerationPollingOptions {
+  /** Organization ID for org-scoped test suite API calls (required) */
+  orgId?: string;
   /** The ID of the test suite to poll generation status for */
   suiteId: string | null;
   /** Whether polling is enabled */
@@ -36,6 +38,7 @@ export interface UseGenerationPollingResult {
  * Automatically stops polling when the status indicates completion or failure.
  */
 export function useGenerationPolling({
+  orgId = "",
   suiteId,
   enabled,
   interval = 2000,
@@ -49,7 +52,8 @@ export function useGenerationPolling({
     // suiteId is guaranteed to be non-null when poll is called
     // because the effect only starts polling when suiteId is truthy
     try {
-      const status = await api.testSuites.getGenerationStatus(suiteId!);
+      if (!orgId) return;
+      const status = await api.testSuites.getGenerationStatus(orgId, suiteId!);
       onStatusChange?.(status);
 
       // Stop polling when generation is complete or failed
@@ -64,7 +68,7 @@ export function useGenerationPolling({
       console.error("Generation polling error", error);
       onError?.(error instanceof Error ? error : new Error("Polling failed"));
     }
-  }, [suiteId, onStatusChange, onComplete, onError]);
+  }, [orgId, suiteId, onStatusChange, onComplete, onError]);
 
   useEffect(() => {
     // Don't start polling if disabled or no suiteId

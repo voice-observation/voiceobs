@@ -1,14 +1,46 @@
-"""Tests for the agent API endpoints."""
+"""Tests for the org-scoped agent API endpoints."""
 
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
-from voiceobs.server.db.models import AgentRow
+import pytest
+
+from voiceobs.server.auth.context import AuthContext, require_org_membership
+from voiceobs.server.db.models import AgentRow, OrganizationRow, UserRow
+
+
+def make_user(**kwargs):
+    """Create a test UserRow with sensible defaults."""
+    defaults = dict(id=uuid4(), email="test@example.com", name="Test User", is_active=True)
+    defaults.update(kwargs)
+    return UserRow(**defaults)
+
+
+def make_org(**kwargs):
+    """Create a test OrganizationRow with sensible defaults."""
+    defaults = dict(id=uuid4(), name="Test Org", created_by=uuid4())
+    defaults.update(kwargs)
+    return OrganizationRow(**defaults)
 
 
 class TestAgents:
     """Tests for agent CRUD endpoints."""
+
+    @pytest.fixture(autouse=True)
+    def setup_auth(self, client):
+        """Set up auth context override for all tests."""
+        self.user = make_user()
+        self.org = make_org()
+        self.auth_context = AuthContext(user=self.user, org=self.org)
+        app = client.app
+
+        async def override_require_org_membership():
+            return self.auth_context
+
+        app.dependency_overrides[require_org_membership] = override_require_org_membership
+        yield
+        app.dependency_overrides.pop(require_org_membership, None)
 
     @patch("voiceobs.server.routes.agents.get_agent_verification_service")
     @patch("voiceobs.server.routes.agents.get_agent_repository")
@@ -21,6 +53,7 @@ class TestAgents:
 
         mock_agent = AgentRow(
             id=agent_id,
+            org_id=self.org.id,
             name="Customer Support Agent",
             goal="Help customers with inquiries",
             agent_type="phone",
@@ -47,7 +80,7 @@ class TestAgents:
         mock_get_verification_service.return_value = mock_verification_service
 
         response = client.post(
-            "/api/v1/agents",
+            f"/api/v1/orgs/{self.org.id}/agents",
             json={
                 "name": "Customer Support Agent",
                 "agent_type": "phone",
@@ -72,6 +105,7 @@ class TestAgents:
         # Verify repository was called correctly
         mock_repo.create.assert_called_once()
         call_kwargs = mock_repo.create.call_args[1]
+        assert call_kwargs["org_id"] == self.org.id
         assert call_kwargs["name"] == "Customer Support Agent"
         assert call_kwargs["agent_type"] == "phone"
         assert call_kwargs["contact_info"] == {"phone_number": "+1234567890"}
@@ -88,6 +122,7 @@ class TestAgents:
 
         mock_agent = AgentRow(
             id=agent_id,
+            org_id=self.org.id,
             name="Web Chat Agent",
             goal="Handle web inquiries",
             agent_type="web",
@@ -114,7 +149,7 @@ class TestAgents:
         mock_get_verification_service.return_value = mock_verification_service
 
         response = client.post(
-            "/api/v1/agents",
+            f"/api/v1/orgs/{self.org.id}/agents",
             json={
                 "name": "Web Chat Agent",
                 "agent_type": "web",
@@ -144,7 +179,7 @@ class TestAgents:
 
         # Provide a valid request that will pass pydantic validation and reach repository
         response = client.post(
-            "/api/v1/agents",
+            f"/api/v1/orgs/{self.org.id}/agents",
             json={
                 "name": "Test Agent",
                 "agent_type": "phone",
@@ -168,6 +203,7 @@ class TestAgents:
         mock_agents = [
             AgentRow(
                 id=agent1_id,
+                org_id=self.org.id,
                 name="Phone Agent",
                 goal="Phone support",
                 agent_type="phone",
@@ -185,6 +221,7 @@ class TestAgents:
             ),
             AgentRow(
                 id=agent2_id,
+                org_id=self.org.id,
                 name="Web Agent",
                 goal="Web support",
                 agent_type="web",
@@ -206,7 +243,7 @@ class TestAgents:
         mock_repo.list_all.return_value = mock_agents
         mock_get_agent_repo.return_value = mock_repo
 
-        response = client.get("/api/v1/agents")
+        response = client.get(f"/api/v1/orgs/{self.org.id}/agents")
 
         assert response.status_code == 200
         data = response.json()
@@ -224,12 +261,17 @@ class TestAgents:
         mock_repo.list_all.return_value = []
         mock_get_agent_repo.return_value = mock_repo
 
-        url = "/api/v1/agents?connection_status=verified&is_active=true&limit=10&offset=5"
+        base = f"/api/v1/orgs/{self.org.id}/agents"
+        url = f"{base}?connection_status=verified&is_active=true&limit=10&offset=5"
         response = client.get(url)
 
         assert response.status_code == 200
         mock_repo.list_all.assert_called_once_with(
-            connection_status="verified", is_active=True, limit=10, offset=5
+            org_id=self.org.id,
+            connection_status="verified",
+            is_active=True,
+            limit=10,
+            offset=5,
         )
 
     @patch("voiceobs.server.routes.agents.get_agent_repository")
@@ -240,6 +282,7 @@ class TestAgents:
 
         mock_agent = AgentRow(
             id=agent_id,
+            org_id=self.org.id,
             name="Test Agent",
             goal="Test goal",
             agent_type="phone",
@@ -262,7 +305,7 @@ class TestAgents:
         mock_repo.get.return_value = mock_agent
         mock_get_agent_repo.return_value = mock_repo
 
-        response = client.get(f"/api/v1/agents/{agent_id}")
+        response = client.get(f"/api/v1/orgs/{self.org.id}/agents/{agent_id}")
 
         assert response.status_code == 200
         data = response.json()
@@ -280,7 +323,7 @@ class TestAgents:
         mock_repo.get.return_value = None
         mock_get_agent_repo.return_value = mock_repo
 
-        response = client.get(f"/api/v1/agents/{agent_id}")
+        response = client.get(f"/api/v1/orgs/{self.org.id}/agents/{agent_id}")
 
         assert response.status_code == 404
         data = response.json()
@@ -289,7 +332,7 @@ class TestAgents:
     @patch("voiceobs.server.routes.agents.get_agent_repository")
     def test_get_agent_invalid_uuid(self, mock_get_agent_repo, client):
         """Test getting an agent with invalid UUID."""
-        response = client.get("/api/v1/agents/invalid-uuid")
+        response = client.get(f"/api/v1/orgs/{self.org.id}/agents/invalid-uuid")
 
         assert response.status_code == 400
         data = response.json()
@@ -303,6 +346,7 @@ class TestAgents:
 
         existing_agent = AgentRow(
             id=agent_id,
+            org_id=self.org.id,
             name="Old Name",
             goal="Old goal",
             agent_type="phone",
@@ -323,6 +367,7 @@ class TestAgents:
 
         updated_agent = AgentRow(
             id=agent_id,
+            org_id=self.org.id,
             name="New Name",
             goal="New goal",
             agent_type="phone",
@@ -347,7 +392,7 @@ class TestAgents:
         mock_get_agent_repo.return_value = mock_repo
 
         response = client.put(
-            f"/api/v1/agents/{agent_id}",
+            f"/api/v1/orgs/{self.org.id}/agents/{agent_id}",
             json={
                 "name": "New Name",
                 "goal": "New goal",
@@ -374,6 +419,7 @@ class TestAgents:
 
         existing_agent = AgentRow(
             id=agent_id,
+            org_id=self.org.id,
             name="Test Agent",
             goal="Test goal",
             agent_type="phone",
@@ -394,6 +440,7 @@ class TestAgents:
 
         updated_agent = AgentRow(
             id=agent_id,
+            org_id=self.org.id,
             name="Test Agent",
             goal="Test goal",
             agent_type="phone",
@@ -421,7 +468,7 @@ class TestAgents:
         mock_get_verification_service.return_value = mock_verification_service
 
         response = client.put(
-            f"/api/v1/agents/{agent_id}",
+            f"/api/v1/orgs/{self.org.id}/agents/{agent_id}",
             json={"phone_number": "+9876543210"},
         )
 
@@ -443,7 +490,7 @@ class TestAgents:
         mock_get_agent_repo.return_value = mock_repo
 
         response = client.put(
-            f"/api/v1/agents/{agent_id}",
+            f"/api/v1/orgs/{self.org.id}/agents/{agent_id}",
             json={"name": "New Name"},
         )
 
@@ -459,6 +506,7 @@ class TestAgents:
 
         existing_agent = AgentRow(
             id=agent_id,
+            org_id=self.org.id,
             name="Test Agent",
             goal="Test goal",
             agent_type="phone",
@@ -484,7 +532,7 @@ class TestAgents:
 
         # Send a valid request that will reach the repository where the error is raised
         response = client.put(
-            f"/api/v1/agents/{agent_id}",
+            f"/api/v1/orgs/{self.org.id}/agents/{agent_id}",
             json={"name": "New Name"},
         )
 
@@ -501,10 +549,10 @@ class TestAgents:
         mock_repo.delete.return_value = True
         mock_get_agent_repo.return_value = mock_repo
 
-        response = client.delete(f"/api/v1/agents/{agent_id}")
+        response = client.delete(f"/api/v1/orgs/{self.org.id}/agents/{agent_id}")
 
         assert response.status_code == 204
-        mock_repo.delete.assert_called_once_with(agent_id)
+        mock_repo.delete.assert_called_once_with(agent_id, self.org.id)
 
     @patch("voiceobs.server.routes.agents.get_agent_repository")
     def test_delete_agent_not_found(self, mock_get_agent_repo, client):
@@ -515,7 +563,7 @@ class TestAgents:
         mock_repo.delete.return_value = False
         mock_get_agent_repo.return_value = mock_repo
 
-        response = client.delete(f"/api/v1/agents/{agent_id}")
+        response = client.delete(f"/api/v1/orgs/{self.org.id}/agents/{agent_id}")
 
         assert response.status_code == 404
         data = response.json()
@@ -530,6 +578,7 @@ class TestAgents:
 
         mock_agent = AgentRow(
             id=agent_id,
+            org_id=self.org.id,
             name="Test Agent",
             goal="Test goal",
             agent_type="phone",
@@ -556,7 +605,7 @@ class TestAgents:
         mock_get_verification_service.return_value = mock_verification_service
 
         response = client.post(
-            f"/api/v1/agents/{agent_id}/verify",
+            f"/api/v1/orgs/{self.org.id}/agents/{agent_id}/verify",
             json={"force": False},
         )
 
@@ -573,6 +622,7 @@ class TestAgents:
 
         mock_agent = AgentRow(
             id=agent_id,
+            org_id=self.org.id,
             name="Test Agent",
             goal="Test goal",
             agent_type="phone",
@@ -596,7 +646,7 @@ class TestAgents:
         mock_get_agent_repo.return_value = mock_repo
 
         response = client.post(
-            f"/api/v1/agents/{agent_id}/verify",
+            f"/api/v1/orgs/{self.org.id}/agents/{agent_id}/verify",
             json={"force": False},
         )
 
@@ -613,6 +663,7 @@ class TestAgents:
 
         mock_agent = AgentRow(
             id=agent_id,
+            org_id=self.org.id,
             name="Test Agent",
             goal="Test goal",
             agent_type="phone",
@@ -639,7 +690,7 @@ class TestAgents:
         mock_get_verification_service.return_value = mock_verification_service
 
         response = client.post(
-            f"/api/v1/agents/{agent_id}/verify",
+            f"/api/v1/orgs/{self.org.id}/agents/{agent_id}/verify",
             json={"force": True},
         )
 
@@ -657,7 +708,7 @@ class TestAgents:
         mock_get_agent_repo.return_value = mock_repo
 
         response = client.post(
-            f"/api/v1/agents/{agent_id}/verify",
+            f"/api/v1/orgs/{self.org.id}/agents/{agent_id}/verify",
             json={"force": False},
         )
 
@@ -672,7 +723,7 @@ class TestAgents:
         mock_repo.list_all.return_value = []
         mock_get_agent_repo.return_value = mock_repo
 
-        response = client.get("/api/v1/agents")
+        response = client.get(f"/api/v1/orgs/{self.org.id}/agents")
 
         assert response.status_code == 200
         data = response.json()
@@ -687,6 +738,7 @@ class TestAgents:
 
         mock_agent = AgentRow(
             id=agent_id,
+            org_id=self.org.id,
             name="Test Agent",
             goal="Test goal",
             agent_type="phone",
@@ -712,7 +764,7 @@ class TestAgents:
         mock_repo.get.return_value = mock_agent
         mock_get_agent_repo.return_value = mock_repo
 
-        response = client.get(f"/api/v1/agents/{agent_id}/verification-status")
+        response = client.get(f"/api/v1/orgs/{self.org.id}/agents/{agent_id}/verification-status")
 
         assert response.status_code == 200
         data = response.json()
@@ -733,7 +785,7 @@ class TestAgents:
         mock_repo.get.return_value = None
         mock_get_agent_repo.return_value = mock_repo
 
-        response = client.get(f"/api/v1/agents/{agent_id}/verification-status")
+        response = client.get(f"/api/v1/orgs/{self.org.id}/agents/{agent_id}/verification-status")
 
         assert response.status_code == 404
         data = response.json()

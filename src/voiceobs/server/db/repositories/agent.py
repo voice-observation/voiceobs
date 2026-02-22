@@ -27,6 +27,7 @@ class AgentRepository:
 
     async def create(
         self,
+        org_id: UUID,
         name: str,
         agent_type: str,
         contact_info: dict[str, Any],
@@ -39,6 +40,7 @@ class AgentRepository:
         """Create a new agent with 'saved' status.
 
         Args:
+            org_id: Organization ID
             name: Agent name
             agent_type: Agent type ('phone', 'web', etc.)
             contact_info: Contact info dict (e.g., {"phone_number": "..."} or {"web_url": "..."})
@@ -66,14 +68,15 @@ class AgentRepository:
         await self._db.execute(
             """
             INSERT INTO agents (
-                id, name, agent_type, contact_info, goal, supported_intents,
+                id, org_id, name, agent_type, contact_info, goal, supported_intents,
                 context, connection_status, metadata, created_by, is_active
             )
             VALUES (
-                $1, $2, $3, $4::jsonb, $5, $6::jsonb, $7, 'saved', $8::jsonb, $9, true
+                $1, $2, $3, $4, $5::jsonb, $6, $7::jsonb, $8, 'saved', $9::jsonb, $10, true
             )
             """,
             agent_id,
+            org_id,
             name,
             agent_type,
             json.dumps(contact_info),
@@ -86,7 +89,7 @@ class AgentRepository:
 
         row = await self._db.fetchrow(
             """
-            SELECT id, name, agent_type, contact_info, goal, supported_intents,
+            SELECT id, org_id, name, agent_type, contact_info, goal, supported_intents,
                    context, connection_status, verification_attempts, last_verification_at,
                    verification_error, verification_transcript, verification_reasoning,
                    metadata, created_at, updated_at, created_by, is_active
@@ -100,24 +103,26 @@ class AgentRepository:
 
         return self._row_to_agent(row)
 
-    async def get(self, agent_id: UUID) -> AgentRow | None:
-        """Get agent by UUID.
+    async def get(self, agent_id: UUID, org_id: UUID) -> AgentRow | None:
+        """Get agent by UUID within an organization.
 
         Args:
             agent_id: The agent UUID.
+            org_id: The organization UUID.
 
         Returns:
-            The agent row, or None if not found.
+            The agent row, or None if not found or belongs to different org.
         """
         row = await self._db.fetchrow(
             """
-            SELECT id, name, agent_type, contact_info, goal, supported_intents,
+            SELECT id, org_id, name, agent_type, contact_info, goal, supported_intents,
                    context, connection_status, verification_attempts, last_verification_at,
                    verification_error, verification_transcript, verification_reasoning,
                    metadata, created_at, updated_at, created_by, is_active
-            FROM agents WHERE id = $1
+            FROM agents WHERE id = $1 AND org_id = $2
             """,
             agent_id,
+            org_id,
         )
 
         if row is None:
@@ -127,14 +132,16 @@ class AgentRepository:
 
     async def list_all(
         self,
+        org_id: UUID,
         connection_status: str | None = None,
         is_active: bool | None = None,
         limit: int | None = None,
         offset: int | None = None,
     ) -> list[AgentRow]:
-        """List all agents with optional filtering.
+        """List all agents within an organization with optional filtering.
 
         Args:
+            org_id: Organization UUID to filter by.
             connection_status: Filter by connection status. None for all statuses.
             is_active: Filter by active status. None for all agents.
             limit: Maximum number of results.
@@ -143,9 +150,9 @@ class AgentRepository:
         Returns:
             List of agent rows.
         """
-        conditions = []
-        params: list[Any] = []
-        param_idx = 1
+        conditions = ["org_id = $1"]
+        params: list[Any] = [org_id]
+        param_idx = 2
 
         if connection_status is not None:
             conditions.append(f"connection_status = ${param_idx}")
@@ -157,7 +164,7 @@ class AgentRepository:
             params.append(is_active)
             param_idx += 1
 
-        where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        where_clause = f"WHERE {' AND '.join(conditions)}"
 
         limit_clause = ""
         if limit is not None:
@@ -173,7 +180,7 @@ class AgentRepository:
 
         rows = await self._db.fetch(
             f"""
-            SELECT id, name, agent_type, contact_info, goal, supported_intents,
+            SELECT id, org_id, name, agent_type, contact_info, goal, supported_intents,
                    context, connection_status, verification_attempts, last_verification_at,
                    verification_error, verification_transcript, verification_reasoning,
                    metadata, created_at, updated_at, created_by, is_active
@@ -190,6 +197,7 @@ class AgentRepository:
     async def update(
         self,
         agent_id: UUID,
+        org_id: UUID,
         name: str | None | object = _NOT_PROVIDED,
         agent_type: str | None | object = _NOT_PROVIDED,
         contact_info: dict[str, Any] | None | object = _NOT_PROVIDED,
@@ -276,44 +284,52 @@ class AgentRepository:
 
         if not updates:
             # No updates, just return the existing agent
-            return await self.get(agent_id)
+            return await self.get(agent_id, org_id)
 
         # Add updated_at timestamp
         updates.append("updated_at = NOW()")
 
         params.append(agent_id)
+        where_agent_idx = param_idx
+        param_idx += 1
+        params.append(org_id)
+        where_org_idx = param_idx
+
         await self._db.execute(
             f"""
             UPDATE agents
             SET {", ".join(updates)}
-            WHERE id = ${param_idx}
+            WHERE id = ${where_agent_idx} AND org_id = ${where_org_idx}
             """,
             *params,
         )
 
-        return await self.get(agent_id)
+        return await self.get(agent_id, org_id)
 
-    async def delete(self, agent_id: UUID) -> bool:
-        """Delete an agent.
+    async def delete(self, agent_id: UUID, org_id: UUID) -> bool:
+        """Delete an agent within an organization.
 
         Args:
             agent_id: The agent UUID.
+            org_id: The organization UUID.
 
         Returns:
-            True if deleted, False if not found.
+            True if deleted, False if not found or belongs to different org.
         """
         result = await self._db.execute(
             """
-            DELETE FROM agents WHERE id = $1
+            DELETE FROM agents WHERE id = $1 AND org_id = $2
             """,
             agent_id,
+            org_id,
         )
         return result == "DELETE 1"
 
-    async def count(self, is_active: bool | None = True) -> int:
-        """Count agents.
+    async def count(self, org_id: UUID, is_active: bool | None = True) -> int:
+        """Count agents within an organization.
 
         Args:
+            org_id: Organization UUID to filter by.
             is_active: Filter by active status. None for all agents.
 
         Returns:
@@ -322,14 +338,16 @@ class AgentRepository:
         if is_active is None:
             count = await self._db.fetchval(
                 """
-                SELECT COUNT(*) FROM agents
-                """
+                SELECT COUNT(*) FROM agents WHERE org_id = $1
+                """,
+                org_id,
             )
         else:
             count = await self._db.fetchval(
                 """
-                SELECT COUNT(*) FROM agents WHERE is_active = $1
+                SELECT COUNT(*) FROM agents WHERE org_id = $1 AND is_active = $2
                 """,
+                org_id,
                 is_active,
             )
 
@@ -371,6 +389,7 @@ class AgentRepository:
 
         return AgentRow(
             id=row["id"],
+            org_id=row["org_id"],
             name=row["name"],
             agent_type=row["agent_type"],
             contact_info=contact_info,

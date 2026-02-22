@@ -73,6 +73,7 @@ export interface TestScenario {
   name: string;
   goal: string;
   persona_id: string;
+  persona_name?: string | null;
   max_turns: number | null;
   timeout: number | null;
   intent?: string;

@@ -34,6 +34,7 @@ class TestTestScenarios:
 
         mock_suite = TestSuiteRow(
             id=suite_id,
+            org_id=uuid4(),
             name="Test Suite",
             description="Test description",
             status="pending",
@@ -61,7 +62,7 @@ class TestTestScenarios:
         )
 
         mock_suite_repo = AsyncMock()
-        mock_suite_repo.get.return_value = mock_suite
+        mock_suite_repo.get_by_id.return_value = mock_suite
         mock_get_suite_repo.return_value = mock_suite_repo
         mock_get_suite_repository.return_value = mock_suite_repo
 
@@ -113,7 +114,7 @@ class TestTestScenarios:
     ):
         """Test scenario creation when suite not found."""
         mock_suite_repo = AsyncMock()
-        mock_suite_repo.get.return_value = None
+        mock_suite_repo.get_by_id.return_value = None
         mock_get_suite_repo.return_value = mock_suite_repo
         mock_get_suite_repository.return_value = mock_suite_repo
 
@@ -337,6 +338,7 @@ class TestTestScenarios:
 
         mock_suite = TestSuiteRow(
             id=suite_id,
+            org_id=uuid4(),
             name="Test Suite",
             description="Test description",
             status="pending",
@@ -344,7 +346,7 @@ class TestTestScenarios:
         )
 
         mock_suite_repo = AsyncMock()
-        mock_suite_repo.get.return_value = mock_suite
+        mock_suite_repo.get_by_id.return_value = mock_suite
         mock_get_suite_repo.return_value = mock_suite_repo
         mock_get_suite_repository.return_value = mock_suite_repo
 
@@ -395,6 +397,7 @@ class TestTestScenarios:
 
         mock_suite = TestSuiteRow(
             id=suite_id,
+            org_id=uuid4(),
             name="Test Suite",
             description="Test description",
             status="pending",
@@ -414,7 +417,7 @@ class TestTestScenarios:
         )
 
         mock_suite_repo = AsyncMock()
-        mock_suite_repo.get.return_value = mock_suite
+        mock_suite_repo.get_by_id.return_value = mock_suite
         mock_get_suite_repo.return_value = mock_suite_repo
         mock_get_suite_repository.return_value = mock_suite_repo
 
@@ -769,6 +772,7 @@ class TestTestScenariosNewCrudFields:
 
         mock_suite = TestSuiteRow(
             id=suite_id,
+            org_id=uuid4(),
             name="Test Suite",
             description="Test description",
             status="pending",
@@ -798,7 +802,7 @@ class TestTestScenariosNewCrudFields:
         )
 
         mock_suite_repo = AsyncMock()
-        mock_suite_repo.get.return_value = mock_suite
+        mock_suite_repo.get_by_id.return_value = mock_suite
         mock_get_suite_repo.return_value = mock_suite_repo
         mock_get_suite_repository.return_value = mock_suite_repo
 
@@ -984,6 +988,7 @@ class TestIsManualField:
 
         mock_suite = TestSuiteRow(
             id=suite_id,
+            org_id=uuid4(),
             name="Test Suite",
             description="Test description",
             status="pending",
@@ -1013,7 +1018,7 @@ class TestIsManualField:
         )
 
         mock_suite_repo = AsyncMock()
-        mock_suite_repo.get.return_value = mock_suite
+        mock_suite_repo.get_by_id.return_value = mock_suite
         mock_get_suite_repo.return_value = mock_suite_repo
         mock_get_suite_repository.return_value = mock_suite_repo
 

@@ -25,6 +25,7 @@ describe("useGenerationPolling", () => {
     it("does not poll when enabled is false", async () => {
       const { result } = renderHook(() =>
         useGenerationPolling({
+          orgId: "org-123",
           suiteId: "suite-123",
           enabled: false,
         })
@@ -37,6 +38,7 @@ describe("useGenerationPolling", () => {
     it("does not poll when suiteId is null", async () => {
       const { result } = renderHook(() =>
         useGenerationPolling({
+          orgId: "org-123",
           suiteId: null,
           enabled: true,
         })
@@ -56,6 +58,7 @@ describe("useGenerationPolling", () => {
       const { rerender } = renderHook(
         ({ suiteId }) =>
           useGenerationPolling({
+            orgId: "org-123",
             suiteId,
             enabled: true,
             interval: 1000,
@@ -93,6 +96,7 @@ describe("useGenerationPolling", () => {
 
       renderHook(() =>
         useGenerationPolling({
+          orgId: "org-123",
           suiteId: "suite-123",
           enabled: true,
         })
@@ -102,7 +106,7 @@ describe("useGenerationPolling", () => {
         await Promise.resolve();
       });
 
-      expect(api.testSuites.getGenerationStatus).toHaveBeenCalledWith("suite-123");
+      expect(api.testSuites.getGenerationStatus).toHaveBeenCalledWith("org-123", "suite-123");
     });
 
     it("continues polling at specified interval when status is generating", async () => {
@@ -114,6 +118,7 @@ describe("useGenerationPolling", () => {
 
       renderHook(() =>
         useGenerationPolling({
+          orgId: "org-123",
           suiteId: "suite-123",
           enabled: true,
           interval: 1000,
@@ -147,6 +152,7 @@ describe("useGenerationPolling", () => {
 
       renderHook(() =>
         useGenerationPolling({
+          orgId: "org-123",
           suiteId: "suite-123",
           enabled: true,
           onStatusChange,
@@ -175,6 +181,7 @@ describe("useGenerationPolling", () => {
 
       renderHook(() =>
         useGenerationPolling({
+          orgId: "org-123",
           suiteId: "suite-123",
           enabled: true,
           interval: 1000,
@@ -213,6 +220,7 @@ describe("useGenerationPolling", () => {
 
       renderHook(() =>
         useGenerationPolling({
+          orgId: "org-123",
           suiteId: "suite-123",
           enabled: true,
           interval: 1000,
@@ -247,6 +255,7 @@ describe("useGenerationPolling", () => {
 
       renderHook(() =>
         useGenerationPolling({
+          orgId: "org-123",
           suiteId: "suite-123",
           enabled: true,
           interval: 1000,
@@ -279,6 +288,7 @@ describe("useGenerationPolling", () => {
 
       renderHook(() =>
         useGenerationPolling({
+          orgId: "org-123",
           suiteId: "suite-123",
           enabled: true,
           onError,
@@ -299,6 +309,7 @@ describe("useGenerationPolling", () => {
 
       renderHook(() =>
         useGenerationPolling({
+          orgId: "org-123",
           suiteId: "suite-123",
           enabled: true,
           onError,
@@ -324,6 +335,7 @@ describe("useGenerationPolling", () => {
 
       const { result } = renderHook(() =>
         useGenerationPolling({
+          orgId: "org-123",
           suiteId: "suite-123",
           enabled: true,
           interval: 1000,
@@ -361,6 +373,7 @@ describe("useGenerationPolling", () => {
       const { rerender } = renderHook(
         ({ enabled }) =>
           useGenerationPolling({
+            orgId: "org-123",
             suiteId: "suite-123",
             enabled,
             interval: 1000,
@@ -396,6 +409,7 @@ describe("useGenerationPolling", () => {
       const { rerender } = renderHook(
         ({ suiteId }) =>
           useGenerationPolling({
+            orgId: "org-123",
             suiteId,
             enabled: true,
             interval: 1000,
@@ -437,6 +451,7 @@ describe("useGenerationPolling", () => {
       const { rerender } = renderHook(
         ({ enabled }) =>
           useGenerationPolling({
+            orgId: "org-123",
             suiteId: "suite-123",
             enabled,
             interval: 1000,
@@ -453,7 +468,7 @@ describe("useGenerationPolling", () => {
         await Promise.resolve();
       });
 
-      expect(api.testSuites.getGenerationStatus).toHaveBeenCalledWith("suite-123");
+      expect(api.testSuites.getGenerationStatus).toHaveBeenCalledWith("org-123", "suite-123");
     });
   });
 
@@ -467,6 +482,7 @@ describe("useGenerationPolling", () => {
 
       const { unmount } = renderHook(() =>
         useGenerationPolling({
+          orgId: "org-123",
           suiteId: "suite-123",
           enabled: true,
           interval: 1000,

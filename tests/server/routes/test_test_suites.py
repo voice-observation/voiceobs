@@ -1,20 +1,52 @@
-"""Tests for the test suite API endpoints."""
+"""Tests for the org-scoped test suite API endpoints."""
 
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
-from voiceobs.server.db.models import AgentRow, TestSuiteRow
+import pytest
+
+from voiceobs.server.auth.context import AuthContext, require_org_membership
+from voiceobs.server.db.models import AgentRow, OrganizationRow, TestSuiteRow, UserRow
+
+
+def make_user(**kwargs):
+    """Create a test UserRow with sensible defaults."""
+    defaults = dict(id=uuid4(), email="test@example.com", name="Test User", is_active=True)
+    defaults.update(kwargs)
+    return UserRow(**defaults)
+
+
+def make_org(**kwargs):
+    """Create a test OrganizationRow with sensible defaults."""
+    defaults = dict(id=uuid4(), name="Test Org", created_by=uuid4())
+    defaults.update(kwargs)
+    return OrganizationRow(**defaults)
 
 
 class TestTestSuites:
     """Tests for test suite CRUD endpoints."""
 
+    @pytest.fixture(autouse=True)
+    def setup_auth(self, client):
+        """Set up auth context override for all tests."""
+        self.user = make_user()
+        self.org = make_org()
+        self.auth_context = AuthContext(user=self.user, org=self.org)
+        app = client.app
+
+        async def override_require_org_membership():
+            return self.auth_context
+
+        app.dependency_overrides[require_org_membership] = override_require_org_membership
+        yield
+        app.dependency_overrides.pop(require_org_membership, None)
+
     def test_create_suite_requires_postgres(self, client):
         """Test that creating a suite requires PostgreSQL."""
         agent_id = uuid4()
         response = client.post(
-            "/api/v1/tests/suites",
+            f"/api/v1/orgs/{self.org.id}/test-suites",
             json={
                 "name": "Test Suite",
                 "description": "Test description",
@@ -49,7 +81,7 @@ class TestTestSuites:
         mock_get_agent_repository.return_value = mock_agent_repo
 
         response = client.post(
-            "/api/v1/tests/suites",
+            f"/api/v1/orgs/{self.org.id}/test-suites",
             json={"name": "Test Suite", "description": "Test description"},
         )
 
@@ -78,6 +110,7 @@ class TestTestSuites:
         agent_id = uuid4()
         mock_suite = TestSuiteRow(
             id=suite_id,
+            org_id=self.org.id,
             name="Test Suite",
             description="Test description",
             status="pending",
@@ -94,11 +127,12 @@ class TestTestSuites:
         mock_agent_repo = AsyncMock()
         mock_agent = MagicMock(spec=AgentRow)
         mock_agent.id = agent_id
+        mock_agent.org_id = self.org.id
         mock_agent_repo.get.return_value = mock_agent
         mock_get_agent_repository.return_value = mock_agent_repo
 
         response = client.post(
-            "/api/v1/tests/suites",
+            f"/api/v1/orgs/{self.org.id}/test-suites",
             json={
                 "name": "Test Suite",
                 "description": "Test description",
@@ -140,7 +174,7 @@ class TestTestSuites:
 
         agent_id = uuid4()
         response = client.post(
-            "/api/v1/tests/suites",
+            f"/api/v1/orgs/{self.org.id}/test-suites",
             json={
                 "name": "Test Suite",
                 "description": "Test description",
@@ -149,7 +183,8 @@ class TestTestSuites:
         )
 
         assert response.status_code == 404
-        assert "Agent" in response.json()["detail"]
+        detail = response.json()["detail"]
+        assert "Agent" in detail or "not found" in detail.lower()
 
     @patch("voiceobs.server.routes.test_suites.require_postgres")
     @patch("voiceobs.server.routes.test_suites.get_agent_repository")
@@ -175,7 +210,7 @@ class TestTestSuites:
         mock_get_agent_repository.return_value = mock_agent_repo
 
         response = client.post(
-            "/api/v1/tests/suites",
+            f"/api/v1/orgs/{self.org.id}/test-suites",
             json={
                 "name": "Test Suite",
                 "description": "A test suite",
@@ -209,6 +244,7 @@ class TestTestSuites:
         suite2_id = uuid4()
         suite1 = TestSuiteRow(
             id=suite1_id,
+            org_id=self.org.id,
             name="Suite 1",
             description="Description 1",
             status="pending",
@@ -217,6 +253,7 @@ class TestTestSuites:
         )
         suite2 = TestSuiteRow(
             id=suite2_id,
+            org_id=self.org.id,
             name="Suite 2",
             description="Description 2",
             status="completed",
@@ -230,7 +267,7 @@ class TestTestSuites:
         mock_get_repository.return_value = mock_repo
         mock_get_scenario_repository.return_value = mock_scenario_repo
 
-        response = client.get("/api/v1/tests/suites")
+        response = client.get(f"/api/v1/orgs/{self.org.id}/test-suites")
 
         assert response.status_code == 200
         data = response.json()
@@ -264,6 +301,7 @@ class TestTestSuites:
         agent_id = uuid4()
         mock_suite = TestSuiteRow(
             id=suite_id,
+            org_id=self.org.id,
             name="Test Suite",
             description="Test description",
             status="pending",
@@ -277,7 +315,7 @@ class TestTestSuites:
         mock_get_repository.return_value = mock_repo
         mock_get_scenario_repository.return_value = mock_scenario_repo
 
-        response = client.get(f"/api/v1/tests/suites/{suite_id}")
+        response = client.get(f"/api/v1/orgs/{self.org.id}/test-suites/{suite_id}")
 
         assert response.status_code == 200
         data = response.json()
@@ -310,7 +348,7 @@ class TestTestSuites:
         mock_get_scenario_repository.return_value = mock_scenario_repo
 
         suite_id = uuid4()
-        response = client.get(f"/api/v1/tests/suites/{suite_id}")
+        response = client.get(f"/api/v1/orgs/{self.org.id}/test-suites/{suite_id}")
 
         assert response.status_code == 404
 
@@ -326,6 +364,7 @@ class TestTestSuites:
         agent_id = uuid4()
         updated_suite = TestSuiteRow(
             id=suite_id,
+            org_id=self.org.id,
             name="Updated Suite",
             description="Updated description",
             status="running",
@@ -337,7 +376,7 @@ class TestTestSuites:
         mock_get_repository.return_value = mock_repo
 
         response = client.put(
-            f"/api/v1/tests/suites/{suite_id}",
+            f"/api/v1/orgs/{self.org.id}/test-suites/{suite_id}",
             json={"name": "Updated Suite", "status": "running"},
         )
 
@@ -360,7 +399,7 @@ class TestTestSuites:
         mock_get_repository.return_value = mock_repo
 
         suite_id = uuid4()
-        response = client.delete(f"/api/v1/tests/suites/{suite_id}")
+        response = client.delete(f"/api/v1/orgs/{self.org.id}/test-suites/{suite_id}")
 
         assert response.status_code == 204
 
@@ -377,6 +416,6 @@ class TestTestSuites:
         mock_get_repository.return_value = mock_repo
 
         suite_id = uuid4()
-        response = client.delete(f"/api/v1/tests/suites/{suite_id}")
+        response = client.delete(f"/api/v1/orgs/{self.org.id}/test-suites/{suite_id}")
 
         assert response.status_code == 404

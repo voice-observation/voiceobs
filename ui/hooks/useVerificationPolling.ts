@@ -6,6 +6,8 @@ import type { ConnectionStatus, VerificationStatusResponse } from "@/lib/types";
 import { logger } from "@/lib/logger";
 
 export interface UseVerificationPollingOptions {
+  /** Organization ID for org-scoped agent API calls (required) */
+  orgId?: string;
   /** Polling interval in milliseconds (default: 3000) */
   interval?: number;
   /** Maximum polling duration in milliseconds (default: 120000 = 2 minutes) */
@@ -37,7 +39,7 @@ export interface UseVerificationPollingResult {
 export function useVerificationPolling(
   options: UseVerificationPollingOptions = {}
 ): UseVerificationPollingResult {
-  const { interval = 3000, maxDuration = 120000, maxRetries = 3, onComplete } = options;
+  const { orgId = "", interval = 3000, maxDuration = 120000, maxRetries = 3, onComplete } = options;
 
   const [status, setStatus] = useState<VerificationStatusResponse | null>(null);
   const [isPolling, setIsPolling] = useState(false);
@@ -101,7 +103,8 @@ export function useVerificationPolling(
     const currentAgentId = agentIdRef.current;
 
     try {
-      const verificationStatus = await api.agents.getVerificationStatus(currentAgentId);
+      if (!orgId) return;
+      const verificationStatus = await api.agents.getVerificationStatus(orgId, currentAgentId);
 
       // Check if polling was stopped while the request was in flight
       if (
@@ -155,7 +158,7 @@ export function useVerificationPolling(
         scheduleNextPoll(backoffDelay);
       }
     }
-  }, [maxDuration, maxRetries, interval, stopPolling, scheduleNextPoll]);
+  }, [orgId, maxDuration, maxRetries, interval, stopPolling, scheduleNextPoll]);
 
   // Keep pollRef up to date
   useEffect(() => {

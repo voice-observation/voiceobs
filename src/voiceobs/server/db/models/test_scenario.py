@@ -15,6 +15,7 @@ class TestScenarioRow:
     name: str
     goal: str
     persona_id: UUID
+    persona_name: str | None = None  # Resolved from personas table for display
     max_turns: int | None = None
     timeout: int | None = None
     intent: str | None = None  # LLM-identified intent

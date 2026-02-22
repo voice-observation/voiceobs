@@ -77,10 +77,12 @@ class TestTestSuiteRow:
     def test_test_suite_row_creation(self):
         """Test creating a TestSuiteRow with all fields."""
         suite_id = uuid4()
+        org_id = uuid4()
         created_at = datetime.now()
 
         row = TestSuiteRow(
             id=suite_id,
+            org_id=org_id,
             name="Test Suite 1",
             description="A test suite",
             status="running",
@@ -104,9 +106,11 @@ class TestTestSuiteRow:
     def test_test_suite_row_defaults(self):
         """Test TestSuiteRow with default values."""
         suite_id = uuid4()
+        org_id = uuid4()
 
         row = TestSuiteRow(
             id=suite_id,
+            org_id=org_id,
             name="Test Suite 1",
         )
 

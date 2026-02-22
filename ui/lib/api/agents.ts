@@ -52,6 +52,10 @@ interface BackendAgentsListResponse {
 }
 
 export class AgentsApi extends BaseApiClient {
+  private basePath(orgId: string): string {
+    return `/api/v1/orgs/${orgId}/agents`;
+  }
+
   /**
    * Transform backend agent to frontend agent (goal -> description).
    */
@@ -84,6 +88,7 @@ export class AgentsApi extends BaseApiClient {
    * List all agents with optional filtering.
    */
   async listAgents(
+    orgId: string,
     connectionStatus?: ConnectionStatus | null,
     isActive?: boolean | null,
     limit?: number | null,
@@ -104,7 +109,7 @@ export class AgentsApi extends BaseApiClient {
     }
     const query = params.toString();
     const response = await this.get<BackendAgentsListResponse>(
-      `/api/v1/agents${query ? `?${query}` : ""}`
+      `${this.basePath(orgId)}${query ? `?${query}` : ""}`
     );
     return {
       count: response.count,
@@ -115,57 +120,61 @@ export class AgentsApi extends BaseApiClient {
   /**
    * Get an agent by ID.
    */
-  async getAgent(id: string): Promise<Agent> {
-    const response = await this.get<BackendAgent>(`/api/v1/agents/${id}`);
+  async getAgent(orgId: string, id: string): Promise<Agent> {
+    const response = await this.get<BackendAgent>(`${this.basePath(orgId)}/${id}`);
     return this.fromBackend(response);
   }
 
   /**
    * Create a new agent.
    */
-  async createAgent(data: AgentCreateRequest): Promise<Agent> {
+  async createAgent(orgId: string, data: AgentCreateRequest): Promise<Agent> {
     const backendData = {
       ...this.toBackend(data),
       agent_type: "phone", // Hardcode for now
     };
-    const response = await this.post<BackendAgent>("/api/v1/agents", backendData);
+    const response = await this.post<BackendAgent>(this.basePath(orgId), backendData);
     return this.fromBackend(response);
   }
 
   /**
    * Update an existing agent.
    */
-  async updateAgent(id: string, data: AgentUpdateRequest): Promise<Agent> {
+  async updateAgent(orgId: string, id: string, data: AgentUpdateRequest): Promise<Agent> {
     const backendData = this.toBackend(data);
-    const response = await this.put<BackendAgent>(`/api/v1/agents/${id}`, backendData);
+    const response = await this.put<BackendAgent>(`${this.basePath(orgId)}/${id}`, backendData);
     return this.fromBackend(response);
   }
 
   /**
    * Delete an agent.
+   * @param orgId - Organization ID
    * @param id - Agent ID
    * @param soft - If true, soft delete. If false, hard delete.
    */
-  async deleteAgent(id: string, soft: boolean = true): Promise<void> {
+  async deleteAgent(orgId: string, id: string, soft: boolean = true): Promise<void> {
     const params = new URLSearchParams();
     params.append("soft", String(soft));
-    await this.delete(`/api/v1/agents/${id}?${params.toString()}`);
+    await this.delete(`${this.basePath(orgId)}/${id}?${params.toString()}`);
   }
 
   /**
    * Trigger agent verification.
+   * @param orgId - Organization ID
    * @param id - Agent ID
    * @param force - Force re-verification even if already verified
    */
-  async verifyAgent(id: string, force: boolean = false): Promise<Agent> {
-    const response = await this.post<BackendAgent>(`/api/v1/agents/${id}/verify`, { force });
+  async verifyAgent(orgId: string, id: string, force: boolean = false): Promise<Agent> {
+    const response = await this.post<BackendAgent>(`${this.basePath(orgId)}/${id}/verify`, {
+      force,
+    });
     return this.fromBackend(response);
   }
 
   /**
    * Get verification status for an agent.
    */
-  async getVerificationStatus(id: string): Promise<VerificationStatusResponse> {
+  async getVerificationStatus(orgId: string, id: string): Promise<VerificationStatusResponse> {
     // Backend returns different field names, so we need to map them
     const response = await this.get<{
       agent_id: string;
@@ -175,7 +184,7 @@ export class AgentsApi extends BaseApiClient {
       transcript: Array<{ role: string; content: string }> | null;
       last_verification_at: string | null;
       error: string | null;
-    }>(`/api/v1/agents/${id}/verification-status`);
+    }>(`${this.basePath(orgId)}/${id}/verification-status`);
 
     return {
       connection_status: response.status,

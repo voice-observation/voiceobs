@@ -72,6 +72,7 @@ class TestScenarioRepository:
             name=row["name"],
             goal=row["goal"],
             persona_id=row["persona_id"],
+            persona_name=row.get("persona_name"),
             max_turns=row["max_turns"],
             timeout=row["timeout"],
             intent=row.get("intent"),
@@ -159,10 +160,13 @@ class TestScenarioRepository:
 
         row = await self._db.fetchrow(
             """
-            SELECT id, suite_id, name, goal, persona_id, max_turns, timeout,
-                   intent, persona_traits, persona_match_score,
-                   caller_behaviors, tags, status
-            FROM test_scenarios WHERE id = $1
+            SELECT t.id, t.suite_id, t.name, t.goal, t.persona_id,
+                   p.name AS persona_name,
+                   t.max_turns, t.timeout, t.intent, t.persona_traits,
+                   t.persona_match_score, t.caller_behaviors, t.tags, t.status
+            FROM test_scenarios t
+            LEFT JOIN personas p ON t.persona_id = p.id
+            WHERE t.id = $1
             """,
             scenario_id,
         )
@@ -183,10 +187,13 @@ class TestScenarioRepository:
         """
         row = await self._db.fetchrow(
             """
-            SELECT id, suite_id, name, goal, persona_id, max_turns, timeout,
-                   intent, persona_traits, persona_match_score,
-                   caller_behaviors, tags, status
-            FROM test_scenarios WHERE id = $1
+            SELECT t.id, t.suite_id, t.name, t.goal, t.persona_id,
+                   p.name AS persona_name,
+                   t.max_turns, t.timeout, t.intent, t.persona_traits,
+                   t.persona_match_score, t.caller_behaviors, t.tags, t.status
+            FROM test_scenarios t
+            LEFT JOIN personas p ON t.persona_id = p.id
+            WHERE t.id = $1
             """,
             scenario_id,
         )
@@ -217,10 +224,12 @@ class TestScenarioRepository:
             List of test scenarios.
         """
         base_query = """
-            SELECT id, suite_id, name, goal, persona_id, max_turns, timeout,
-                   intent, persona_traits, persona_match_score,
-                   caller_behaviors, tags, status
-            FROM test_scenarios
+            SELECT t.id, t.suite_id, t.name, t.goal, t.persona_id,
+                   p.name AS persona_name,
+                   t.max_turns, t.timeout, t.intent, t.persona_traits,
+                   t.persona_match_score, t.caller_behaviors, t.tags, t.status
+            FROM test_scenarios t
+            LEFT JOIN personas p ON t.persona_id = p.id
         """
         conditions = []
         params: list[Any] = []

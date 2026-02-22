@@ -188,7 +188,7 @@ async def validate_suite_exists(
         suite_repo = get_test_suite_repo()
 
     suite_uuid = parse_suite_id(suite_id)
-    suite = await suite_repo.get(suite_uuid)
+    suite = await suite_repo.get_by_id(suite_uuid)
     if suite is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

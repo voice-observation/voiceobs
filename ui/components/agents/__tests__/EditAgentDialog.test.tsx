@@ -75,7 +75,12 @@ describe("EditAgentDialog", () => {
   describe("dialog visibility", () => {
     it("does not render when agent is null", () => {
       render(
-        <EditAgentDialog agent={null} onOpenChange={mockOnOpenChange} onUpdated={mockOnUpdated} />
+        <EditAgentDialog
+          orgId="org-123"
+          agent={null}
+          onOpenChange={mockOnOpenChange}
+          onUpdated={mockOnUpdated}
+        />
       );
 
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -84,6 +89,7 @@ describe("EditAgentDialog", () => {
     it("renders when agent is provided", () => {
       render(
         <EditAgentDialog
+          orgId="org-123"
           agent={mockAgent}
           onOpenChange={mockOnOpenChange}
           onUpdated={mockOnUpdated}
@@ -98,6 +104,7 @@ describe("EditAgentDialog", () => {
     it("displays Edit Agent title", () => {
       render(
         <EditAgentDialog
+          orgId="org-123"
           agent={mockAgent}
           onOpenChange={mockOnOpenChange}
           onUpdated={mockOnUpdated}
@@ -110,6 +117,7 @@ describe("EditAgentDialog", () => {
     it("renders AgentConfigForm with agent data", () => {
       render(
         <EditAgentDialog
+          orgId="org-123"
           agent={mockAgent}
           onOpenChange={mockOnOpenChange}
           onUpdated={mockOnUpdated}
@@ -126,6 +134,7 @@ describe("EditAgentDialog", () => {
     it("shows Save Changes button", () => {
       render(
         <EditAgentDialog
+          orgId="org-123"
           agent={mockAgent}
           onOpenChange={mockOnOpenChange}
           onUpdated={mockOnUpdated}
@@ -140,6 +149,7 @@ describe("EditAgentDialog", () => {
     it("closes dialog when cancel is clicked", () => {
       render(
         <EditAgentDialog
+          orgId="org-123"
           agent={mockAgent}
           onOpenChange={mockOnOpenChange}
           onUpdated={mockOnUpdated}
@@ -159,6 +169,7 @@ describe("EditAgentDialog", () => {
 
       render(
         <EditAgentDialog
+          orgId="org-123"
           agent={mockAgent}
           onOpenChange={mockOnOpenChange}
           onUpdated={mockOnUpdated}
@@ -173,7 +184,9 @@ describe("EditAgentDialog", () => {
       fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
 
       await waitFor(() => {
-        expect(api.agents.updateAgent).toHaveBeenCalledWith("agent-123", { name: "Updated Agent" });
+        expect(api.agents.updateAgent).toHaveBeenCalledWith("org-123", "agent-123", {
+          name: "Updated Agent",
+        });
       });
     });
 
@@ -183,6 +196,7 @@ describe("EditAgentDialog", () => {
 
       render(
         <EditAgentDialog
+          orgId="org-123"
           agent={mockAgent}
           onOpenChange={mockOnOpenChange}
           onUpdated={mockOnUpdated}
@@ -206,6 +220,7 @@ describe("EditAgentDialog", () => {
 
       render(
         <EditAgentDialog
+          orgId="org-123"
           agent={mockAgent}
           onOpenChange={mockOnOpenChange}
           onUpdated={mockOnUpdated}
@@ -229,6 +244,7 @@ describe("EditAgentDialog", () => {
 
       render(
         <EditAgentDialog
+          orgId="org-123"
           agent={mockAgent}
           onOpenChange={mockOnOpenChange}
           onUpdated={mockOnUpdated}
@@ -252,6 +268,7 @@ describe("EditAgentDialog", () => {
 
       render(
         <EditAgentDialog
+          orgId="org-123"
           agent={mockAgent}
           onOpenChange={mockOnOpenChange}
           onUpdated={mockOnUpdated}
@@ -285,6 +302,7 @@ describe("EditAgentDialog", () => {
 
       render(
         <EditAgentDialog
+          orgId="org-123"
           agent={mockAgent}
           onOpenChange={mockOnOpenChange}
           onUpdated={mockOnUpdated}

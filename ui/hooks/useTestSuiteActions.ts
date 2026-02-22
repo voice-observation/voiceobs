@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import type { TestSuite, TestSuiteCreateRequest, TestSuiteUpdateRequest } from "@/lib/types";
 
 interface UseTestSuiteActionsOptions {
+  /** Organization ID for org-scoped test suite API calls (required) */
+  orgId?: string;
   /** Called when a test suite is created */
   onCreated?: (suite: TestSuite) => void;
   /** Called when a test suite is updated */
@@ -43,7 +45,7 @@ interface UseTestSuiteActionsResult {
 export function useTestSuiteActions(
   options: UseTestSuiteActionsOptions = {}
 ): UseTestSuiteActionsResult {
-  const { onCreated, onUpdated, onDeleted, onRunComplete } = options;
+  const { orgId = "", onCreated, onUpdated, onDeleted, onRunComplete } = options;
   const [creatingIds, setCreatingIds] = useState<Set<string>>(new Set());
   const [updatingIds, setUpdatingIds] = useState<Set<string>>(new Set());
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
@@ -54,7 +56,8 @@ export function useTestSuiteActions(
       const tempId = `creating-${Date.now()}`;
       try {
         setCreatingIds((prev) => new Set(prev).add(tempId));
-        const suite = await api.testSuites.createTestSuite(data);
+        if (!orgId) return null;
+        const suite = await api.testSuites.createTestSuite(orgId, data);
         toast("Test suite created", {
           description: `"${suite.name}" has been created successfully.`,
         });
@@ -74,14 +77,15 @@ export function useTestSuiteActions(
         });
       }
     },
-    [onCreated]
+    [orgId, onCreated]
   );
 
   const updateSuite = useCallback(
     async (suiteId: string, data: TestSuiteUpdateRequest): Promise<TestSuite | null> => {
       try {
         setUpdatingIds((prev) => new Set(prev).add(suiteId));
-        const suite = await api.testSuites.updateTestSuite(suiteId, data);
+        if (!orgId) return null;
+        const suite = await api.testSuites.updateTestSuite(orgId, suiteId, data);
         toast("Test suite updated");
         onUpdated?.(suite);
         return suite;
@@ -99,14 +103,15 @@ export function useTestSuiteActions(
         });
       }
     },
-    [onUpdated]
+    [orgId, onUpdated]
   );
 
   const deleteSuite = useCallback(
     async (suiteId: string): Promise<boolean> => {
       try {
         setDeletingIds((prev) => new Set(prev).add(suiteId));
-        await api.testSuites.deleteTestSuite(suiteId);
+        if (!orgId) return false;
+        await api.testSuites.deleteTestSuite(orgId, suiteId);
         toast("Test suite deleted");
         onDeleted?.(suiteId);
         return true;
@@ -124,7 +129,7 @@ export function useTestSuiteActions(
         });
       }
     },
-    [onDeleted]
+    [orgId, onDeleted]
   );
 
   const runSuite = useCallback(
