@@ -12,6 +12,7 @@ class TestScenarioRow:
 
     id: UUID
     suite_id: UUID
+    org_id: UUID
     name: str
     goal: str
     persona_id: UUID

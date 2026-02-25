@@ -53,8 +53,13 @@ async def run_tests(
     if request.suite_id:
         # Get all scenarios for the suite
         suite_uuid = await validate_suite_exists(request.suite_id, suite_repo)
-
-        scenarios = await scenario_repo.list_all(suite_id=suite_uuid)
+        suite = await suite_repo.get_by_id(suite_uuid)
+        if suite is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Test suite '{request.suite_id}' not found",
+            )
+        scenarios = await scenario_repo.list_all(org_id=suite.org_id, suite_id=suite_uuid)
         scenario_ids = [s.id for s in scenarios]
 
         if not scenario_ids:
@@ -67,9 +72,9 @@ async def run_tests(
         # Use specific scenarios
         scenario_ids = parse_scenario_ids(request.scenarios)
 
-        # Verify all scenarios exist
+        # Verify all scenarios exist (use get_by_id for legacy unscoped route)
         for sid in scenario_ids:
-            scenario = await scenario_repo.get(sid)
+            scenario = await scenario_repo.get_by_id(sid)
             if scenario is None:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,

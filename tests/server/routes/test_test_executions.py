@@ -41,6 +41,7 @@ class TestTestExecution:
         mock_scenario = TestScenarioRow(
             id=scenario_id,
             suite_id=suite_id,
+            org_id=uuid4(),
             name="Test Scenario",
             goal="Test goal",
             persona_id=persona_id,
@@ -106,6 +107,7 @@ class TestTestExecution:
         mock_scenario1 = TestScenarioRow(
             id=scenario_id1,
             suite_id=uuid4(),
+            org_id=uuid4(),
             name="Scenario 1",
             goal="Goal 1",
             persona_id=persona_id,
@@ -115,6 +117,7 @@ class TestTestExecution:
         mock_scenario2 = TestScenarioRow(
             id=scenario_id2,
             suite_id=uuid4(),
+            org_id=uuid4(),
             name="Scenario 2",
             goal="Goal 2",
             persona_id=persona_id,

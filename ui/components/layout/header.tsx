@@ -27,6 +27,7 @@ export function Header() {
     // Check for org-scoped routes: /orgs/[orgId]/agents, /orgs/[orgId]/test-suites
     if (pathname?.includes("/agents")) return "Agents";
     if (pathname?.includes("/test-suites")) return "Test Suites";
+    if (pathname?.includes("/test-scenarios")) return "Test Scenarios";
 
     // Check for routes that start with a known path
     for (const [route, title] of Object.entries(routeTitles)) {

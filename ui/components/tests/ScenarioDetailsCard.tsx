@@ -14,7 +14,6 @@ import {
   SelectValue,
 } from "@/components/primitives/select";
 import { Target, User, MessageSquare, AlertTriangle, Plus, Trash2, FolderOpen } from "lucide-react";
-import { cn } from "@/lib/utils";
 import type { TestScenario, PersonaListItem } from "@/lib/types";
 
 export interface ScenarioEditForm {
@@ -44,24 +43,6 @@ export function ScenarioDetailsCard({
   editForm,
   onEditFormChange,
 }: ScenarioDetailsCardProps) {
-  // Helper for persona badge color
-  const getPersonaColor = (personaName: string): string => {
-    const name = personaName.toLowerCase();
-    if (name.includes("neutral") || name.includes("calm"))
-      return "bg-blue-500/10 text-blue-600 border-blue-200";
-    if (name.includes("rush") || name.includes("hurr") || name.includes("urgent"))
-      return "bg-orange-500/10 text-orange-600 border-orange-200";
-    if (name.includes("confus") || name.includes("uncertain"))
-      return "bg-purple-500/10 text-purple-600 border-purple-200";
-    if (name.includes("frustrat") || name.includes("angry") || name.includes("upset"))
-      return "bg-red-500/10 text-red-600 border-red-200";
-    if (name.includes("elder") || name.includes("senior"))
-      return "bg-amber-500/10 text-amber-600 border-amber-200";
-    if (name.includes("non-native") || name.includes("accent"))
-      return "bg-teal-500/10 text-teal-600 border-teal-200";
-    return "bg-muted text-muted-foreground border-muted";
-  };
-
   // Helper functions for edit mode
   const updateFormField = <K extends keyof ScenarioEditForm>(
     field: K,
@@ -240,12 +221,9 @@ export function ScenarioDetailsCard({
                   <User className="h-3.5 w-3.5" />
                   <span className="font-medium uppercase tracking-wide">Persona</span>
                 </div>
-                {persona ? (
-                  <Badge
-                    variant="outline"
-                    className={cn("capitalize", getPersonaColor(persona.name))}
-                  >
-                    {persona.name}
+                {(scenario.persona_name ?? persona?.name) ? (
+                  <Badge variant="outline" className="capitalize">
+                    {scenario.persona_name ?? persona?.name}
                   </Badge>
                 ) : (
                   <span className="text-sm text-muted-foreground">Unknown</span>

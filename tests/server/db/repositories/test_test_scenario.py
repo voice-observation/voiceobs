@@ -19,6 +19,7 @@ class TestTestScenarioRowModel:
         row = TestScenarioRow(
             id=uuid4(),
             suite_id=uuid4(),
+            org_id=uuid4(),
             name="Test",
             goal="Goal",
             persona_id=uuid4(),
@@ -36,6 +37,7 @@ class TestTestScenarioRowModel:
         row = TestScenarioRow(
             id=uuid4(),
             suite_id=uuid4(),
+            org_id=uuid4(),
             name="Test",
             goal="Goal",
             persona_id=uuid4(),
@@ -44,6 +46,19 @@ class TestTestScenarioRowModel:
         assert row.caller_behaviors == []
         assert row.tags == []
         assert row.status == "draft"
+
+    def test_row_has_org_id_field(self):
+        """Test that TestScenarioRow has org_id field."""
+        org_id = uuid4()
+        row = TestScenarioRow(
+            id=uuid4(),
+            suite_id=uuid4(),
+            name="Test",
+            goal="Goal",
+            persona_id=uuid4(),
+            org_id=org_id,
+        )
+        assert row.org_id == org_id
 
 
 class TestTestScenarioRepository:
@@ -54,7 +69,7 @@ class TestTestScenarioRepository:
         from unittest.mock import MagicMock
 
         mock_persona_repo = MagicMock()
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
         scenario_id = uuid4()
         suite_id = uuid4()
@@ -63,6 +78,7 @@ class TestTestScenarioRepository:
         row = {
             "id": scenario_id,
             "suite_id": suite_id,
+            "org_id": uuid4(),
             "name": "Test Scenario",
             "goal": "Test goal",
             "persona_id": persona_id,
@@ -87,7 +103,7 @@ class TestTestScenarioRepository:
         from unittest.mock import MagicMock
 
         mock_persona_repo = MagicMock()
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
         scenario_id = uuid4()
         suite_id = uuid4()
@@ -96,6 +112,7 @@ class TestTestScenarioRepository:
         row = {
             "id": scenario_id,
             "suite_id": suite_id,
+            "org_id": uuid4(),
             "name": "Test Scenario",
             "goal": "Test goal",
             "persona_id": persona_id,
@@ -120,7 +137,7 @@ class TestTestScenarioRepository:
         from unittest.mock import MagicMock
 
         mock_persona_repo = MagicMock()
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
         scenario_id = uuid4()
         suite_id = uuid4()
@@ -129,6 +146,7 @@ class TestTestScenarioRepository:
         row = {
             "id": scenario_id,
             "suite_id": suite_id,
+            "org_id": uuid4(),
             "name": "Test Scenario",
             "goal": "Test goal",
             "persona_id": persona_id,
@@ -150,17 +168,16 @@ class TestTestScenarioRepository:
     @pytest.mark.asyncio
     async def test_create_scenario_with_valid_persona(self, mock_db):
         """Test creating a scenario with a valid active persona."""
-        # Create mock persona repository
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
+        org_id = uuid4()
         suite_id = uuid4()
         scenario_id = uuid4()
         persona_id = uuid4()
 
-        # Mock persona exists and is active
+        # Mock persona exists and is active (PersonaRepository.get uses org_id)
         mock_db.fetchrow.side_effect = [
-            # First call: persona validation
             MockRecord(
                 {
                     "id": persona_id,
@@ -179,6 +196,7 @@ class TestTestScenarioRepository:
                     "updated_at": None,
                     "created_by": None,
                     "is_active": True,
+                    "org_id": org_id,
                 }
             ),
             # Second call: fetchrow for created scenario
@@ -186,6 +204,7 @@ class TestTestScenarioRepository:
                 {
                     "id": scenario_id,
                     "suite_id": suite_id,
+                    "org_id": uuid4(),
                     "name": "Test Scenario",
                     "goal": "Test goal",
                     "persona_id": persona_id,
@@ -199,6 +218,7 @@ class TestTestScenarioRepository:
         ]
 
         result = await repo.create(
+            org_id=org_id,
             suite_id=suite_id,
             name="Test Scenario",
             goal="Test goal",
@@ -215,7 +235,7 @@ class TestTestScenarioRepository:
     async def test_create_scenario_with_nonexistent_persona(self, mock_db):
         """Test creating a scenario with a non-existent persona."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
         suite_id = uuid4()
         persona_id = uuid4()
@@ -225,6 +245,7 @@ class TestTestScenarioRepository:
 
         with pytest.raises(ValueError, match="Persona .* not found"):
             await repo.create(
+                org_id=uuid4(),
                 suite_id=suite_id,
                 name="Test Scenario",
                 goal="Test goal",
@@ -238,7 +259,7 @@ class TestTestScenarioRepository:
     async def test_create_scenario_with_inactive_persona(self, mock_db):
         """Test creating a scenario with an inactive persona."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
         suite_id = uuid4()
         persona_id = uuid4()
@@ -262,11 +283,13 @@ class TestTestScenarioRepository:
                 "updated_at": None,
                 "created_by": None,
                 "is_active": False,
+                "org_id": uuid4(),
             }
         )
 
         with pytest.raises(ValueError, match="Persona .* is not active"):
             await repo.create(
+                org_id=uuid4(),
                 suite_id=suite_id,
                 name="Test Scenario",
                 goal="Test goal",
@@ -279,8 +302,9 @@ class TestTestScenarioRepository:
     async def test_update_scenario_with_valid_persona(self, mock_db):
         """Test updating a scenario with a valid active persona."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
+        org_id = uuid4()
         scenario_id = uuid4()
         suite_id = uuid4()
         new_persona_id = uuid4()
@@ -306,6 +330,7 @@ class TestTestScenarioRepository:
                     "updated_at": None,
                     "created_by": None,
                     "is_active": True,
+                    "org_id": uuid4(),
                 }
             ),
             # Second call: get current scenario (for status computation)
@@ -313,6 +338,7 @@ class TestTestScenarioRepository:
                 {
                     "id": scenario_id,
                     "suite_id": suite_id,
+                    "org_id": uuid4(),
                     "name": "Old Name",
                     "goal": "Updated goal",
                     "persona_id": uuid4(),
@@ -331,6 +357,7 @@ class TestTestScenarioRepository:
                 {
                     "id": scenario_id,
                     "suite_id": suite_id,
+                    "org_id": uuid4(),
                     "name": "Updated Scenario",
                     "goal": "Updated goal",
                     "persona_id": new_persona_id,
@@ -348,6 +375,7 @@ class TestTestScenarioRepository:
 
         result = await repo.update(
             scenario_id=scenario_id,
+            org_id=org_id,
             name="Updated Scenario",
             persona_id=new_persona_id,
         )
@@ -360,7 +388,7 @@ class TestTestScenarioRepository:
     async def test_update_scenario_with_nonexistent_persona(self, mock_db):
         """Test updating a scenario with a non-existent persona."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
         scenario_id = uuid4()
         persona_id = uuid4()
@@ -371,6 +399,7 @@ class TestTestScenarioRepository:
         with pytest.raises(ValueError, match="Persona .* not found"):
             await repo.update(
                 scenario_id=scenario_id,
+                org_id=uuid4(),
                 persona_id=persona_id,
             )
 
@@ -380,7 +409,7 @@ class TestTestScenarioRepository:
     async def test_update_scenario_with_inactive_persona(self, mock_db):
         """Test updating a scenario with an inactive persona."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
         scenario_id = uuid4()
         persona_id = uuid4()
@@ -404,12 +433,14 @@ class TestTestScenarioRepository:
                 "updated_at": None,
                 "created_by": None,
                 "is_active": False,
+                "org_id": uuid4(),
             }
         )
 
         with pytest.raises(ValueError, match="Persona .* is not active"):
             await repo.update(
                 scenario_id=scenario_id,
+                org_id=uuid4(),
                 persona_id=persona_id,
             )
 
@@ -419,8 +450,9 @@ class TestTestScenarioRepository:
     async def test_update_scenario_without_persona_change(self, mock_db):
         """Test updating a scenario without changing persona (should not validate)."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
+        org_id = uuid4()
         scenario_id = uuid4()
         persona_id = uuid4()
 
@@ -429,6 +461,7 @@ class TestTestScenarioRepository:
             {
                 "id": scenario_id,
                 "suite_id": uuid4(),
+                "org_id": uuid4(),
                 "name": "Updated Name",
                 "goal": "Test goal",
                 "persona_id": persona_id,
@@ -442,6 +475,7 @@ class TestTestScenarioRepository:
 
         result = await repo.update(
             scenario_id=scenario_id,
+            org_id=org_id,
             name="Updated Name",
         )
 
@@ -455,8 +489,9 @@ class TestTestScenarioRepository:
     async def test_update_scenario_no_changes(self, mock_db):
         """Test updating scenario with no changes returns existing."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
+        org_id = uuid4()
         scenario_id = uuid4()
 
         # Mock get to return existing scenario
@@ -464,6 +499,7 @@ class TestTestScenarioRepository:
             {
                 "id": scenario_id,
                 "suite_id": uuid4(),
+                "org_id": uuid4(),
                 "name": "Test Scenario",
                 "goal": "Test goal",
                 "persona_id": uuid4(),
@@ -475,7 +511,7 @@ class TestTestScenarioRepository:
             }
         )
 
-        result = await repo.update(scenario_id=scenario_id)
+        result = await repo.update(scenario_id=scenario_id, org_id=org_id)
 
         assert result is not None
         # Should call fetchrow for get but not execute for update
@@ -486,8 +522,9 @@ class TestTestScenarioRepository:
     async def test_get_scenario(self, mock_db):
         """Test getting a scenario by UUID."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
+        org_id = uuid4()
         scenario_id = uuid4()
         persona_id = uuid4()
 
@@ -495,6 +532,7 @@ class TestTestScenarioRepository:
             {
                 "id": scenario_id,
                 "suite_id": uuid4(),
+                "org_id": uuid4(),
                 "name": "Test Scenario",
                 "goal": "Test goal",
                 "persona_id": persona_id,
@@ -506,7 +544,7 @@ class TestTestScenarioRepository:
             }
         )
 
-        result = await repo.get(scenario_id)
+        result = await repo.get(scenario_id, org_id)
 
         assert result is not None
         assert result.id == scenario_id
@@ -520,11 +558,11 @@ class TestTestScenarioRepository:
     async def test_get_scenario_not_found(self, mock_db):
         """Test getting a non-existent scenario."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
         mock_db.fetchrow.return_value = None
 
-        result = await repo.get(uuid4())
+        result = await repo.get(uuid4(), uuid4())
 
         assert result is None
 
@@ -532,8 +570,9 @@ class TestTestScenarioRepository:
     async def test_list_all_scenarios(self, mock_db):
         """Test listing all scenarios."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
+        org_id = uuid4()
         suite_id = uuid4()
         persona_id = uuid4()
 
@@ -542,6 +581,7 @@ class TestTestScenarioRepository:
                 {
                     "id": uuid4(),
                     "suite_id": suite_id,
+                    "org_id": uuid4(),
                     "name": "Scenario 1",
                     "goal": "Goal 1",
                     "persona_id": persona_id,
@@ -556,6 +596,7 @@ class TestTestScenarioRepository:
                 {
                     "id": uuid4(),
                     "suite_id": suite_id,
+                    "org_id": uuid4(),
                     "name": "Scenario 2",
                     "goal": "Goal 2",
                     "persona_id": persona_id,
@@ -568,7 +609,7 @@ class TestTestScenarioRepository:
             ),
         ]
 
-        result = await repo.list_all()
+        result = await repo.list_all(org_id=org_id)
 
         assert len(result) == 2
         assert all(isinstance(s, TestScenarioRow) for s in result)
@@ -577,8 +618,9 @@ class TestTestScenarioRepository:
     async def test_list_scenarios_by_suite(self, mock_db):
         """Test listing scenarios filtered by suite."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
+        org_id = uuid4()
         suite_id = uuid4()
         persona_id = uuid4()
 
@@ -587,6 +629,7 @@ class TestTestScenarioRepository:
                 {
                     "id": uuid4(),
                     "suite_id": suite_id,
+                    "org_id": uuid4(),
                     "name": "Scenario 1",
                     "goal": "Goal 1",
                     "persona_id": persona_id,
@@ -599,7 +642,7 @@ class TestTestScenarioRepository:
             ),
         ]
 
-        result = await repo.list_all(suite_id=suite_id)
+        result = await repo.list_all(org_id=org_id, suite_id=suite_id)
 
         assert len(result) == 1
         assert result[0].suite_id == suite_id
@@ -608,12 +651,13 @@ class TestTestScenarioRepository:
     async def test_delete_scenario(self, mock_db):
         """Test deleting a scenario."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
+        org_id = uuid4()
         scenario_id = uuid4()
         mock_db.execute.return_value = "DELETE 1"
 
-        result = await repo.delete(scenario_id)
+        result = await repo.delete(scenario_id, org_id)
 
         assert result is True
         assert mock_db.execute.called
@@ -622,11 +666,11 @@ class TestTestScenarioRepository:
     async def test_delete_scenario_not_found(self, mock_db):
         """Test deleting a non-existent scenario."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
         mock_db.execute.return_value = "DELETE 0"
 
-        result = await repo.delete(uuid4())
+        result = await repo.delete(uuid4(), uuid4())
 
         assert result is False
 
@@ -634,7 +678,7 @@ class TestTestScenarioRepository:
     async def test_create_scenario_database_failure(self, mock_db):
         """Test creating a scenario when database fails to return the created row."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
         suite_id = uuid4()
         persona_id = uuid4()
@@ -660,6 +704,7 @@ class TestTestScenarioRepository:
                     "updated_at": None,
                     "created_by": None,
                     "is_active": True,
+                    "org_id": uuid4(),
                 }
             ),
             # Second call: fetchrow returns None (database failure)
@@ -668,6 +713,7 @@ class TestTestScenarioRepository:
 
         with pytest.raises(RuntimeError, match="Failed to create test scenario"):
             await repo.create(
+                org_id=uuid4(),
                 suite_id=suite_id,
                 name="Test Scenario",
                 goal="Test goal",
@@ -680,7 +726,7 @@ class TestTestScenarioRepository:
     async def test_update_scenario_with_generation_fields(self, mock_db):
         """Test updating a scenario with generation fields."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
         scenario_id = uuid4()
         persona_id = uuid4()
@@ -690,6 +736,7 @@ class TestTestScenarioRepository:
             {
                 "id": scenario_id,
                 "suite_id": uuid4(),
+                "org_id": uuid4(),
                 "name": "Test Scenario",
                 "goal": "Test goal",
                 "persona_id": persona_id,
@@ -703,6 +750,7 @@ class TestTestScenarioRepository:
 
         result = await repo.update(
             scenario_id=scenario_id,
+            org_id=uuid4(),
             intent="new_intent",
             persona_traits=["confident", "assertive"],
             persona_match_score=0.92,
@@ -718,7 +766,7 @@ class TestTestScenarioRepository:
     async def test_update_scenario_all_fields(self, mock_db):
         """Test updating a scenario with all possible fields."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
         scenario_id = uuid4()
         new_persona_id = uuid4()
@@ -745,6 +793,7 @@ class TestTestScenarioRepository:
                     "updated_at": None,
                     "created_by": None,
                     "is_active": True,
+                    "org_id": uuid4(),
                 }
             ),
             # Second call: get current scenario (for status computation)
@@ -752,6 +801,7 @@ class TestTestScenarioRepository:
                 {
                     "id": scenario_id,
                     "suite_id": suite_id,
+                    "org_id": uuid4(),
                     "name": "Old Name",
                     "goal": "Old goal",
                     "persona_id": uuid4(),
@@ -770,6 +820,7 @@ class TestTestScenarioRepository:
                 {
                     "id": scenario_id,
                     "suite_id": suite_id,
+                    "org_id": uuid4(),
                     "name": "Updated Name",
                     "goal": "Updated goal",
                     "persona_id": new_persona_id,
@@ -787,6 +838,7 @@ class TestTestScenarioRepository:
 
         result = await repo.update(
             scenario_id=scenario_id,
+            org_id=uuid4(),
             name="Updated Name",
             goal="Updated goal",
             persona_id=new_persona_id,
@@ -819,7 +871,7 @@ class TestCrudFieldsSqlQueries:
     async def test_create_with_new_crud_fields(self, mock_db):
         """Test that create includes new CRUD fields in INSERT query."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
         suite_id = uuid4()
         scenario_id = uuid4()
@@ -846,6 +898,7 @@ class TestCrudFieldsSqlQueries:
                     "updated_at": None,
                     "created_by": None,
                     "is_active": True,
+                    "org_id": uuid4(),
                 }
             ),
             # Second call: fetchrow for created scenario with new fields
@@ -853,6 +906,7 @@ class TestCrudFieldsSqlQueries:
                 {
                     "id": scenario_id,
                     "suite_id": suite_id,
+                    "org_id": uuid4(),
                     "name": "Test Scenario",
                     "goal": "Test goal",
                     "persona_id": persona_id,
@@ -869,6 +923,7 @@ class TestCrudFieldsSqlQueries:
         ]
 
         result = await repo.create(
+            org_id=uuid4(),
             suite_id=suite_id,
             name="Test Scenario",
             goal="Test goal",
@@ -897,7 +952,7 @@ class TestCrudFieldsSqlQueries:
     async def test_get_returns_new_crud_fields(self, mock_db):
         """Test that get includes new CRUD fields in SELECT query."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
         scenario_id = uuid4()
         persona_id = uuid4()
@@ -906,6 +961,7 @@ class TestCrudFieldsSqlQueries:
             {
                 "id": scenario_id,
                 "suite_id": uuid4(),
+                "org_id": uuid4(),
                 "name": "Test Scenario",
                 "goal": "Test goal",
                 "persona_id": persona_id,
@@ -920,7 +976,7 @@ class TestCrudFieldsSqlQueries:
             }
         )
 
-        result = await repo.get(scenario_id)
+        result = await repo.get(scenario_id, uuid4())
 
         assert result is not None
         assert result.caller_behaviors == ["Provide order number", "Ask about ETA"]
@@ -938,7 +994,7 @@ class TestCrudFieldsSqlQueries:
     async def test_list_all_returns_new_crud_fields(self, mock_db):
         """Test that list_all includes new CRUD fields in SELECT query."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
         suite_id = uuid4()
         persona_id = uuid4()
@@ -948,6 +1004,7 @@ class TestCrudFieldsSqlQueries:
                 {
                     "id": uuid4(),
                     "suite_id": suite_id,
+                    "org_id": uuid4(),
                     "name": "Scenario 1",
                     "goal": "Goal 1",
                     "persona_id": persona_id,
@@ -965,6 +1022,7 @@ class TestCrudFieldsSqlQueries:
                 {
                     "id": uuid4(),
                     "suite_id": suite_id,
+                    "org_id": uuid4(),
                     "name": "Scenario 2",
                     "goal": "Goal 2",
                     "persona_id": persona_id,
@@ -980,7 +1038,7 @@ class TestCrudFieldsSqlQueries:
             ),
         ]
 
-        result = await repo.list_all()
+        result = await repo.list_all(org_id=uuid4())
 
         assert len(result) == 2
         # Verify first scenario has new fields
@@ -1003,7 +1061,7 @@ class TestCrudFieldsSqlQueries:
     async def test_list_all_by_suite_returns_new_crud_fields(self, mock_db):
         """Test that list_all with suite_id filter includes new CRUD fields."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
         suite_id = uuid4()
         persona_id = uuid4()
@@ -1013,6 +1071,7 @@ class TestCrudFieldsSqlQueries:
                 {
                     "id": uuid4(),
                     "suite_id": suite_id,
+                    "org_id": uuid4(),
                     "name": "Scenario",
                     "goal": "Goal",
                     "persona_id": persona_id,
@@ -1028,7 +1087,7 @@ class TestCrudFieldsSqlQueries:
             ),
         ]
 
-        result = await repo.list_all(suite_id=suite_id)
+        result = await repo.list_all(org_id=uuid4(), suite_id=suite_id)
 
         assert len(result) == 1
         assert result[0].caller_behaviors == ["Behavior"]
@@ -1045,7 +1104,7 @@ class TestCrudFieldsSqlQueries:
     async def test_update_with_new_crud_fields(self, mock_db):
         """Test that update can modify new CRUD fields."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
         scenario_id = uuid4()
         suite_id = uuid4()
@@ -1056,6 +1115,7 @@ class TestCrudFieldsSqlQueries:
             {
                 "id": scenario_id,
                 "suite_id": suite_id,
+                "org_id": uuid4(),
                 "name": "Test Scenario",
                 "goal": "Test goal",
                 "persona_id": persona_id,
@@ -1072,6 +1132,7 @@ class TestCrudFieldsSqlQueries:
 
         result = await repo.update(
             scenario_id=scenario_id,
+            org_id=uuid4(),
             caller_behaviors=["Updated Step 1", "Updated Step 2"],
             tags=["updated-tag"],
         )
@@ -1092,7 +1153,7 @@ class TestCrudFieldsSqlQueries:
     async def test_update_single_crud_field(self, mock_db):
         """Test updating a single new CRUD field."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
         scenario_id = uuid4()
         suite_id = uuid4()
@@ -1102,6 +1163,7 @@ class TestCrudFieldsSqlQueries:
             {
                 "id": scenario_id,
                 "suite_id": suite_id,
+                "org_id": uuid4(),
                 "name": "Test Scenario",
                 "goal": "Test goal",
                 "persona_id": persona_id,
@@ -1118,6 +1180,7 @@ class TestCrudFieldsSqlQueries:
 
         result = await repo.update(
             scenario_id=scenario_id,
+            org_id=uuid4(),
             caller_behaviors=["New behavior"],
         )
 
@@ -1179,7 +1242,7 @@ class TestStatusAutoComputationInRepository:
     async def test_create_sets_status_ready_when_complete(self, mock_db):
         """Status is auto-set to 'ready' on create when name and goal are present."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
         suite_id = uuid4()
         scenario_id = uuid4()
@@ -1206,6 +1269,7 @@ class TestStatusAutoComputationInRepository:
                     "updated_at": None,
                     "created_by": None,
                     "is_active": True,
+                    "org_id": uuid4(),
                 }
             ),
             # Second call: fetchrow for created scenario
@@ -1213,6 +1277,7 @@ class TestStatusAutoComputationInRepository:
                 {
                     "id": scenario_id,
                     "suite_id": suite_id,
+                    "org_id": uuid4(),
                     "name": "Test Scenario",
                     "goal": "Test Goal",
                     "persona_id": persona_id,
@@ -1229,6 +1294,7 @@ class TestStatusAutoComputationInRepository:
         ]
 
         result = await repo.create(
+            org_id=uuid4(),
             suite_id=suite_id,
             name="Test Scenario",
             goal="Test Goal",
@@ -1237,16 +1303,16 @@ class TestStatusAutoComputationInRepository:
 
         assert result.status == "ready"
         # Verify status was set to 'ready' in the INSERT
+        # (index 14: scenario_id, org_id, suite_id, name, goal, persona_id, ...)
         insert_call = mock_db.execute.call_args
         insert_args = insert_call[0]
-        # status is the 13th parameter (index 13 after the query)
-        assert insert_args[13] == "ready"
+        assert insert_args[14] == "ready"
 
     @pytest.mark.asyncio
     async def test_create_sets_status_draft_when_name_empty(self, mock_db):
         """Status is auto-set to 'draft' on create when name is empty."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
         suite_id = uuid4()
         scenario_id = uuid4()
@@ -1273,6 +1339,7 @@ class TestStatusAutoComputationInRepository:
                     "updated_at": None,
                     "created_by": None,
                     "is_active": True,
+                    "org_id": uuid4(),
                 }
             ),
             # Second call: fetchrow for created scenario
@@ -1280,6 +1347,7 @@ class TestStatusAutoComputationInRepository:
                 {
                     "id": scenario_id,
                     "suite_id": suite_id,
+                    "org_id": uuid4(),
                     "name": "",
                     "goal": "Test Goal",
                     "persona_id": persona_id,
@@ -1296,6 +1364,7 @@ class TestStatusAutoComputationInRepository:
         ]
 
         result = await repo.create(
+            org_id=uuid4(),
             suite_id=suite_id,
             name="",
             goal="Test Goal",
@@ -1303,16 +1372,16 @@ class TestStatusAutoComputationInRepository:
         )
 
         assert result.status == "draft"
-        # Verify status was set to 'draft' in the INSERT
+        # Verify status was set to 'draft' in the INSERT (index 14: after org_id was added)
         insert_call = mock_db.execute.call_args
         insert_args = insert_call[0]
-        assert insert_args[13] == "draft"
+        assert insert_args[14] == "draft"
 
     @pytest.mark.asyncio
     async def test_update_recomputes_status_to_ready(self, mock_db):
         """Status is auto-recomputed to 'ready' on update when name and goal become present."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
         scenario_id = uuid4()
         suite_id = uuid4()
@@ -1326,6 +1395,7 @@ class TestStatusAutoComputationInRepository:
                 {
                     "id": scenario_id,
                     "suite_id": suite_id,
+                    "org_id": uuid4(),
                     "name": "",
                     "goal": "Existing Goal",
                     "persona_id": persona_id,
@@ -1344,6 +1414,7 @@ class TestStatusAutoComputationInRepository:
                 {
                     "id": scenario_id,
                     "suite_id": suite_id,
+                    "org_id": uuid4(),
                     "name": "New Name",
                     "goal": "Existing Goal",
                     "persona_id": persona_id,
@@ -1361,6 +1432,7 @@ class TestStatusAutoComputationInRepository:
 
         result = await repo.update(
             scenario_id=scenario_id,
+            org_id=uuid4(),
             name="New Name",
         )
 
@@ -1375,7 +1447,7 @@ class TestStatusAutoComputationInRepository:
     async def test_update_recomputes_status_to_draft(self, mock_db):
         """Status is auto-recomputed to 'draft' on update when name becomes empty."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
         scenario_id = uuid4()
         suite_id = uuid4()
@@ -1387,6 +1459,7 @@ class TestStatusAutoComputationInRepository:
                 {
                     "id": scenario_id,
                     "suite_id": suite_id,
+                    "org_id": uuid4(),
                     "name": "Existing Name",
                     "goal": "Existing Goal",
                     "persona_id": persona_id,
@@ -1405,6 +1478,7 @@ class TestStatusAutoComputationInRepository:
                 {
                     "id": scenario_id,
                     "suite_id": suite_id,
+                    "org_id": uuid4(),
                     "name": "",
                     "goal": "Existing Goal",
                     "persona_id": persona_id,
@@ -1422,6 +1496,7 @@ class TestStatusAutoComputationInRepository:
 
         result = await repo.update(
             scenario_id=scenario_id,
+            org_id=uuid4(),
             name="",
         )
 
@@ -1440,7 +1515,7 @@ class TestListAllFiltering:
     async def test_list_all_with_status_filter(self, mock_db):
         """Test listing scenarios filtered by status."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
         suite_id = uuid4()
         persona_id = uuid4()
@@ -1450,6 +1525,7 @@ class TestListAllFiltering:
                 {
                     "id": uuid4(),
                     "suite_id": suite_id,
+                    "org_id": uuid4(),
                     "name": "Ready Scenario",
                     "goal": "Goal",
                     "persona_id": persona_id,
@@ -1465,7 +1541,7 @@ class TestListAllFiltering:
             ),
         ]
 
-        result = await repo.list_all(status="ready")
+        result = await repo.list_all(org_id=uuid4(), status="ready")
 
         assert len(result) == 1
         assert result[0].status == "ready"
@@ -1478,7 +1554,7 @@ class TestListAllFiltering:
     async def test_list_all_with_tags_filter(self, mock_db):
         """Test listing scenarios filtered by tags (returns scenarios with ANY tag)."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
         suite_id = uuid4()
         persona_id = uuid4()
@@ -1488,6 +1564,7 @@ class TestListAllFiltering:
                 {
                     "id": uuid4(),
                     "suite_id": suite_id,
+                    "org_id": uuid4(),
                     "name": "Tagged Scenario",
                     "goal": "Goal",
                     "persona_id": persona_id,
@@ -1503,7 +1580,7 @@ class TestListAllFiltering:
             ),
         ]
 
-        result = await repo.list_all(tags=["happy-path", "urgent"])
+        result = await repo.list_all(org_id=uuid4(), tags=["happy-path", "urgent"])
 
         assert len(result) == 1
         assert result[0].tags == ["happy-path", "booking"]
@@ -1516,7 +1593,7 @@ class TestListAllFiltering:
     async def test_list_all_with_status_and_suite_filters(self, mock_db):
         """Test listing scenarios with both status and suite filters."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
         suite_id = uuid4()
         persona_id = uuid4()
@@ -1526,6 +1603,7 @@ class TestListAllFiltering:
                 {
                     "id": uuid4(),
                     "suite_id": suite_id,
+                    "org_id": uuid4(),
                     "name": "Scenario",
                     "goal": "Goal",
                     "persona_id": persona_id,
@@ -1541,7 +1619,7 @@ class TestListAllFiltering:
             ),
         ]
 
-        result = await repo.list_all(suite_id=suite_id, status="draft")
+        result = await repo.list_all(org_id=uuid4(), suite_id=suite_id, status="draft")
 
         assert len(result) == 1
         # Verify both filters are in the query
@@ -1554,7 +1632,7 @@ class TestListAllFiltering:
     async def test_list_all_with_all_filters(self, mock_db):
         """Test listing scenarios with suite, status, and tags filters combined."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
         suite_id = uuid4()
         persona_id = uuid4()
@@ -1564,6 +1642,7 @@ class TestListAllFiltering:
                 {
                     "id": uuid4(),
                     "suite_id": suite_id,
+                    "org_id": uuid4(),
                     "name": "Fully Filtered",
                     "goal": "Goal",
                     "persona_id": persona_id,
@@ -1579,7 +1658,9 @@ class TestListAllFiltering:
             ),
         ]
 
-        result = await repo.list_all(suite_id=suite_id, status="ready", tags=["happy-path"])
+        result = await repo.list_all(
+            org_id=uuid4(), suite_id=suite_id, status="ready", tags=["happy-path"]
+        )
 
         assert len(result) == 1
         # Verify all filters are in the query
@@ -1593,11 +1674,11 @@ class TestListAllFiltering:
     async def test_list_all_empty_tags_not_applied(self, mock_db):
         """Test that empty tags list is not applied as a filter."""
         mock_persona_repo = PersonaRepository(mock_db)
-        repo = TestScenarioRepository(mock_db, mock_persona_repo)
+        repo = TestScenarioRepository(mock_db, mock_persona_repo, suite_repo=None)
 
         mock_db.fetch.return_value = []
 
-        await repo.list_all(tags=[])
+        await repo.list_all(org_id=uuid4(), tags=[])
 
         # Verify the query does not include tags filter for empty list
         fetch_call = mock_db.fetch.call_args

@@ -25,6 +25,7 @@ class TestResolvePersonaForScenario:
         scenario = TestScenarioRow(
             id=scenario_id,
             suite_id=suite_id,
+            org_id=uuid4(),
             name="Test Scenario",
             goal="Test Goal",
             persona_id=persona_id,
@@ -74,6 +75,7 @@ class TestResolvePersonaForScenario:
         scenario = TestScenarioRow(
             id=scenario_id,
             suite_id=suite_id,
+            org_id=uuid4(),
             name="Test Scenario",
             goal="Test Goal",
             persona_id=persona_id,
@@ -100,6 +102,7 @@ class TestResolvePersonaForScenario:
         scenario = TestScenarioRow(
             id=scenario_id,
             suite_id=suite_id,
+            org_id=uuid4(),
             name="Test Scenario",
             goal="Test Goal",
             persona_id=persona_id,
@@ -140,6 +143,7 @@ class TestResolvePersonaForScenario:
         scenario = TestScenarioRow(
             id=scenario_id,
             suite_id=suite_id,
+            org_id=uuid4(),
             name="Test Scenario",
             goal="Test Goal",
             persona_id=persona_id,
@@ -183,6 +187,7 @@ class TestResolvePersonaForScenario:
         scenario = TestScenarioRow(
             id=scenario_id,
             suite_id=suite_id,
+            org_id=uuid4(),
             name="Test Scenario",
             goal="Test Goal",
             persona_id=persona_id,
@@ -226,6 +231,7 @@ class TestResolvePersonaForScenario:
         scenario = TestScenarioRow(
             id=scenario_id,
             suite_id=suite_id,
+            org_id=uuid4(),
             name="Test Scenario",
             goal="Test Goal",
             persona_id=persona_id,

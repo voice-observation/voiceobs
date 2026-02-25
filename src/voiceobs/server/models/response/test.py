@@ -1,9 +1,13 @@
 """Test response models."""
 
+from __future__ import annotations
+
 from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from voiceobs.server.db.models import TestScenarioRow
 
 
 class TestSuiteResponse(BaseModel):
@@ -108,6 +112,27 @@ class TestScenarioResponse(BaseModel):
     is_manual: bool = Field(
         False, description="True for manually created scenarios, False for AI-generated"
     )
+
+    @classmethod
+    def from_row(cls, scenario: TestScenarioRow) -> TestScenarioResponse:
+        """Create a TestScenarioResponse from a TestScenarioRow."""
+        return cls(
+            id=str(scenario.id),
+            suite_id=str(scenario.suite_id),
+            name=scenario.name,
+            goal=scenario.goal,
+            persona_id=str(scenario.persona_id),
+            persona_name=scenario.persona_name,
+            max_turns=scenario.max_turns,
+            timeout=scenario.timeout,
+            intent=scenario.intent,
+            persona_traits=scenario.persona_traits if scenario.persona_traits else None,
+            persona_match_score=scenario.persona_match_score,
+            caller_behaviors=scenario.caller_behaviors if scenario.caller_behaviors else None,
+            tags=scenario.tags if scenario.tags else None,
+            status=scenario.status,
+            is_manual=scenario.is_manual,
+        )
 
     model_config = ConfigDict(
         json_schema_extra={

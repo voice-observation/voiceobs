@@ -4,11 +4,49 @@ from datetime import datetime
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
-from voiceobs.server.db.models import PersonaRow, TestScenarioRow, TestSuiteRow
+import pytest
+
+from voiceobs.server.auth.context import AuthContext, require_org_membership
+from voiceobs.server.db.models import (
+    OrganizationRow,
+    PersonaRow,
+    TestScenarioRow,
+    TestSuiteRow,
+    UserRow,
+)
+
+
+def make_user(**kwargs):
+    """Create a test UserRow with sensible defaults."""
+    defaults = dict(id=uuid4(), email="test@example.com", name="Test User", is_active=True)
+    defaults.update(kwargs)
+    return UserRow(**defaults)
+
+
+def make_org(**kwargs):
+    """Create a test OrganizationRow with sensible defaults."""
+    defaults = dict(id=uuid4(), name="Test Org", created_by=uuid4())
+    defaults.update(kwargs)
+    return OrganizationRow(**defaults)
 
 
 class TestTestScenarios:
     """Tests for test scenario CRUD endpoints."""
+
+    @pytest.fixture(autouse=True)
+    def setup_auth(self, client):
+        """Set up auth context override for all tests."""
+        self.user = make_user()
+        self.org = make_org()
+        self.auth_context = AuthContext(user=self.user, org=self.org)
+        app = client.app
+
+        async def override_require_org_membership():
+            return self.auth_context
+
+        app.dependency_overrides[require_org_membership] = override_require_org_membership
+        yield
+        app.dependency_overrides.pop(require_org_membership, None)
 
     @patch("voiceobs.server.routes.test_dependencies.get_persona_repository")
     @patch("voiceobs.server.routes.test_dependencies.get_test_suite_repository")
@@ -34,7 +72,7 @@ class TestTestScenarios:
 
         mock_suite = TestSuiteRow(
             id=suite_id,
-            org_id=uuid4(),
+            org_id=self.org.id,
             name="Test Suite",
             description="Test description",
             status="pending",
@@ -48,12 +86,13 @@ class TestTestScenarios:
             patience=0.5,
             verbosity=0.5,
             tts_provider="openai",
-            org_id=uuid4(),
+            org_id=self.org.id,
             is_active=True,
         )
         mock_scenario = TestScenarioRow(
             id=scenario_id,
             suite_id=suite_id,
+            org_id=self.org.id,
             name="Test Scenario",
             goal="Test goal",
             persona_id=persona_id,
@@ -62,12 +101,12 @@ class TestTestScenarios:
         )
 
         mock_suite_repo = AsyncMock()
-        mock_suite_repo.get_by_id.return_value = mock_suite
+        mock_suite_repo.get.return_value = mock_suite
         mock_get_suite_repo.return_value = mock_suite_repo
         mock_get_suite_repository.return_value = mock_suite_repo
 
         mock_persona_repo = AsyncMock()
-        mock_persona_repo._get_by_id_unchecked.return_value = mock_persona
+        mock_persona_repo.get.return_value = mock_persona
         mock_get_persona_repo.return_value = mock_persona_repo
         mock_get_persona_repository.return_value = mock_persona_repo
 
@@ -77,7 +116,7 @@ class TestTestScenarios:
         mock_get_scenario_repository.return_value = mock_scenario_repo
 
         response = client.post(
-            "/api/v1/tests/scenarios",
+            f"/api/v1/orgs/{self.org.id}/test-scenarios",
             json={
                 "suite_id": str(suite_id),
                 "name": "Test Scenario",
@@ -114,7 +153,7 @@ class TestTestScenarios:
     ):
         """Test scenario creation when suite not found."""
         mock_suite_repo = AsyncMock()
-        mock_suite_repo.get_by_id.return_value = None
+        mock_suite_repo.get.return_value = None
         mock_get_suite_repo.return_value = mock_suite_repo
         mock_get_suite_repository.return_value = mock_suite_repo
 
@@ -129,7 +168,7 @@ class TestTestScenarios:
         suite_id = uuid4()
         persona_id = uuid4()
         response = client.post(
-            "/api/v1/tests/scenarios",
+            f"/api/v1/orgs/{self.org.id}/test-scenarios",
             json={
                 "suite_id": str(suite_id),
                 "name": "Test Scenario",
@@ -153,6 +192,7 @@ class TestTestScenarios:
         scenario1 = TestScenarioRow(
             id=uuid4(),
             suite_id=suite_id,
+            org_id=uuid4(),
             name="Scenario 1",
             goal="Goal 1",
             persona_id=persona_id,
@@ -162,6 +202,7 @@ class TestTestScenarios:
         scenario2 = TestScenarioRow(
             id=uuid4(),
             suite_id=suite_id,
+            org_id=uuid4(),
             name="Scenario 2",
             goal="Goal 2",
             persona_id=persona_id,
@@ -173,7 +214,7 @@ class TestTestScenarios:
         mock_get_repo.return_value = mock_repo
         mock_get_scenario_repository.return_value = mock_repo
 
-        response = client.get("/api/v1/tests/scenarios")
+        response = client.get(f"/api/v1/orgs/{self.org.id}/test-scenarios")
 
         assert response.status_code == 200
         data = response.json()
@@ -195,6 +236,7 @@ class TestTestScenarios:
         scenario = TestScenarioRow(
             id=uuid4(),
             suite_id=suite_id,
+            org_id=uuid4(),
             name="Scenario 1",
             goal="Goal 1",
             persona_id=persona_id,
@@ -206,13 +248,13 @@ class TestTestScenarios:
         mock_get_repo.return_value = mock_repo
         mock_get_scenario_repository.return_value = mock_repo
 
-        response = client.get(f"/api/v1/tests/scenarios?suite_id={suite_id}")
+        response = client.get(f"/api/v1/orgs/{self.org.id}/test-scenarios?suite_id={suite_id}")
 
         assert response.status_code == 200
         data = response.json()
         assert data["count"] == 1
         mock_repo.list_all.assert_called_once_with(
-            suite_id=suite_id, status=None, tags=None, limit=20, offset=0
+            org_id=self.org.id, suite_id=suite_id, status=None, tags=None, limit=20, offset=0
         )
 
     @patch("voiceobs.server.routes.test_dependencies.get_test_scenario_repository")
@@ -228,6 +270,7 @@ class TestTestScenarios:
         mock_scenario = TestScenarioRow(
             id=scenario_id,
             suite_id=uuid4(),
+            org_id=uuid4(),
             name="Test Scenario",
             goal="Test goal",
             persona_id=persona_id,
@@ -238,7 +281,7 @@ class TestTestScenarios:
         mock_get_repo.return_value = mock_repo
         mock_get_scenario_repository.return_value = mock_repo
 
-        response = client.get(f"/api/v1/tests/scenarios/{scenario_id}")
+        response = client.get(f"/api/v1/orgs/{self.org.id}/test-scenarios/{scenario_id}")
 
         assert response.status_code == 200
         data = response.json()
@@ -269,6 +312,7 @@ class TestTestScenarios:
         updated_scenario = TestScenarioRow(
             id=scenario_id,
             suite_id=uuid4(),
+            org_id=uuid4(),
             name="Updated Scenario",
             goal="Updated goal",
             persona_id=persona_id,
@@ -288,7 +332,7 @@ class TestTestScenarios:
         mock_get_suite_repository.return_value = mock_suite_repo
 
         response = client.put(
-            f"/api/v1/tests/scenarios/{scenario_id}",
+            f"/api/v1/orgs/{self.org.id}/test-scenarios/{scenario_id}",
             json={"name": "Updated Scenario", "max_turns": 15},
         )
 
@@ -310,7 +354,7 @@ class TestTestScenarios:
         mock_get_scenario_repository.return_value = mock_repo
 
         scenario_id = uuid4()
-        response = client.delete(f"/api/v1/tests/scenarios/{scenario_id}")
+        response = client.delete(f"/api/v1/orgs/{self.org.id}/test-scenarios/{scenario_id}")
 
         assert response.status_code == 204
 
@@ -346,7 +390,7 @@ class TestTestScenarios:
         )
 
         mock_suite_repo = AsyncMock()
-        mock_suite_repo.get_by_id.return_value = mock_suite
+        mock_suite_repo.get.return_value = mock_suite
         mock_get_suite_repo.return_value = mock_suite_repo
         mock_get_suite_repository.return_value = mock_suite_repo
 
@@ -356,12 +400,12 @@ class TestTestScenarios:
 
         # Persona not found
         mock_persona_repo = AsyncMock()
-        mock_persona_repo._get_by_id_unchecked.return_value = None
+        mock_persona_repo.get.return_value = None
         mock_get_persona_repo.return_value = mock_persona_repo
         mock_get_persona_repository.return_value = mock_persona_repo
 
         response = client.post(
-            "/api/v1/tests/scenarios",
+            f"/api/v1/orgs/{self.org.id}/test-scenarios",
             json={
                 "suite_id": str(suite_id),
                 "name": "Test Scenario",
@@ -417,7 +461,7 @@ class TestTestScenarios:
         )
 
         mock_suite_repo = AsyncMock()
-        mock_suite_repo.get_by_id.return_value = mock_suite
+        mock_suite_repo.get.return_value = mock_suite
         mock_get_suite_repo.return_value = mock_suite_repo
         mock_get_suite_repository.return_value = mock_suite_repo
 
@@ -426,12 +470,12 @@ class TestTestScenarios:
         mock_get_scenario_repository.return_value = mock_scenario_repo
 
         mock_persona_repo = AsyncMock()
-        mock_persona_repo._get_by_id_unchecked.return_value = mock_persona
+        mock_persona_repo.get.return_value = mock_persona
         mock_get_persona_repo.return_value = mock_persona_repo
         mock_get_persona_repository.return_value = mock_persona_repo
 
         response = client.post(
-            "/api/v1/tests/scenarios",
+            f"/api/v1/orgs/{self.org.id}/test-scenarios",
             json={
                 "suite_id": str(suite_id),
                 "name": "Test Scenario",
@@ -475,12 +519,12 @@ class TestTestScenarios:
 
         # Persona not found
         mock_persona_repo = AsyncMock()
-        mock_persona_repo._get_by_id_unchecked.return_value = None
+        mock_persona_repo.get.return_value = None
         mock_get_persona_repo.return_value = mock_persona_repo
         mock_get_persona_repository.return_value = mock_persona_repo
 
         response = client.put(
-            f"/api/v1/tests/scenarios/{scenario_id}",
+            f"/api/v1/orgs/{self.org.id}/test-scenarios/{scenario_id}",
             json={"persona_id": str(persona_id)},
         )
 
@@ -530,12 +574,12 @@ class TestTestScenarios:
         mock_get_suite_repository.return_value = mock_suite_repo
 
         mock_persona_repo = AsyncMock()
-        mock_persona_repo._get_by_id_unchecked.return_value = mock_persona
+        mock_persona_repo.get.return_value = mock_persona
         mock_get_persona_repo.return_value = mock_persona_repo
         mock_get_persona_repository.return_value = mock_persona_repo
 
         response = client.put(
-            f"/api/v1/tests/scenarios/{scenario_id}",
+            f"/api/v1/orgs/{self.org.id}/test-scenarios/{scenario_id}",
             json={"persona_id": str(persona_id)},
         )
 
@@ -555,6 +599,7 @@ class TestTestScenarios:
         scenario = TestScenarioRow(
             id=uuid4(),
             suite_id=suite_id,
+            org_id=uuid4(),
             name="Ready Scenario",
             goal="Goal 1",
             persona_id=persona_id,
@@ -567,7 +612,7 @@ class TestTestScenarios:
         mock_get_repo.return_value = mock_repo
         mock_get_scenario_repository.return_value = mock_repo
 
-        response = client.get("/api/v1/tests/scenarios?status=ready")
+        response = client.get(f"/api/v1/orgs/{self.org.id}/test-scenarios?status=ready")
 
         assert response.status_code == 200
         data = response.json()
@@ -590,6 +635,7 @@ class TestTestScenarios:
         scenario = TestScenarioRow(
             id=uuid4(),
             suite_id=suite_id,
+            org_id=uuid4(),
             name="Tagged Scenario",
             goal="Goal 1",
             persona_id=persona_id,
@@ -602,7 +648,8 @@ class TestTestScenarios:
         mock_get_repo.return_value = mock_repo
         mock_get_scenario_repository.return_value = mock_repo
 
-        response = client.get("/api/v1/tests/scenarios?tags=happy-path&tags=urgent")
+        url = f"/api/v1/orgs/{self.org.id}/test-scenarios?tags=happy-path&tags=urgent"
+        response = client.get(url)
 
         assert response.status_code == 200
         data = response.json()
@@ -625,6 +672,7 @@ class TestTestScenarios:
         scenario = TestScenarioRow(
             id=uuid4(),
             suite_id=suite_id,
+            org_id=uuid4(),
             name="Filtered Scenario",
             goal="Goal 1",
             persona_id=persona_id,
@@ -639,7 +687,7 @@ class TestTestScenarios:
         mock_get_scenario_repository.return_value = mock_repo
 
         response = client.get(
-            f"/api/v1/tests/scenarios?suite_id={suite_id}&status=ready&tags=happy-path"
+            f"/api/v1/orgs/{self.org.id}/test-scenarios?suite_id={suite_id}&status=ready&tags=happy-path"
         )
 
         assert response.status_code == 200
@@ -665,6 +713,7 @@ class TestTestScenarios:
         scenario = TestScenarioRow(
             id=uuid4(),
             suite_id=suite_id,
+            org_id=uuid4(),
             name="Scenario 1",
             goal="Goal 1",
             persona_id=persona_id,
@@ -676,7 +725,7 @@ class TestTestScenarios:
         mock_get_repo.return_value = mock_repo
         mock_get_scenario_repository.return_value = mock_repo
 
-        response = client.get("/api/v1/tests/scenarios?limit=10&offset=20")
+        response = client.get(f"/api/v1/orgs/{self.org.id}/test-scenarios?limit=10&offset=20")
 
         assert response.status_code == 200
         data = response.json()
@@ -686,7 +735,7 @@ class TestTestScenarios:
         assert data["offset"] == 20
         # Verify repository was called with pagination params
         mock_repo.list_all.assert_called_once_with(
-            suite_id=None, status=None, tags=None, limit=10, offset=20
+            org_id=self.org.id, suite_id=None, status=None, tags=None, limit=10, offset=20
         )
 
     @patch("voiceobs.server.routes.test_dependencies.get_test_scenario_repository")
@@ -703,7 +752,7 @@ class TestTestScenarios:
         mock_get_scenario_repository.return_value = mock_repo
 
         # Request limit > 100 should fail validation
-        response = client.get("/api/v1/tests/scenarios?limit=200")
+        response = client.get(f"/api/v1/orgs/{self.org.id}/test-scenarios?limit=200")
 
         assert response.status_code == 422  # Validation error
 
@@ -721,7 +770,7 @@ class TestTestScenarios:
         mock_get_scenario_repository.return_value = mock_repo
 
         # Request limit < 1 should fail validation
-        response = client.get("/api/v1/tests/scenarios?limit=0")
+        response = client.get(f"/api/v1/orgs/{self.org.id}/test-scenarios?limit=0")
 
         assert response.status_code == 422  # Validation error
 
@@ -739,13 +788,28 @@ class TestTestScenarios:
         mock_get_scenario_repository.return_value = mock_repo
 
         # Negative offset should fail validation
-        response = client.get("/api/v1/tests/scenarios?offset=-1")
+        response = client.get(f"/api/v1/orgs/{self.org.id}/test-scenarios?offset=-1")
 
         assert response.status_code == 422  # Validation error
 
 
 class TestTestScenariosNewCrudFields:
     """Tests for new CRUD fields in test scenario endpoints."""
+
+    @pytest.fixture(autouse=True)
+    def setup_auth(self, client):
+        """Set up auth context override for all tests."""
+        self.user = make_user()
+        self.org = make_org()
+        self.auth_context = AuthContext(user=self.user, org=self.org)
+        app = client.app
+
+        async def override_require_org_membership():
+            return self.auth_context
+
+        app.dependency_overrides[require_org_membership] = override_require_org_membership
+        yield
+        app.dependency_overrides.pop(require_org_membership, None)
 
     @patch("voiceobs.server.routes.test_dependencies.get_persona_repository")
     @patch("voiceobs.server.routes.test_dependencies.get_test_suite_repository")
@@ -791,6 +855,7 @@ class TestTestScenariosNewCrudFields:
         mock_scenario = TestScenarioRow(
             id=scenario_id,
             suite_id=suite_id,
+            org_id=uuid4(),
             name="Test Scenario",
             goal="Test goal",
             persona_id=persona_id,
@@ -802,12 +867,12 @@ class TestTestScenariosNewCrudFields:
         )
 
         mock_suite_repo = AsyncMock()
-        mock_suite_repo.get_by_id.return_value = mock_suite
+        mock_suite_repo.get.return_value = mock_suite
         mock_get_suite_repo.return_value = mock_suite_repo
         mock_get_suite_repository.return_value = mock_suite_repo
 
         mock_persona_repo = AsyncMock()
-        mock_persona_repo._get_by_id_unchecked.return_value = mock_persona
+        mock_persona_repo.get.return_value = mock_persona
         mock_get_persona_repo.return_value = mock_persona_repo
         mock_get_persona_repository.return_value = mock_persona_repo
 
@@ -817,7 +882,7 @@ class TestTestScenariosNewCrudFields:
         mock_get_scenario_repository.return_value = mock_scenario_repo
 
         response = client.post(
-            "/api/v1/tests/scenarios",
+            f"/api/v1/orgs/{self.org.id}/test-scenarios",
             json={
                 "suite_id": str(suite_id),
                 "name": "Test Scenario",
@@ -869,6 +934,7 @@ class TestTestScenariosNewCrudFields:
         updated_scenario = TestScenarioRow(
             id=scenario_id,
             suite_id=suite_id,
+            org_id=uuid4(),
             name="Updated Scenario",
             goal="Updated goal",
             persona_id=persona_id,
@@ -893,7 +959,7 @@ class TestTestScenariosNewCrudFields:
         mock_get_persona_repository.return_value = mock_persona_repo
 
         response = client.put(
-            f"/api/v1/tests/scenarios/{scenario_id}",
+            f"/api/v1/orgs/{self.org.id}/test-scenarios/{scenario_id}",
             json={
                 "name": "Updated Scenario",
                 "caller_behaviors": ["Updated step 1", "Updated step 2"],
@@ -928,6 +994,7 @@ class TestTestScenariosNewCrudFields:
         mock_scenario = TestScenarioRow(
             id=scenario_id,
             suite_id=suite_id,
+            org_id=uuid4(),
             name="Test Scenario",
             goal="Test goal",
             persona_id=persona_id,
@@ -946,7 +1013,7 @@ class TestTestScenariosNewCrudFields:
         mock_get_repo.return_value = mock_repo
         mock_get_scenario_repository.return_value = mock_repo
 
-        response = client.get(f"/api/v1/tests/scenarios/{scenario_id}")
+        response = client.get(f"/api/v1/orgs/{self.org.id}/test-scenarios/{scenario_id}")
 
         assert response.status_code == 200
         data = response.json()
@@ -962,6 +1029,21 @@ class TestTestScenariosNewCrudFields:
 
 class TestIsManualField:
     """Tests for is_manual field in test scenarios."""
+
+    @pytest.fixture(autouse=True)
+    def setup_auth(self, client):
+        """Set up auth context override for all tests."""
+        self.user = make_user()
+        self.org = make_org()
+        self.auth_context = AuthContext(user=self.user, org=self.org)
+        app = client.app
+
+        async def override_require_org_membership():
+            return self.auth_context
+
+        app.dependency_overrides[require_org_membership] = override_require_org_membership
+        yield
+        app.dependency_overrides.pop(require_org_membership, None)
 
     @patch("voiceobs.server.routes.test_dependencies.get_persona_repository")
     @patch("voiceobs.server.routes.test_dependencies.get_test_suite_repository")
@@ -1008,6 +1090,7 @@ class TestIsManualField:
         mock_scenario = TestScenarioRow(
             id=scenario_id,
             suite_id=suite_id,
+            org_id=uuid4(),
             name="Manual Scenario",
             goal="Test goal",
             persona_id=persona_id,
@@ -1018,12 +1101,12 @@ class TestIsManualField:
         )
 
         mock_suite_repo = AsyncMock()
-        mock_suite_repo.get_by_id.return_value = mock_suite
+        mock_suite_repo.get.return_value = mock_suite
         mock_get_suite_repo.return_value = mock_suite_repo
         mock_get_suite_repository.return_value = mock_suite_repo
 
         mock_persona_repo = AsyncMock()
-        mock_persona_repo._get_by_id_unchecked.return_value = mock_persona
+        mock_persona_repo.get.return_value = mock_persona
         mock_get_persona_repo.return_value = mock_persona_repo
         mock_get_persona_repository.return_value = mock_persona_repo
 
@@ -1033,7 +1116,7 @@ class TestIsManualField:
         mock_get_scenario_repository.return_value = mock_scenario_repo
 
         response = client.post(
-            "/api/v1/tests/scenarios",
+            f"/api/v1/orgs/{self.org.id}/test-scenarios",
             json={
                 "suite_id": str(suite_id),
                 "name": "Manual Scenario",
@@ -1062,6 +1145,7 @@ class TestIsManualField:
         mock_scenario = TestScenarioRow(
             id=scenario_id,
             suite_id=suite_id,
+            org_id=uuid4(),
             name="AI Generated Scenario",
             goal="Test goal",
             persona_id=persona_id,
@@ -1077,7 +1161,7 @@ class TestIsManualField:
         mock_get_repo.return_value = mock_repo
         mock_get_scenario_repository.return_value = mock_repo
 
-        response = client.get(f"/api/v1/tests/scenarios/{scenario_id}")
+        response = client.get(f"/api/v1/orgs/{self.org.id}/test-scenarios/{scenario_id}")
 
         assert response.status_code == 200
         data = response.json()
@@ -1099,6 +1183,7 @@ class TestIsManualField:
         manual_scenario = TestScenarioRow(
             id=uuid4(),
             suite_id=suite_id,
+            org_id=uuid4(),
             name="Manual Scenario",
             goal="Goal 1",
             persona_id=persona_id,
@@ -1108,6 +1193,7 @@ class TestIsManualField:
         ai_scenario = TestScenarioRow(
             id=uuid4(),
             suite_id=suite_id,
+            org_id=uuid4(),
             name="AI Scenario",
             goal="Goal 2",
             persona_id=persona_id,
@@ -1122,7 +1208,7 @@ class TestIsManualField:
         mock_get_repo.return_value = mock_repo
         mock_get_scenario_repository.return_value = mock_repo
 
-        response = client.get("/api/v1/tests/scenarios")
+        response = client.get(f"/api/v1/orgs/{self.org.id}/test-scenarios")
 
         assert response.status_code == 200
         data = response.json()

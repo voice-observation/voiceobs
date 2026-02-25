@@ -170,13 +170,16 @@ def parse_persona_id(persona_id: str) -> UUID:
 
 
 async def validate_suite_exists(
-    suite_id: str, suite_repo: TestSuiteRepository | None = None
+    suite_id: str,
+    suite_repo: TestSuiteRepository | None = None,
+    org_id: UUID | None = None,
 ) -> UUID:
     """Validate that a suite exists and return its UUID.
 
     Args:
         suite_id: Suite ID string to validate.
         suite_repo: Optional suite repository (if None, will be fetched).
+        org_id: Organization UUID for scoped lookup (if None, uses legacy get_by_id).
 
     Returns:
         Parsed UUID of the suite.
@@ -188,7 +191,10 @@ async def validate_suite_exists(
         suite_repo = get_test_suite_repo()
 
     suite_uuid = parse_suite_id(suite_id)
-    suite = await suite_repo.get_by_id(suite_uuid)
+    if org_id is not None:
+        suite = await suite_repo.get(suite_uuid, org_id)
+    else:
+        suite = await suite_repo.get_by_id(suite_uuid)
     if suite is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -198,13 +204,16 @@ async def validate_suite_exists(
 
 
 async def validate_scenario_exists(
-    scenario_id: str, scenario_repo: TestScenarioRepository | None = None
+    scenario_id: str,
+    scenario_repo: TestScenarioRepository | None = None,
+    org_id: UUID | None = None,
 ) -> UUID:
     """Validate that a scenario exists and return its UUID.
 
     Args:
         scenario_id: Scenario ID string to validate.
         scenario_repo: Optional scenario repository (if None, will be fetched).
+        org_id: Organization UUID for scoped lookup (if None, uses get_by_id).
 
     Returns:
         Parsed UUID of the scenario.
@@ -216,7 +225,10 @@ async def validate_scenario_exists(
         scenario_repo = get_test_scenario_repo()
 
     scenario_uuid = parse_scenario_id(scenario_id)
-    scenario = await scenario_repo.get(scenario_uuid)
+    if org_id is not None:
+        scenario = await scenario_repo.get(scenario_uuid, org_id)
+    else:
+        scenario = await scenario_repo.get_by_id(scenario_uuid)
     if scenario is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -226,13 +238,16 @@ async def validate_scenario_exists(
 
 
 async def validate_persona_exists(
-    persona_id: str, persona_repo: PersonaRepository | None = None
+    persona_id: str,
+    persona_repo: PersonaRepository | None = None,
+    org_id: UUID | None = None,
 ) -> UUID:
     """Validate that a persona exists, is active, and return its UUID.
 
     Args:
         persona_id: Persona ID string to validate.
         persona_repo: Optional persona repository (if None, will be fetched).
+        org_id: Organization UUID for scoped lookup (if None, uses legacy unchecked).
 
     Returns:
         Parsed UUID of the persona.
@@ -244,8 +259,10 @@ async def validate_persona_exists(
         persona_repo = get_persona_repo()
 
     persona_uuid = parse_persona_id(persona_id)
-    # TODO: Once test scenarios are org-scoped, pass org_id here
-    persona = await persona_repo._get_by_id_unchecked(persona_uuid)
+    if org_id is not None:
+        persona = await persona_repo.get(persona_uuid, org_id)
+    else:
+        persona = await persona_repo._get_by_id_unchecked(persona_uuid)
     if persona is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

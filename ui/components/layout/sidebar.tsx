@@ -62,7 +62,11 @@ export function Sidebar() {
             href: activeOrg ? `/orgs/${activeOrg.id}/test-suites` : "/test-suites",
             icon: TestTube2,
           },
-          { name: "Test Scenarios", href: "/test-scenarios", icon: ClipboardList },
+          {
+            name: "Test Scenarios",
+            href: activeOrg ? `/orgs/${activeOrg.id}/test-scenarios` : "/",
+            icon: ClipboardList,
+          },
           { name: "Results", href: "/test-results", icon: BarChart3 },
           { name: "Personas", href: "/personas", icon: Users },
           {

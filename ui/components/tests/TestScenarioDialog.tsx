@@ -179,7 +179,11 @@ export function TestScenarioDialog({
           tags: parsedTags,
         };
 
-        const updatedScenario = await api.testScenarios.updateTestScenario(scenario.id, updateData);
+        const updatedScenario = await api.testScenarios.updateTestScenario(
+          orgId,
+          scenario.id,
+          updateData
+        );
 
         logger.info("Test scenario updated", {
           scenarioId: updatedScenario.id,
@@ -191,7 +195,7 @@ export function TestScenarioDialog({
         }
       } else {
         // Create new scenario
-        const newScenario = await api.testScenarios.createTestScenario({
+        const newScenario = await api.testScenarios.createTestScenario(orgId, {
           suite_id: effectiveSuiteId,
           name: title,
           goal: description || title,

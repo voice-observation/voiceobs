@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { useTestScenarios } from "@/hooks";
 import { toast } from "sonner";
 import { Button } from "@/components/primitives/button";
@@ -10,13 +10,12 @@ import { TestScenarioDialog } from "@/components/tests/TestScenarioDialog";
 import { DeleteTestScenarioDialog } from "@/components/tests/DeleteTestScenarioDialog";
 import { Pagination } from "@/components/primitives/pagination";
 import { Plus } from "lucide-react";
-import { useAuth } from "@/contexts/auth-context";
 import type { TestScenario } from "@/lib/types";
 
 export default function TestScenariosPage() {
   const router = useRouter();
-  const { activeOrg } = useAuth();
-  const orgId = activeOrg?.id ?? "";
+  const params = useParams();
+  const orgId = (params.orgId as string) ?? "";
   const {
     scenarios,
     testSuites,
@@ -90,7 +89,7 @@ export default function TestScenariosPage() {
         showSuiteColumn={true}
         showSuiteFilter={true}
         loading={loading}
-        onRowClick={(s) => router.push(`/test-scenarios/${s.id}`)}
+        onRowClick={(s) => router.push(`/orgs/${orgId}/test-scenarios/${s.id}`)}
         onEdit={(s) => {
           setSelectedScenario(s);
           setEditDialogOpen(true);
@@ -118,8 +117,10 @@ export default function TestScenariosPage() {
         <DeleteTestScenarioDialog
           open={deleteDialogOpen}
           onOpenChange={(open) => {
-            setDeleteDialogOpen(open);
-            if (!open) setSelectedScenario(null);
+            if (!open) {
+              setDeleteDialogOpen(false);
+              setSelectedScenario(null);
+            }
           }}
           scenarioName={selectedScenario.name}
           isDeleting={isDeleting}

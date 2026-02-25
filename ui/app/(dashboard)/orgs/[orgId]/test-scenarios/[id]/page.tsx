@@ -4,8 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/primitives/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/primitives/card";
-import { Badge } from "@/components/primitives/badge";
+import { Card, CardContent } from "@/components/primitives/card";
 import { Skeleton } from "@/components/primitives/skeleton";
 import { TestScenarioStatusBadge } from "@/components/tests/TestScenarioStatusBadge";
 import { TestScenarioDialog } from "@/components/tests/TestScenarioDialog";
@@ -16,16 +15,14 @@ import { ScenarioRunHistory } from "@/components/tests/ScenarioRunHistory";
 import { ArrowLeft, Pencil, Trash2, AlertCircle, Play } from "lucide-react";
 import { api } from "@/lib/api";
 import { logger } from "@/lib/logger";
-import { useAuth } from "@/contexts/auth-context";
 import { toast } from "sonner";
 import type { TestScenario, TestSuite, PersonaListItem } from "@/lib/types";
 
 export default function TestScenarioDetailPage() {
   const router = useRouter();
   const params = useParams();
-  const scenarioId = params.id as string;
-  const { activeOrg } = useAuth();
-  const orgId = activeOrg?.id ?? "";
+  const orgId = (params.orgId as string) ?? "";
+  const scenarioId = (params.id as string) ?? "";
 
   const [scenario, setScenario] = useState<TestScenario | null>(null);
   const [testSuite, setTestSuite] = useState<TestSuite | null>(null);
@@ -39,30 +36,26 @@ export default function TestScenarioDetailPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchData = useCallback(async () => {
+    if (!orgId || !scenarioId) return;
     try {
       setLoading(true);
       setError(null);
 
-      // Fetch the scenario
-      const scenarioData = await api.testScenarios.getTestScenario(scenarioId);
+      const scenarioData = await api.testScenarios.getTestScenario(orgId, scenarioId);
       setScenario(scenarioData);
 
-      // Fetch the parent test suite
       try {
         const suiteData = await api.testSuites.getTestSuite(orgId, scenarioData.suite_id);
         setTestSuite(suiteData);
       } catch (err) {
         logger.warn("Failed to fetch test suite", { error: err });
-        // Non-critical error, continue
       }
 
-      // Fetch the persona
       try {
         const personaData = await api.personas.getPersona(orgId, scenarioData.persona_id);
         setPersona(personaData as PersonaListItem);
       } catch (err) {
         logger.warn("Failed to fetch persona", { error: err });
-        // Non-critical error, continue
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to load test scenario";
@@ -71,7 +64,7 @@ export default function TestScenarioDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [scenarioId, orgId]);
+  }, [orgId, scenarioId]);
 
   useEffect(() => {
     if (scenarioId && orgId) {
@@ -81,6 +74,16 @@ export default function TestScenarioDetailPage() {
 
   const handleScenarioUpdated = async (updatedScenario: TestScenario) => {
     setScenario(updatedScenario);
+    // If persona changed, fetch the new persona so it displays correctly
+    if (updatedScenario.persona_id !== scenario?.persona_id) {
+      try {
+        const personaData = await api.personas.getPersona(orgId, updatedScenario.persona_id);
+        setPersona(personaData as PersonaListItem);
+      } catch (err) {
+        logger.warn("Failed to fetch updated persona", { error: err });
+        // persona_name from scenario will still display in ScenarioDetailsCard
+      }
+    }
     toast("Scenario Updated", { description: "Test scenario has been updated successfully." });
   };
 
@@ -88,13 +91,12 @@ export default function TestScenarioDetailPage() {
     if (!scenario) return;
     setIsDeleting(true);
     try {
-      await api.testScenarios.deleteTestScenario(scenario.id);
+      await api.testScenarios.deleteTestScenario(orgId, scenario.id);
       toast("Scenario Deleted", { description: `"${scenario.name}" has been deleted.` });
-      // Navigate back to list or suite detail
       if (testSuite && orgId) {
         router.push(`/orgs/${orgId}/test-suites/${testSuite.id}`);
       } else {
-        router.push("/test-scenarios");
+        router.push(`/orgs/${orgId}/test-scenarios`);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to delete scenario";
@@ -105,7 +107,8 @@ export default function TestScenarioDetailPage() {
     }
   };
 
-  // Loading skeleton
+  const scenariosBasePath = `/orgs/${orgId}/test-scenarios`;
+
   if (loading) {
     return (
       <div className="space-y-6 p-8">
@@ -125,11 +128,10 @@ export default function TestScenarioDetailPage() {
     );
   }
 
-  // Error state
   if (error || !scenario) {
     return (
       <div className="space-y-6 p-8">
-        <Button variant="ghost" size="icon" onClick={() => router.push("/test-scenarios")}>
+        <Button variant="ghost" size="icon" onClick={() => router.push(scenariosBasePath)}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <Card>
@@ -141,7 +143,7 @@ export default function TestScenarioDetailPage() {
             <Button
               variant="outline"
               className="mt-4"
-              onClick={() => router.push("/test-scenarios")}
+              onClick={() => router.push(scenariosBasePath)}
             >
               Back to Test Scenarios
             </Button>
@@ -164,7 +166,7 @@ export default function TestScenarioDetailPage() {
               if (testSuite && orgId) {
                 router.push(`/orgs/${orgId}/test-suites/${testSuite.id}`);
               } else {
-                router.push("/test-scenarios");
+                router.push(scenariosBasePath);
               }
             }}
           >

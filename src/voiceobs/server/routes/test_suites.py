@@ -187,7 +187,7 @@ async def list_test_suites(
     suites = await repo.list_all(org_id)
 
     # Get all scenarios to count per suite efficiently
-    all_scenarios = await scenario_repo.list_all()
+    all_scenarios = await scenario_repo.list_all(org_id=org_id)
     scenario_counts: dict[UUID, int] = {}
     for scenario in all_scenarios:
         suite_id = scenario.suite_id
@@ -245,7 +245,7 @@ async def get_test_suite(
         )
 
     # Get scenario count for this suite
-    scenarios = await scenario_repo.list_all(suite_id=suite_uuid)
+    scenarios = await scenario_repo.list_all(org_id=org_id, suite_id=suite_uuid)
 
     return TestSuiteResponse(
         id=str(suite.id),
@@ -386,7 +386,7 @@ async def get_generation_status(
             detail=f"Test suite '{suite_id}' not found in organization",
         )
 
-    scenarios = await scenario_repo.list_all(suite_id=suite_uuid)
+    scenarios = await scenario_repo.list_all(org_id=org_id, suite_id=suite_uuid)
 
     return GenerationStatusResponse(
         suite_id=str(suite.id),
@@ -461,7 +461,7 @@ async def generate_more_scenarios(
     )
 
     # Get current scenario count
-    scenarios = await scenario_repo.list_all(suite_id=suite_uuid)
+    scenarios = await scenario_repo.list_all(org_id=org_id, suite_id=suite_uuid)
 
     # Trigger background generation
     try:

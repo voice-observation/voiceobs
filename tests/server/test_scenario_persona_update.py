@@ -39,6 +39,7 @@ def make_scenario(
     return TestScenarioRow(
         id=scenario_id if scenario_id else uuid4(),
         suite_id=uuid4(),
+        org_id=uuid4(),
         name="Test Scenario",
         goal="Test Goal",
         persona_id=persona_id if persona_id else uuid4(),
@@ -130,16 +131,21 @@ class TestScenarioPersonaUpdateRoute:
         mock_scenario_repo.update.return_value = updated_scenario
 
         mock_persona_repo = AsyncMock()
-        mock_persona_repo._get_by_id_unchecked.return_value = new_persona
+        mock_persona_repo.get.return_value = new_persona
 
         request = TestScenarioUpdateRequest(persona_id=str(new_persona_id))
 
+        org_id = uuid4()
+        mock_suite_repo = AsyncMock()
+
         # Call the route handler
         await update_test_scenario(
+            org_id=org_id,
             scenario_id=str(scenario_id),
             request=request,
             repo=mock_scenario_repo,
             persona_repo=mock_persona_repo,
+            suite_repo=mock_suite_repo,
         )
 
         # Verify persona_match_score was passed to update
@@ -185,15 +191,20 @@ class TestScenarioPersonaUpdateRoute:
         mock_scenario_repo.update.return_value = updated_scenario
 
         mock_persona_repo = AsyncMock()
-        mock_persona_repo._get_by_id_unchecked.return_value = new_persona
+        mock_persona_repo.get.return_value = new_persona
 
         request = TestScenarioUpdateRequest(persona_id=str(new_persona_id))
 
+        org_id = uuid4()
+        mock_suite_repo = AsyncMock()
+
         await update_test_scenario(
+            org_id=org_id,
             scenario_id=str(scenario_id),
             request=request,
             repo=mock_scenario_repo,
             persona_repo=mock_persona_repo,
+            suite_repo=mock_suite_repo,
         )
 
         # Verify persona_match_score was NOT passed (or is None)
@@ -226,11 +237,16 @@ class TestScenarioPersonaUpdateRoute:
         # Update only name, not persona_id
         request = TestScenarioUpdateRequest(name="Updated Name")
 
+        org_id = uuid4()
+        mock_suite_repo = AsyncMock()
+
         await update_test_scenario(
+            org_id=org_id,
             scenario_id=str(scenario_id),
             request=request,
             repo=mock_scenario_repo,
             persona_repo=mock_persona_repo,
+            suite_repo=mock_suite_repo,
         )
 
         # Verify persona_match_score was NOT recalculated
@@ -277,15 +293,20 @@ class TestScenarioPersonaUpdateRoute:
         mock_scenario_repo.update.return_value = updated_scenario
 
         mock_persona_repo = AsyncMock()
-        mock_persona_repo._get_by_id_unchecked.return_value = new_persona
+        mock_persona_repo.get.return_value = new_persona
 
         request = TestScenarioUpdateRequest(persona_id=str(new_persona_id))
 
+        org_id = uuid4()
+        mock_suite_repo = AsyncMock()
+
         await update_test_scenario(
+            org_id=org_id,
             scenario_id=str(scenario_id),
             request=request,
             repo=mock_scenario_repo,
             persona_repo=mock_persona_repo,
+            suite_repo=mock_suite_repo,
         )
 
         # Verify the partial match score was calculated

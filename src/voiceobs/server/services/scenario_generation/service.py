@@ -236,7 +236,9 @@ class ScenarioGenerationService:
             raise ValueError("No active personas available for scenario generation")
 
         # Fetch existing scenarios
-        existing_scenarios = await self._test_scenario_repo.list_all(suite_id=suite_id)
+        existing_scenarios = await self._test_scenario_repo.list_all(
+            org_id=org_id, suite_id=suite_id
+        )
 
         # Build the prompt
         prompt = self._build_generation_prompt(agent, suite, existing_scenarios, additional_prompt)
@@ -266,6 +268,7 @@ class ScenarioGenerationService:
 
             # Create the scenario
             scenario = await self._test_scenario_repo.create(
+                org_id=org_id,
                 suite_id=suite_id,
                 name=generated.name,
                 goal=generated.goal,
