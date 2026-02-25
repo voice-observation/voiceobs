@@ -26,7 +26,7 @@ export function TestSuiteStatusBadge({ status, error }: TestSuiteStatusBadgeProp
   switch (status) {
     case "pending":
       return (
-        <Badge variant="secondary" className="gap-1">
+        <Badge variant="secondary" className="gap-1" data-testid="test-suite-status-badge">
           <Clock className="h-3 w-3" />
           Pending
         </Badge>
@@ -36,6 +36,7 @@ export function TestSuiteStatusBadge({ status, error }: TestSuiteStatusBadgeProp
         <Badge
           variant="secondary"
           className="gap-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+          data-testid="test-suite-status-badge"
         >
           <Loader2 className="h-3 w-3 animate-spin" />
           Generating...
@@ -43,14 +44,19 @@ export function TestSuiteStatusBadge({ status, error }: TestSuiteStatusBadgeProp
       );
     case "ready":
       return (
-        <Badge variant="secondary" className="gap-1">
+        <Badge variant="secondary" className="gap-1" data-testid="test-suite-status-badge">
           <AlertCircle className="h-3 w-3" />
           Never Run
         </Badge>
       );
     case "generation_failed":
       return (
-        <Badge variant="destructive" className="gap-1" title={error || undefined}>
+        <Badge
+          variant="destructive"
+          className="gap-1"
+          title={error || undefined}
+          data-testid="test-suite-status-badge"
+        >
           <XCircle className="h-3 w-3" />
           Generation Failed
         </Badge>
@@ -60,6 +66,7 @@ export function TestSuiteStatusBadge({ status, error }: TestSuiteStatusBadgeProp
         <Badge
           variant="secondary"
           className="gap-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+          data-testid="test-suite-status-badge"
         >
           <Play className="h-3 w-3" />
           Running
@@ -70,6 +77,7 @@ export function TestSuiteStatusBadge({ status, error }: TestSuiteStatusBadgeProp
         <Badge
           variant="secondary"
           className="gap-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+          data-testid="test-suite-status-badge"
         >
           <CheckCircle className="h-3 w-3" />
           Passed
@@ -77,12 +85,16 @@ export function TestSuiteStatusBadge({ status, error }: TestSuiteStatusBadgeProp
       );
     case "failed":
       return (
-        <Badge variant="destructive" className="gap-1">
+        <Badge variant="destructive" className="gap-1" data-testid="test-suite-status-badge">
           <XCircle className="h-3 w-3" />
           Failed
         </Badge>
       );
     default:
-      return <Badge variant="outline">{status}</Badge>;
+      return (
+        <Badge variant="outline" data-testid="test-suite-status-badge">
+          {status}
+        </Badge>
+      );
   }
 }

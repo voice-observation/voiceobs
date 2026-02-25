@@ -213,6 +213,361 @@ export class ApiClient {
     return await response.json();
   }
 
+  // ─── Agents ────────────────────────────────────────
+
+  /**
+   * List agents for an organization
+   */
+  async listAgents(orgId: string, authToken: string): Promise<any[]> {
+    const response = await fetch(`${this.baseUrl}/api/v1/orgs/${orgId}/agents`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to list agents: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.agents || [];
+  }
+
+  /**
+   * Create an agent in an organization.
+   * Pass bypassVerification to skip real verification for test speed.
+   */
+  async createAgent(
+    orgId: string,
+    data: any,
+    authToken: string,
+    options?: { bypassVerification?: 'verified' | 'failed' }
+  ): Promise<any> {
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${authToken}`,
+      'Content-Type': 'application/json',
+    };
+    if (options?.bypassVerification) {
+      headers['X-Test-Bypass'] = `verification:${options.bypassVerification}`;
+    }
+
+    const response = await fetch(`${this.baseUrl}/api/v1/orgs/${orgId}/agents`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`Failed to create agent (${response.status}): ${errorBody}`);
+    }
+
+    return await response.json();
+  }
+
+  /**
+   * Get a specific agent by ID
+   */
+  async getAgent(orgId: string, agentId: string, authToken: string): Promise<any> {
+    const response = await fetch(
+      `${this.baseUrl}/api/v1/orgs/${orgId}/agents/${agentId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to get agent: ${response.statusText}`);
+    }
+
+    return await response.json();
+  }
+
+  /**
+   * Get verification status for an agent
+   */
+  async getAgentVerificationStatus(
+    orgId: string,
+    agentId: string,
+    authToken: string
+  ): Promise<{ status: string; attempts?: number; reasoning?: string; transcript?: string; last_verification_at?: string; error?: string }> {
+    const response = await fetch(
+      `${this.baseUrl}/api/v1/orgs/${orgId}/agents/${agentId}/verification-status`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to get verification status: ${response.statusText}`);
+    }
+
+    return await response.json();
+  }
+
+  /**
+   * Poll for verification status until verified, failed, or timeout.
+   * @param timeoutMs Total wait time (default 120000)
+   * @param intervalMs Poll interval (default 3000)
+   * @returns Final status object; status will be "verified", "failed", or last observed if timeout
+   */
+  async waitForVerification(
+    orgId: string,
+    agentId: string,
+    authToken: string,
+    timeoutMs: number = 120000,
+    intervalMs: number = 3000
+  ): Promise<{ status: string; attempts?: number; reasoning?: string; transcript?: string; last_verification_at?: string; error?: string }> {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      const result = await this.getAgentVerificationStatus(orgId, agentId, authToken);
+      if (result.status === 'verified' || result.status === 'failed') {
+        return result;
+      }
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
+    return await this.getAgentVerificationStatus(orgId, agentId, authToken);
+  }
+
+  /**
+   * Update an agent.
+   * Pass bypassVerification to skip real re-verification when contact info changes.
+   */
+  async updateAgent(
+    orgId: string,
+    agentId: string,
+    data: any,
+    authToken: string,
+    options?: { bypassVerification?: 'verified' | 'failed' }
+  ): Promise<any> {
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${authToken}`,
+      'Content-Type': 'application/json',
+    };
+    if (options?.bypassVerification) {
+      headers['X-Test-Bypass'] = `verification:${options.bypassVerification}`;
+    }
+
+    const response = await fetch(
+      `${this.baseUrl}/api/v1/orgs/${orgId}/agents/${agentId}`,
+      {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(data),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to update agent: ${response.statusText}`);
+    }
+
+    return await response.json();
+  }
+
+  /**
+   * Delete an agent
+   */
+  async deleteAgent(orgId: string, agentId: string, authToken: string): Promise<void> {
+    const response = await fetch(
+      `${this.baseUrl}/api/v1/orgs/${orgId}/agents/${agentId}`,
+      {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to delete agent: ${response.statusText}`);
+    }
+  }
+
+  // ─── Test Suites ───────────────────────────────────
+
+  /**
+   * List test suites for an organization
+   */
+  async listTestSuites(orgId: string, authToken: string): Promise<any[]> {
+    const response = await fetch(
+      `${this.baseUrl}/api/v1/orgs/${orgId}/test-suites`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to list test suites: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.suites || [];
+  }
+
+  /**
+   * Create a test suite
+   */
+  async createTestSuite(orgId: string, data: any, authToken: string): Promise<any> {
+    const response = await fetch(
+      `${this.baseUrl}/api/v1/orgs/${orgId}/test-suites`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      }
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`Failed to create test suite (${response.status}): ${errorBody}`);
+    }
+
+    return await response.json();
+  }
+
+  /**
+   * Get a test suite by ID
+   */
+  async getTestSuite(orgId: string, suiteId: string, authToken: string): Promise<any> {
+    const response = await fetch(
+      `${this.baseUrl}/api/v1/orgs/${orgId}/test-suites/${suiteId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to get test suite: ${response.statusText}`);
+    }
+
+    return await response.json();
+  }
+
+  /**
+   * Update a test suite
+   */
+  async updateTestSuite(
+    orgId: string,
+    suiteId: string,
+    data: any,
+    authToken: string
+  ): Promise<any> {
+    const response = await fetch(
+      `${this.baseUrl}/api/v1/orgs/${orgId}/test-suites/${suiteId}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to update test suite: ${response.statusText}`);
+    }
+
+    return await response.json();
+  }
+
+  /**
+   * Delete a test suite.
+   * Throws on 4xx/5xx (including 404) so callers can distinguish failure from success.
+   */
+  async deleteTestSuite(
+    orgId: string,
+    suiteId: string,
+    authToken: string
+  ): Promise<void> {
+    const response = await fetch(
+      `${this.baseUrl}/api/v1/orgs/${orgId}/test-suites/${suiteId}`,
+      {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to delete test suite: ${response.status} ${response.statusText}`);
+    }
+  }
+
+  /**
+   * Get generation status of a test suite.
+   * Used for polling until generation completes.
+   */
+  async getGenerationStatus(
+    orgId: string,
+    suiteId: string,
+    authToken: string
+  ): Promise<{ status: string; scenario_count: number; error: string | null }> {
+    const response = await fetch(
+      `${this.baseUrl}/api/v1/orgs/${orgId}/test-suites/${suiteId}/generation-status`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to get generation status: ${response.statusText}`);
+    }
+
+    return await response.json();
+  }
+
+  /**
+   * Poll until test suite generation completes (status becomes "ready" or "generation_failed").
+   * @param timeoutMs Maximum time to wait (default 120s)
+   * @param intervalMs Polling interval (default 2s)
+   */
+  async waitForGeneration(
+    orgId: string,
+    suiteId: string,
+    authToken: string,
+    timeoutMs: number = 120000,
+    intervalMs: number = 2000,
+  ): Promise<{ status: string; scenario_count: number }> {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      const result = await this.getGenerationStatus(orgId, suiteId, authToken);
+      if (result.status === 'ready' || result.status === 'generation_failed') {
+        return { status: result.status, scenario_count: result.scenario_count };
+      }
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
+    throw new Error(`Generation timed out after ${timeoutMs}ms for suite ${suiteId}`);
+  }
+
   /**
    * Set persona active/inactive status
    */

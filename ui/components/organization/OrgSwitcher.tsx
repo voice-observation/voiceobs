@@ -47,7 +47,11 @@ export function OrgSwitcher() {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="h-auto w-full justify-between px-3 py-2">
+          <Button
+            variant="ghost"
+            className="h-auto w-full justify-between px-3 py-2"
+            data-testid="org-switcher-trigger"
+          >
             <div className="flex min-w-0 items-center gap-2">
               <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
               <span className="truncate text-sm font-medium">{activeOrg.name}</span>
@@ -55,19 +59,23 @@ export function OrgSwitcher() {
             <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-56">
+        <DropdownMenuContent align="start" className="w-56" data-testid="org-switcher-menu">
           {orgs.map((org) => (
             <DropdownMenuItem
               key={org.id}
               onClick={() => handleSwitchOrg(org.id)}
               className="flex items-center justify-between"
+              data-testid="org-switcher-org-item"
             >
               <span className="truncate">{org.name}</span>
               {org.id === activeOrg.id && <Check className="h-4 w-4 shrink-0" />}
             </DropdownMenuItem>
           ))}
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => setCreateDialogOpen(true)}>
+          <DropdownMenuItem
+            onClick={() => setCreateDialogOpen(true)}
+            data-testid="org-switcher-create-org"
+          >
             <Plus className="mr-2 h-4 w-4" />
             Create organization
           </DropdownMenuItem>

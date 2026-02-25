@@ -14,16 +14,12 @@ export class SidebarPage {
   constructor(page: Page) {
     this.page = page;
     this.sidebar = page.locator('aside');
-    // Logout button renders as: <Button>...Log out</Button>
     this.logoutButton = page.locator('aside button:has-text("Log out")');
-    // OrgSwitcher trigger is a Radix DropdownMenuTrigger (button with aria-haspopup)
-    this.orgSwitcher = page.locator('aside button[aria-haspopup="menu"]');
-    this.createOrgButton = page.locator('[role="menuitem"]:has-text("Create organization")');
+    this.orgSwitcher = page.getByTestId('org-switcher-trigger');
+    this.createOrgButton = page.getByTestId('org-switcher-create-org');
     this.createOrgDialog = page.locator('[role="dialog"]');
-    // CreateOrgDialog input has id="org-name" and placeholder="Acme Corp"
-    this.orgNameInput = page.locator('#org-name');
-    this.createOrgSubmit = page.locator('[role="dialog"] button[type="submit"]');
-    // Validation error renders as: <p className="text-sm text-destructive">{error}</p>
+    this.orgNameInput = page.getByTestId('create-org-name-input');
+    this.createOrgSubmit = page.getByTestId('create-org-submit');
     this.orgValidationError = page.locator('[role="dialog"] .text-destructive');
   }
 
@@ -43,16 +39,15 @@ export class SidebarPage {
   }
 
   async getActiveOrgName(): Promise<string | null> {
-    // Read the active org name from the trigger button text (shows current org)
     const orgName = this.orgSwitcher.locator('span.truncate');
     return await orgName.textContent();
   }
 
   async getOrgList(): Promise<string[]> {
+    await this.orgSwitcher.waitFor({ state: 'visible', timeout: 10000 });
     await this.orgSwitcher.click();
-    // Wait for dropdown to open
-    await this.page.locator('[role="menu"]').waitFor({ state: 'visible' });
-    const orgItems = this.page.locator('[role="menuitem"]');
+    await this.page.getByTestId('org-switcher-menu').waitFor({ state: 'visible', timeout: 5000 });
+    const orgItems = this.page.getByTestId('org-switcher-org-item');
     const count = await orgItems.count();
     const orgs: string[] = [];
 
@@ -68,17 +63,17 @@ export class SidebarPage {
   }
 
   async switchOrg(name: string) {
+    await this.orgSwitcher.waitFor({ state: 'visible', timeout: 10000 });
     await this.orgSwitcher.click();
-    await this.page.locator('[role="menu"]').waitFor({ state: 'visible' });
-    await this.page.locator(`[role="menuitem"]:has-text("${name}")`).click();
+    await this.page.getByTestId('org-switcher-menu').waitFor({ state: 'visible', timeout: 5000 });
+    await this.page.getByTestId('org-switcher-org-item').filter({ hasText: name }).click();
   }
 
   async openCreateOrgDialog() {
+    await this.orgSwitcher.waitFor({ state: 'visible', timeout: 10000 });
     await this.orgSwitcher.click();
-    const menu = this.page.locator('[role="menu"]');
-    await menu.waitFor({ state: 'visible' });
-    // Scope to menu to avoid matching other menuitems on the page
-    await menu.getByRole('menuitem', { name: 'Create organization' }).click();
+    await this.page.getByTestId('org-switcher-menu').waitFor({ state: 'visible', timeout: 5000 });
+    await this.page.getByTestId('org-switcher-create-org').click();
   }
 
   async createOrg(name: string): Promise<void> {

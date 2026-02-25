@@ -229,7 +229,7 @@ export default function OrgTestSuitesPage() {
             <Filter className="mr-2 h-4 w-4" />
             Filter
           </Button>
-          <Button onClick={() => setCreateDialogOpen(true)}>
+          <Button onClick={() => setCreateDialogOpen(true)} data-testid="test-suite-new-button">
             <Plus className="mr-2 h-4 w-4" />
             New Suite
           </Button>
@@ -239,7 +239,10 @@ export default function OrgTestSuitesPage() {
       {testSuites.length === 0 ? (
         <Card>
           <CardContent className="pt-6">
-            <div className="py-12 text-center text-muted-foreground">
+            <div
+              className="py-12 text-center text-muted-foreground"
+              data-testid="test-suite-empty-state"
+            >
               <p>No test suites found</p>
               <Button variant="outline" className="mt-4" onClick={() => setCreateDialogOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
@@ -249,7 +252,10 @@ export default function OrgTestSuitesPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="rounded-lg border border-border bg-card">
+        <div
+          className="rounded-lg border border-border bg-card"
+          data-testid="test-suite-list-table"
+        >
           <Table>
             <TableHeader>
               <TableRow>
@@ -270,6 +276,9 @@ export default function OrgTestSuitesPage() {
                     key={suite.id}
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => router.push(`${suitesBasePath}/${suite.id}`)}
+                    data-testid="test-suite-row"
+                    data-suite-id={suite.id}
+                    data-suite-name={suite.name}
                   >
                     <TableCell className="font-medium">{suite.name}</TableCell>
                     <TableCell>{suite.scenario_count ?? "-"}</TableCell>
@@ -298,6 +307,7 @@ export default function OrgTestSuitesPage() {
                           className="h-8 w-8"
                           onClick={(e) => handleView(suite.id, e)}
                           title="View details"
+                          data-testid="test-suite-action-view"
                         >
                           <Eye className="h-4 w-4 text-muted-foreground" />
                         </Button>
@@ -307,6 +317,7 @@ export default function OrgTestSuitesPage() {
                           className="h-8 w-8"
                           onClick={(e) => handleEdit(suite, e)}
                           title="Edit suite"
+                          data-testid="test-suite-action-edit"
                         >
                           <Pencil className="h-4 w-4 text-muted-foreground" />
                         </Button>
@@ -326,6 +337,7 @@ export default function OrgTestSuitesPage() {
                           onClick={(e) => handleRun(suite.id, e)}
                           disabled={runningIds.has(suite.id)}
                           title="Run suite"
+                          data-testid="test-suite-action-run"
                         >
                           {runningIds.has(suite.id) ? (
                             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -340,6 +352,7 @@ export default function OrgTestSuitesPage() {
                           onClick={(e) => handleDelete(suite, e)}
                           disabled={deletingIds.has(suite.id)}
                           title="Delete suite"
+                          data-testid="test-suite-action-delete"
                         >
                           {deletingIds.has(suite.id) ? (
                             <Loader2 className="h-4 w-4 animate-spin text-destructive" />

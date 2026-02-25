@@ -9,7 +9,9 @@
     "test:debug": "playwright test --debug",
     "test:auth": "playwright test specs/auth.spec.ts",
     "test:org": "playwright test specs/organization.spec.ts",
-    "test:personas": "playwright test specs/personas/"
+    "test:personas": "playwright test specs/personas/",
+    "test:agents": "playwright test specs/agents/",
+    "test:test-suites": "playwright test specs/test-suites/"
   },
   "devDependencies": {
     "@playwright/test": "^1.50.0",

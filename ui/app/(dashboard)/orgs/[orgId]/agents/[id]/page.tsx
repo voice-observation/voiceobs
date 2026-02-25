@@ -137,7 +137,9 @@ export default function OrgAgentDetailPage() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">{agent.name}</h1>
+            <h1 className="text-2xl font-bold" data-testid="agent-name">
+              {agent.name}
+            </h1>
             {agent.phone_number && (
               <div className="flex items-center gap-1 text-muted-foreground">
                 <Phone className="h-4 w-4" />

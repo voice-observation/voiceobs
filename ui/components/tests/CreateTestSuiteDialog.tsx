@@ -241,6 +241,7 @@ export function CreateTestSuiteDialog({
                       label={scope.label}
                       checked={selectedScopes.includes(scope.id)}
                       onCheckedChange={() => handleScopeToggle(scope.id)}
+                      data-testid={`test-scope-${scope.id}`}
                     />
                   ))}
                 </div>
@@ -280,6 +281,7 @@ export function CreateTestSuiteDialog({
                       label={edgeCase.label}
                       checked={selectedEdgeCases.includes(edgeCase.id)}
                       onCheckedChange={() => handleEdgeCaseToggle(edgeCase.id)}
+                      data-testid={`edge-case-${edgeCase.id}`}
                     />
                   ))}
                 </div>
@@ -308,10 +310,18 @@ export function CreateTestSuiteDialog({
         </div>
 
         <div className="flex justify-end gap-3 border-t pt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            data-testid="test-suite-cancel-button"
+          >
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={!isValid || isSubmitting}>
+          <Button
+            onClick={handleSubmit}
+            disabled={!isValid || isSubmitting}
+            data-testid={isEditMode ? "test-suite-save-button" : "test-suite-generate-button"}
+          >
             {isEditMode ? (
               <>
                 <Save className="mr-2 h-4 w-4" />

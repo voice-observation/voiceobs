@@ -1,6 +1,6 @@
 """Tests for triggering scenario generation on test suite creation."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID, uuid4
 
 import pytest
@@ -168,6 +168,19 @@ class TestCreateTestSuiteTriggersGeneration:
             agent_id="550e8400-e29b-41d4-a716-446655440001",
         )
 
+        # When service is None, we update suite to generation_failed
+        mock_updated_suite = MagicMock()
+        mock_updated_suite.id = mock_suite.id
+        mock_updated_suite.name = mock_suite.name
+        mock_updated_suite.description = mock_suite.description
+        mock_updated_suite.status = "generation_failed"
+        mock_updated_suite.agent_id = mock_suite.agent_id
+        mock_updated_suite.test_scopes = mock_suite.test_scopes
+        mock_updated_suite.thoroughness = mock_suite.thoroughness
+        mock_updated_suite.edge_cases = mock_suite.edge_cases
+        mock_updated_suite.evaluation_strictness = mock_suite.evaluation_strictness
+        mock_updated_suite.created_at = mock_suite.created_at
+
         with patch(
             "voiceobs.server.routes.test_suites.get_scenario_generation_service",
             return_value=None,
@@ -181,6 +194,7 @@ class TestCreateTestSuiteTriggersGeneration:
 
             mock_suite_repo.create = mock_create
             mock_agent_repo.get = mock_get_agent
+            mock_suite_repo.update = AsyncMock(return_value=mock_updated_suite)
 
             # Should not raise an exception
             response = await create_test_suite(
@@ -191,9 +205,20 @@ class TestCreateTestSuiteTriggersGeneration:
                 agent_repo=mock_agent_repo,
             )
 
-            # Verify response is correct (suite still created)
+            # Verify suite was updated to generation_failed
+            mock_suite_repo.update.assert_called_once_with(
+                mock_suite.id,
+                org_id,
+                {
+                    "status": "generation_failed",
+                    "generation_error": "Scenario generation not configured",
+                },
+            )
+
+            # Verify response is correct (suite still created, status is generation_failed)
             assert response.id == str(mock_suite.id)
             assert response.name == "Test Suite"
+            assert response.status == "generation_failed"
 
     @pytest.mark.asyncio
     async def test_create_endpoint_does_not_fail_when_generation_raises_exception(

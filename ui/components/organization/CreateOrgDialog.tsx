@@ -80,6 +80,7 @@ export function CreateOrgDialog({ open, onOpenChange }: CreateOrgDialogProps) {
                 maxLength={255}
                 disabled={isLoading}
                 autoFocus
+                data-testid="create-org-name-input"
               />
               {error && <p className="text-sm text-destructive">{error}</p>}
             </div>
@@ -93,7 +94,11 @@ export function CreateOrgDialog({ open, onOpenChange }: CreateOrgDialogProps) {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading || !name.trim()}>
+            <Button
+              type="submit"
+              disabled={isLoading || !name.trim()}
+              data-testid="create-org-submit"
+            >
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Create
             </Button>
