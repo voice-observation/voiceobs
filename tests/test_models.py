@@ -137,6 +137,7 @@ class TestTestScenarioRow:
         row = TestScenarioRow(
             id=scenario_id,
             suite_id=suite_id,
+            org_id=uuid4(),
             name="Scenario 1",
             goal="Test goal",
             persona_id=persona_id,
@@ -161,6 +162,7 @@ class TestTestScenarioRow:
         row = TestScenarioRow(
             id=scenario_id,
             suite_id=suite_id,
+            org_id=uuid4(),
             name="Scenario 1",
             goal="Test goal",
             persona_id=persona_id,

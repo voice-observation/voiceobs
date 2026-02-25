@@ -79,11 +79,13 @@ def make_scenario(
     suite_id,
     name: str = "Existing Scenario",
     goal: str = "Test existing flow",
+    org_id=None,
 ) -> TestScenarioRow:
     """Create a TestScenarioRow for testing."""
     return TestScenarioRow(
         id=uuid4(),
         suite_id=suite_id,
+        org_id=org_id or uuid4(),
         name=name,
         goal=goal,
         persona_id=uuid4(),

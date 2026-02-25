@@ -295,7 +295,7 @@ async def init_database() -> None:
         persona_service=_persona_service,
     )
     _test_suite_repo = TestSuiteRepository(_database)
-    _test_scenario_repo = TestScenarioRepository(_database, _persona_repo)
+    _test_scenario_repo = TestScenarioRepository(_database, _persona_repo, _test_suite_repo)
     _test_execution_repo = TestExecutionRepository(_database)
 
     # Create span storage adapter

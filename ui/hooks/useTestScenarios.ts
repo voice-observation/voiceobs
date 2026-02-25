@@ -112,12 +112,13 @@ export function useTestScenarios(options: UseTestScenariosOptions = {}): UseTest
   // Fetch scenarios with current filters and page
   const fetchScenarios = useCallback(
     async (currentFilters: UseTestScenariosFilters, currentPage: number) => {
+      if (!orgId) return;
       const requestId = ++requestIdRef.current;
       try {
         setLoading(true);
         setError(null);
         const apiFilters = buildApiFilters(currentFilters, currentPage);
-        const response = await api.testScenarios.listTestScenarios(apiFilters);
+        const response = await api.testScenarios.listTestScenarios(orgId, apiFilters);
         // Ignore stale responses
         if (requestId !== requestIdRef.current) return;
         setScenarios(response.scenarios);
@@ -135,7 +136,7 @@ export function useTestScenarios(options: UseTestScenariosOptions = {}): UseTest
         }
       }
     },
-    [buildApiFilters]
+    [buildApiFilters, orgId]
   );
 
   // Fetch reference data (suites and personas) - called once on mount
@@ -154,12 +155,14 @@ export function useTestScenarios(options: UseTestScenariosOptions = {}): UseTest
     }
   }, [orgId]);
 
-  // Initial fetch on mount
+  // Initial fetch on mount and when orgId becomes available
   useEffect(() => {
     fetchReferenceData();
-    fetchScenarios(initialFilters, 1);
+    if (orgId) {
+      fetchScenarios(initialFilters, 1);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [orgId]);
 
   // Set filters with debounced fetch for search (resets page to 1)
   const setFilters = useCallback(
@@ -213,10 +216,11 @@ export function useTestScenarios(options: UseTestScenariosOptions = {}): UseTest
       apiFilters.limit = newPageSize;
       apiFilters.offset = 0;
 
+      if (!orgId) return;
       const requestId = ++requestIdRef.current;
       setLoading(true);
       api.testScenarios
-        .listTestScenarios(apiFilters)
+        .listTestScenarios(orgId, apiFilters)
         .then((response) => {
           if (requestId === requestIdRef.current) {
             setScenarios(response.scenarios);
@@ -231,7 +235,7 @@ export function useTestScenarios(options: UseTestScenariosOptions = {}): UseTest
           }
         });
     },
-    [filters]
+    [filters, orgId]
   );
 
   // Cleanup debounce timer on unmount
@@ -251,9 +255,10 @@ export function useTestScenarios(options: UseTestScenariosOptions = {}): UseTest
   // Update a scenario and refetch list
   const updateScenario = useCallback(
     async (id: string, data: TestScenarioUpdateRequest): Promise<TestScenario> => {
+      if (!orgId) throw new Error("Organization ID is required");
       setIsUpdating(true);
       try {
-        const updated = await api.testScenarios.updateTestScenario(id, data);
+        const updated = await api.testScenarios.updateTestScenario(orgId, id, data);
         // Refetch to get updated list
         await fetchScenarios(filters, page);
         return updated;
@@ -264,15 +269,16 @@ export function useTestScenarios(options: UseTestScenariosOptions = {}): UseTest
         setIsUpdating(false);
       }
     },
-    [fetchScenarios, filters, page]
+    [fetchScenarios, filters, orgId, page]
   );
 
   // Delete a scenario and refetch list
   const deleteScenario = useCallback(
     async (id: string): Promise<void> => {
+      if (!orgId) throw new Error("Organization ID is required");
       setIsDeleting(true);
       try {
-        await api.testScenarios.deleteTestScenario(id);
+        await api.testScenarios.deleteTestScenario(orgId, id);
         // Refetch to get updated list
         await fetchScenarios(filters, page);
       } catch (err) {
@@ -282,7 +288,7 @@ export function useTestScenarios(options: UseTestScenariosOptions = {}): UseTest
         setIsDeleting(false);
       }
     },
-    [fetchScenarios, filters, page]
+    [fetchScenarios, filters, orgId, page]
   );
 
   return {

@@ -100,6 +100,7 @@ class TestRowToModelEdgeCases:
         row = {
             "id": uuid4(),
             "suite_id": uuid4(),
+            "org_id": uuid4(),
             "name": "Test Scenario",
             "goal": "Test goal",
             "persona_id": uuid4(),
@@ -121,6 +122,7 @@ class TestRowToModelEdgeCases:
         row = {
             "id": uuid4(),
             "suite_id": uuid4(),
+            "org_id": uuid4(),
             "name": "Test Scenario",
             "goal": "Test goal",
             "persona_id": uuid4(),
@@ -141,6 +143,7 @@ class TestRowToModelEdgeCases:
         row = {
             "id": uuid4(),
             "suite_id": uuid4(),
+            "org_id": uuid4(),
             "name": "Test Scenario",
             "goal": "Test goal",
             "persona_id": uuid4(),
@@ -161,6 +164,7 @@ class TestRowToModelEdgeCases:
         row = {
             "id": uuid4(),
             "suite_id": uuid4(),
+            "org_id": uuid4(),
             "name": "Test Scenario",
             "goal": "Test goal",
             "persona_id": uuid4(),

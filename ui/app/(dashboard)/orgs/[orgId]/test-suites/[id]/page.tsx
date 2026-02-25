@@ -368,7 +368,7 @@ export default function OrgTestSuiteDetailPage() {
         showSuiteColumn={false}
         showSuiteFilter={false}
         loading={scenariosLoading}
-        onRowClick={(s) => router.push(`/test-scenarios/${s.id}`)}
+        onRowClick={(s) => router.push(`/orgs/${orgId}/test-scenarios/${s.id}`)}
         onEdit={(s) => {
           setSelectedScenario(s);
           setEditScenarioDialogOpen(true);
