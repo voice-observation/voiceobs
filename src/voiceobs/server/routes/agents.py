@@ -1,6 +1,7 @@
 """Agent management routes (org-scoped)."""
 
 import logging
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -36,6 +37,10 @@ router = APIRouter(prefix="/api/v1/orgs/{org_id}/agents", tags=["Agents"])
         400: {"model": ErrorResponse, "description": "Invalid request"},
         403: {"model": ErrorResponse, "description": "Not a member of this organization"},
         404: {"model": ErrorResponse, "description": "Organization not found"},
+        409: {
+            "model": ErrorResponse,
+            "description": "An agent with this name already exists in this organization",
+        },
         501: {
             "model": ErrorResponse,
             "description": "Agent verification requires PostgreSQL database",
@@ -71,28 +76,55 @@ async def create_agent(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
+    except Exception as e:  # noqa: BLE001
+        from asyncpg.exceptions import UniqueViolationError
 
-    # Start verification in background
-    logger.info(f"Starting verification for agent {agent.id} (name: {agent.name}) in org {org_id}")
-    verification_service = get_agent_verification_service()
-    if not verification_service:
-        logger.error(
-            f"Verification service is None - cannot verify agent {agent.id}. "
-            "PostgreSQL must be configured."
-        )
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail=(
-                "Agent verification requires PostgreSQL database. "
-                "Configure server.database_url in voiceobs.yaml or "
-                "set VOICEOBS_DATABASE_URL environment variable."
-            ),
-        )
+        if isinstance(e, UniqueViolationError):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="An agent with this name already exists in this organization.",
+            ) from e
+        raise
 
-    logger.info(
-        f"Verification service available, triggering background verification for agent {agent.id}"
-    )
-    await verification_service.verify_agent_background(agent.id, agent.org_id)
+    # Start verification in background (or bypass for test accounts)
+    bypass = getattr(auth, "test_bypass", None)
+    if bypass is not None and getattr(bypass, "verification", None):
+        outcome = bypass.verification
+        updated = await repo.update(
+            agent.id,
+            org_id,
+            connection_status=outcome,
+            verification_error="Test bypass: failed" if outcome == "failed" else None,
+            verification_reasoning="Test bypass" if outcome == "verified" else None,
+            verification_transcript=[],
+            last_verification_at=datetime.now(timezone.utc),
+        )
+        if updated is not None:
+            agent = updated
+    else:
+        logger.info(
+            f"Starting verification for agent {agent.id} (name: {agent.name}) in org {org_id}"
+        )
+        verification_service = get_agent_verification_service()
+        if not verification_service:
+            logger.error(
+                f"Verification service is None - cannot verify agent {agent.id}. "
+                "PostgreSQL must be configured."
+            )
+            raise HTTPException(
+                status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                detail=(
+                    "Agent verification requires PostgreSQL database. "
+                    "Configure server.database_url in voiceobs.yaml or "
+                    "set VOICEOBS_DATABASE_URL environment variable."
+                ),
+            )
+
+        logger.info(
+            "Verification service available, triggering background verification "
+            f"for agent {agent.id}"
+        )
+        await verification_service.verify_agent_background(agent.id, agent.org_id)
 
     return AgentResponse(
         id=str(agent.id),
@@ -293,32 +325,41 @@ async def update_agent(
             detail=f"Agent '{agent_id}' not found in organization",
         )
 
-    # Re-verify if contact_info changed
-    verification_service = get_agent_verification_service()
+    # Re-verify if contact_info changed (or bypass for test accounts)
     contact_info_changed = contact_info_update and contact_info_update != existing.contact_info
-    logger.info(
-        f"Update agent {agent_id}: verification_service={verification_service is not None}, "
-        f"contact_info_changed={contact_info_changed}"
-    )
     if contact_info_changed:
-        if not verification_service:
-            logger.error(
-                f"Verification service is None - cannot re-verify agent {agent_id}. "
-                "PostgreSQL must be configured."
+        bypass = getattr(auth, "test_bypass", None)
+        if bypass is not None and getattr(bypass, "verification", None):
+            outcome = bypass.verification
+            await repo.update(
+                agent_uuid,
+                org_id,
+                connection_status=outcome,
+                verification_error="Test bypass: failed" if outcome == "failed" else None,
+                verification_reasoning="Test bypass" if outcome == "verified" else None,
+                verification_transcript=[],
+                last_verification_at=datetime.now(timezone.utc),
             )
-            raise HTTPException(
-                status_code=status.HTTP_501_NOT_IMPLEMENTED,
-                detail=(
-                    "Agent verification requires PostgreSQL database. "
-                    "Configure server.database_url in voiceobs.yaml or "
-                    "set VOICEOBS_DATABASE_URL environment variable."
-                ),
-            )
+        else:
+            verification_service = get_agent_verification_service()
+            if not verification_service:
+                logger.error(
+                    f"Verification service is None - cannot re-verify agent {agent_id}. "
+                    "PostgreSQL must be configured."
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                    detail=(
+                        "Agent verification requires PostgreSQL database. "
+                        "Configure server.database_url in voiceobs.yaml or "
+                        "set VOICEOBS_DATABASE_URL environment variable."
+                    ),
+                )
 
-        logger.info(
-            f"Contact info changed, triggering background verification for agent {agent_id}"
-        )
-        await verification_service.verify_agent_background(agent_uuid, org_id)
+            logger.info(
+                f"Contact info changed, triggering background verification for agent {agent_id}"
+            )
+            await verification_service.verify_agent_background(agent_uuid, org_id)
     else:
         logger.debug(f"Contact info unchanged, skipping verification for agent {agent_id}")
 
@@ -470,27 +511,41 @@ async def verify_agent(
             is_active=agent.is_active,
         )
 
-    # Start verification in background
-    logger.info(f"Manual verification requested for agent {agent_id} (force={request.force})")
-    verification_service = get_agent_verification_service()
-    if not verification_service:
-        logger.error(
-            f"Verification service is None - cannot verify agent {agent_id}. "
-            "PostgreSQL must be configured."
+    # Start verification (or bypass for test accounts)
+    bypass = getattr(auth, "test_bypass", None)
+    if bypass is not None and getattr(bypass, "verification", None):
+        outcome = bypass.verification
+        await repo.update(
+            agent_uuid,
+            org_id,
+            connection_status=outcome,
+            verification_error="Test bypass: failed" if outcome == "failed" else None,
+            verification_reasoning="Test bypass" if outcome == "verified" else None,
+            verification_transcript=[],
+            last_verification_at=datetime.now(timezone.utc),
         )
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail=(
-                "Agent verification requires PostgreSQL database. "
-                "Configure server.database_url in voiceobs.yaml or "
-                "set VOICEOBS_DATABASE_URL environment variable."
-            ),
-        )
+    else:
+        logger.info(f"Manual verification requested for agent {agent_id} (force={request.force})")
+        verification_service = get_agent_verification_service()
+        if not verification_service:
+            logger.error(
+                f"Verification service is None - cannot verify agent {agent_id}. "
+                "PostgreSQL must be configured."
+            )
+            raise HTTPException(
+                status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                detail=(
+                    "Agent verification requires PostgreSQL database. "
+                    "Configure server.database_url in voiceobs.yaml or "
+                    "set VOICEOBS_DATABASE_URL environment variable."
+                ),
+            )
 
-    logger.info(
-        f"Verification service available, triggering background verification for agent {agent_id}"
-    )
-    await verification_service.verify_agent_background(agent_uuid, org_id, force=request.force)
+        logger.info(
+            "Verification service available, triggering background verification "
+            f"for agent {agent_id}"
+        )
+        await verification_service.verify_agent_background(agent_uuid, org_id, force=request.force)
 
     # Return current status (will be updated asynchronously)
     return AgentResponse(

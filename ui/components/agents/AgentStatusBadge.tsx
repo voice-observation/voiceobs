@@ -51,7 +51,7 @@ export function AgentStatusBadge({
   const config = statusConfig[connectionStatus] || statusConfig.pending;
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2" data-testid="agent-status-badge">
       <Badge variant={config.variant} className="flex items-center gap-1">
         {config.icon}
         {config.label}

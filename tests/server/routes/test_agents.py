@@ -6,7 +6,7 @@ from uuid import uuid4
 
 import pytest
 
-from voiceobs.server.auth.context import AuthContext, require_org_membership
+from voiceobs.server.auth.context import AuthContext, TestBypass, require_org_membership
 from voiceobs.server.db.models import AgentRow, OrganizationRow, UserRow
 
 
@@ -192,6 +192,32 @@ class TestAgents:
         assert response.status_code == 400
         data = response.json()
         assert "Invalid phone number format" in data["detail"]
+
+    @patch("voiceobs.server.routes.agents.get_agent_repository")
+    def test_create_agent_duplicate_name_returns_409(self, mock_get_agent_repo, client):
+        """Test agent creation with duplicate name in same org returns 409."""
+        from asyncpg.exceptions import UniqueViolationError
+
+        mock_repo = AsyncMock()
+        mock_repo.create.side_effect = UniqueViolationError(
+            'duplicate key value violates unique constraint "uq_agents_org_id_name"'
+        )
+        mock_get_agent_repo.return_value = mock_repo
+
+        response = client.post(
+            f"/api/v1/orgs/{self.org.id}/agents",
+            json={
+                "name": "Test Agent",
+                "agent_type": "phone",
+                "phone_number": "+1234567890",
+                "goal": "Test goal",
+                "supported_intents": ["intent1"],
+            },
+        )
+
+        assert response.status_code == 409
+        data = response.json()
+        assert "already exists" in data["detail"].lower()
 
     @patch("voiceobs.server.routes.agents.get_agent_repository")
     def test_list_agents_success(self, mock_get_agent_repo, client):
@@ -790,3 +816,290 @@ class TestAgents:
         assert response.status_code == 404
         data = response.json()
         assert "not found" in data["detail"].lower()
+
+
+class TestAgentVerificationBypass:
+    """Tests for test account verification bypass in agent routes."""
+
+    @pytest.fixture(autouse=True)
+    def setup_auth(self, client):
+        """Set up auth context with test account enabled."""
+        self.user = make_user(email="test@e2e.com")
+        self.org = make_org()
+        self.app = client.app
+        yield
+        self.app.dependency_overrides.pop(require_org_membership, None)
+
+    def _set_auth(self, test_bypass=None, is_test_account=True):
+        """Helper to set auth context with specific bypass config."""
+        auth = AuthContext(
+            user=self.user,
+            org=self.org,
+            is_test_account=is_test_account,
+            test_bypass=test_bypass,
+        )
+
+        async def override():
+            return auth
+
+        self.app.dependency_overrides[require_org_membership] = override
+
+    @patch("voiceobs.server.routes.agents.get_agent_repository")
+    def test_create_agent_bypass_verified(self, mock_get_agent_repo, client):
+        """Create agent with verification bypass sets status to verified immediately."""
+        self._set_auth(test_bypass=TestBypass(verification="verified"))
+        agent_id = uuid4()
+        now = datetime.now(timezone.utc)
+
+        mock_agent = AgentRow(
+            id=agent_id,
+            org_id=self.org.id,
+            name="Test Agent",
+            goal="Goal",
+            agent_type="phone",
+            contact_info={"phone_number": "+1234567890"},
+            supported_intents=["intent1"],
+            connection_status="saved",
+            verification_attempts=0,
+            last_verification_at=None,
+            verification_error=None,
+            verification_transcript=None,
+            verification_reasoning=None,
+            metadata={},
+            created_at=now,
+            updated_at=now,
+            created_by=None,
+            is_active=True,
+        )
+
+        mock_repo = AsyncMock()
+        mock_repo.create.return_value = mock_agent
+        mock_repo.update.return_value = mock_agent
+        mock_get_agent_repo.return_value = mock_repo
+
+        response = client.post(
+            f"/api/v1/orgs/{self.org.id}/agents",
+            json={
+                "name": "Test Agent",
+                "agent_type": "phone",
+                "phone_number": "+1234567890",
+                "goal": "Goal",
+                "supported_intents": ["intent1"],
+            },
+        )
+
+        assert response.status_code == 201
+        mock_repo.update.assert_called_once()
+        call_kwargs = mock_repo.update.call_args[1]
+        assert call_kwargs["connection_status"] == "verified"
+        assert call_kwargs["verification_reasoning"] == "Test bypass"
+        assert call_kwargs["verification_error"] is None
+        assert call_kwargs["verification_transcript"] == []
+
+    @patch("voiceobs.server.routes.agents.get_agent_repository")
+    def test_create_agent_bypass_failed(self, mock_get_agent_repo, client):
+        """Create agent with bypass=failed sets status to failed immediately."""
+        self._set_auth(test_bypass=TestBypass(verification="failed"))
+        agent_id = uuid4()
+        now = datetime.now(timezone.utc)
+
+        mock_agent = AgentRow(
+            id=agent_id,
+            org_id=self.org.id,
+            name="Test Agent",
+            goal="Goal",
+            agent_type="phone",
+            contact_info={"phone_number": "+1234567890"},
+            supported_intents=["intent1"],
+            connection_status="saved",
+            verification_attempts=0,
+            last_verification_at=None,
+            verification_error=None,
+            verification_transcript=None,
+            verification_reasoning=None,
+            metadata={},
+            created_at=now,
+            updated_at=now,
+            created_by=None,
+            is_active=True,
+        )
+
+        mock_repo = AsyncMock()
+        mock_repo.create.return_value = mock_agent
+        mock_repo.update.return_value = mock_agent
+        mock_get_agent_repo.return_value = mock_repo
+
+        response = client.post(
+            f"/api/v1/orgs/{self.org.id}/agents",
+            json={
+                "name": "Test Agent",
+                "agent_type": "phone",
+                "phone_number": "+1234567890",
+                "goal": "Goal",
+                "supported_intents": ["intent1"],
+            },
+        )
+
+        assert response.status_code == 201
+        mock_repo.update.assert_called_once()
+        call_kwargs = mock_repo.update.call_args[1]
+        assert call_kwargs["connection_status"] == "failed"
+        assert call_kwargs["verification_error"] == "Test bypass: failed"
+
+    @patch("voiceobs.server.routes.agents.get_agent_verification_service")
+    @patch("voiceobs.server.routes.agents.get_agent_repository")
+    def test_create_agent_no_bypass_still_verifies(
+        self, mock_get_agent_repo, mock_get_verification_service, client
+    ):
+        """Test account without bypass header still triggers real verification."""
+        self._set_auth(test_bypass=None, is_test_account=True)
+        agent_id = uuid4()
+        now = datetime.now(timezone.utc)
+
+        mock_agent = AgentRow(
+            id=agent_id,
+            org_id=self.org.id,
+            name="Test Agent",
+            goal="Goal",
+            agent_type="phone",
+            contact_info={"phone_number": "+1234567890"},
+            supported_intents=["intent1"],
+            connection_status="saved",
+            verification_attempts=0,
+            last_verification_at=None,
+            verification_error=None,
+            verification_transcript=None,
+            verification_reasoning=None,
+            metadata={},
+            created_at=now,
+            updated_at=now,
+            created_by=None,
+            is_active=True,
+        )
+
+        mock_repo = AsyncMock()
+        mock_repo.create.return_value = mock_agent
+        mock_get_agent_repo.return_value = mock_repo
+
+        mock_verification_service = AsyncMock()
+        mock_get_verification_service.return_value = mock_verification_service
+
+        response = client.post(
+            f"/api/v1/orgs/{self.org.id}/agents",
+            json={
+                "name": "Test Agent",
+                "agent_type": "phone",
+                "phone_number": "+1234567890",
+                "goal": "Goal",
+                "supported_intents": ["intent1"],
+            },
+        )
+
+        assert response.status_code == 201
+        mock_verification_service.verify_agent_background.assert_called_once()
+
+    @patch("voiceobs.server.routes.agents.get_agent_repository")
+    def test_verify_agent_bypass_verified(self, mock_get_agent_repo, client):
+        """Manual verify with bypass sets status immediately."""
+        self._set_auth(test_bypass=TestBypass(verification="verified"))
+        agent_id = uuid4()
+        now = datetime.now(timezone.utc)
+
+        mock_agent = AgentRow(
+            id=agent_id,
+            org_id=self.org.id,
+            name="Test Agent",
+            goal="Goal",
+            agent_type="phone",
+            contact_info={"phone_number": "+1234567890"},
+            supported_intents=["intent1"],
+            connection_status="saved",
+            verification_attempts=0,
+            last_verification_at=None,
+            verification_error=None,
+            verification_transcript=None,
+            verification_reasoning=None,
+            metadata={},
+            created_at=now,
+            updated_at=now,
+            created_by=None,
+            is_active=True,
+        )
+
+        mock_repo = AsyncMock()
+        mock_repo.get.return_value = mock_agent
+        mock_repo.update.return_value = mock_agent
+        mock_get_agent_repo.return_value = mock_repo
+
+        response = client.post(
+            f"/api/v1/orgs/{self.org.id}/agents/{agent_id}/verify",
+            json={"force": False},
+        )
+
+        assert response.status_code == 200
+        mock_repo.update.assert_called_once()
+        call_kwargs = mock_repo.update.call_args[1]
+        assert call_kwargs["connection_status"] == "verified"
+
+    @patch("voiceobs.server.routes.agents.get_agent_repository")
+    def test_update_agent_contact_info_bypass_verified(self, mock_get_agent_repo, client):
+        """Update agent with changed contact_info and bypass sets status immediately."""
+        self._set_auth(test_bypass=TestBypass(verification="verified"))
+        agent_id = uuid4()
+        now = datetime.now(timezone.utc)
+
+        existing_agent = AgentRow(
+            id=agent_id,
+            org_id=self.org.id,
+            name="Agent",
+            goal="Goal",
+            agent_type="phone",
+            contact_info={"phone_number": "+1234567890"},
+            supported_intents=["intent1"],
+            connection_status="saved",
+            verification_attempts=0,
+            last_verification_at=None,
+            verification_error=None,
+            verification_transcript=None,
+            verification_reasoning=None,
+            metadata={},
+            created_at=now,
+            updated_at=now,
+            created_by=None,
+            is_active=True,
+        )
+        updated_agent = AgentRow(
+            id=agent_id,
+            org_id=self.org.id,
+            name="Agent",
+            goal="Goal",
+            agent_type="phone",
+            contact_info={"phone_number": "+9876543210"},
+            supported_intents=["intent1"],
+            connection_status="saved",
+            verification_attempts=0,
+            last_verification_at=None,
+            verification_error=None,
+            verification_transcript=None,
+            verification_reasoning=None,
+            metadata={},
+            created_at=now,
+            updated_at=now,
+            created_by=None,
+            is_active=True,
+        )
+
+        mock_repo = AsyncMock()
+        mock_repo.get.return_value = existing_agent
+        mock_repo.update.return_value = updated_agent
+        mock_get_agent_repo.return_value = mock_repo
+
+        response = client.put(
+            f"/api/v1/orgs/{self.org.id}/agents/{agent_id}",
+            json={"phone_number": "+9876543210"},
+        )
+
+        assert response.status_code == 200
+        assert mock_repo.update.call_count == 2
+        bypass_call_kwargs = mock_repo.update.call_args_list[1][1]
+        assert bypass_call_kwargs["connection_status"] == "verified"

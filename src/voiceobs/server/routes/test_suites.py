@@ -92,6 +92,7 @@ async def validate_agent_exists(agent_id: str, org_id: UUID, agent_repo: AgentRe
         400: {"model": ErrorResponse, "description": "Invalid request"},
         403: {"model": ErrorResponse, "description": "Not a member of this organization"},
         404: {"model": ErrorResponse, "description": "Agent not found or organization not found"},
+        409: {"model": ErrorResponse, "description": "Test suite with this name already exists"},
         501: {"model": ErrorResponse, "description": "Test API requires PostgreSQL database"},
     },
 )
@@ -106,16 +107,26 @@ async def create_test_suite(
     # Validate that the agent exists in the org
     agent_uuid = await validate_agent_exists(request.agent_id, org_id, agent_repo)
 
-    suite = await repo.create(
-        org_id=org_id,
-        name=request.name,
-        description=request.description,
-        agent_id=agent_uuid,
-        test_scopes=request.test_scopes,
-        thoroughness=request.thoroughness,
-        edge_cases=request.edge_cases,
-        evaluation_strictness=request.evaluation_strictness,
-    )
+    try:
+        suite = await repo.create(
+            org_id=org_id,
+            name=request.name,
+            description=request.description,
+            agent_id=agent_uuid,
+            test_scopes=request.test_scopes,
+            thoroughness=request.thoroughness,
+            edge_cases=request.edge_cases,
+            evaluation_strictness=request.evaluation_strictness,
+        )
+    except Exception as e:  # noqa: BLE001
+        from asyncpg.exceptions import UniqueViolationError
+
+        if isinstance(e, UniqueViolationError):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A test suite with this name already exists in this organization.",
+            ) from e
+        raise
 
     # Trigger background scenario generation
     try:
@@ -123,6 +134,19 @@ async def create_test_suite(
         if service is not None:
             service.start_background_generation(suite.id, org_id)
             logger.info(f"Started background generation for test suite {suite.id}")
+        else:
+            # Service not available (e.g. LLM not configured) - mark as failed so clients
+            # don't poll indefinitely for a status that will never change
+            updated = await repo.update(
+                suite.id,
+                org_id,
+                {
+                    "status": "generation_failed",
+                    "generation_error": "Scenario generation not configured",
+                },
+            )
+            if updated is not None:
+                suite = updated
     except Exception as e:
         logger.warning(f"Failed to start scenario generation for suite {suite.id}: {e}")
         # Don't fail the request, just log the warning

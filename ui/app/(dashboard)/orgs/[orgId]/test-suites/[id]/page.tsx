@@ -253,7 +253,9 @@ export default function OrgTestSuiteDetailPage() {
           </Button>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold">{suite.name}</h1>
+              <h1 className="text-2xl font-bold" data-testid="test-suite-name">
+                {suite.name}
+              </h1>
               <TestSuiteStatusBadge status={suite.status} error={suite.generation_error} />
             </div>
             {suite.description && <p className="mt-1 text-muted-foreground">{suite.description}</p>}
