@@ -1671,6 +1671,919 @@ git commit -m "fix: resolve lint issues and ensure test coverage >95%"
 
 ---
 
+## Frontend Tasks
+
+> Tasks 16-22 cover the frontend (Next.js 14 / React / TypeScript).
+> Existing patterns: `useGenerationPolling` hook for polling, `api.testSuites.*` for API client,
+> shadcn/ui components, WaveSurfer.js for audio, Jest + React Testing Library for tests.
+
+---
+
+## Task 16: TypeScript Types for Suite Runs & Updated Executions
+
+**Files:**
+- Modify: `ui/lib/types.ts`
+
+**Step 1: Write the types**
+
+Add these types to `ui/lib/types.ts`:
+
+```typescript
+// ---- Suite Run Types ----
+
+type SuiteRunStatus = "pending" | "running" | "completed" | "failed" | "cancelled"
+
+type ExecutionStatus = "pending" | "queued" | "calling" | "evaluating" | "completed" | "failed"
+
+interface CriterionResult {
+  name: string
+  passed: boolean
+  score: number
+  evidence: string
+}
+
+interface EvaluationResult {
+  passed: boolean
+  score: number
+  goal_achieved: boolean
+  intent_handled: boolean
+  criteria: CriterionResult[]
+  reasoning: string
+}
+
+interface TranscriptEntry {
+  role: "agent" | "persona"
+  text: string
+  timestamp_ms: number
+}
+
+interface ExecutionSummary {
+  id: string
+  scenario_id: string
+  scenario_name: string | null
+  status: ExecutionStatus
+  attempt: number
+  max_attempts: number
+  audio_url: string | null
+  transcript: TranscriptEntry[] | null
+  evaluation_result: EvaluationResult | null
+  error_message: string | null
+  duration_seconds: number | null
+  started_at: string | null
+  completed_at: string | null
+}
+
+interface SuiteRun {
+  id: string
+  suite_id: string
+  status: SuiteRunStatus
+  total_scenarios: number
+  completed_scenarios: number
+  failed_scenarios: number
+  triggered_by: string | null
+  started_at: string | null
+  completed_at: string | null
+  created_at: string | null
+  executions: ExecutionSummary[]
+}
+
+interface SuiteRunTriggerResponse {
+  suite_run_id: string
+  status: SuiteRunStatus
+  total_scenarios: number
+}
+```
+
+Also update the existing `TestExecution` interface to include the new fields:
+
+```typescript
+interface TestExecution {
+  id: string
+  org_id: string
+  suite_run_id: string
+  scenario_id: string
+  conversation_id: string | null
+  status: ExecutionStatus
+  attempt: number
+  max_attempts: number
+  audio_url: string | null
+  transcript: TranscriptEntry[] | null
+  evaluation_result: EvaluationResult | null
+  error_message: string | null
+  duration_seconds: number | null
+  started_at: string | null
+  completed_at: string | null
+  result_json: Record<string, unknown>
+  created_at: string | null
+}
+```
+
+**Step 2: Run type check**
+
+Run: `cd ui && npx tsc --noEmit`
+Expected: PASS
+
+**Step 3: Commit**
+
+```bash
+git add ui/lib/types.ts
+git commit -m "feat(ui): add TypeScript types for SuiteRun, ExecutionSummary, EvaluationResult"
+```
+
+---
+
+## Task 17: Suite Runs API Client
+
+**Files:**
+- Create: `ui/lib/api/suiteRuns.ts`
+- Modify: `ui/lib/api/testExecutions.ts` (replace mock with real API calls)
+- Modify: `ui/lib/api/index.ts`
+- Test: `ui/lib/api/__tests__/suiteRuns.test.ts`
+
+**Step 1: Write the test**
+
+```typescript
+// ui/lib/api/__tests__/suiteRuns.test.ts
+import { SuiteRunsApi } from "../suiteRuns";
+
+// Mock the base fetch
+jest.mock("../base", () => ({
+  BaseApiClient: class {
+    async get(url: string) { return { url } }
+    async post(url: string, body?: unknown) { return { url, body } }
+  },
+}));
+
+describe("SuiteRunsApi", () => {
+  const api = new SuiteRunsApi();
+  const orgId = "org-123";
+
+  it("runSuite calls POST /api/v1/orgs/{orgId}/test-suites/{suiteId}/run", async () => {
+    const result = await api.runSuite(orgId, "suite-456") as any;
+    expect(result.url).toBe("/api/v1/orgs/org-123/test-suites/suite-456/run");
+  });
+
+  it("runScenario calls POST /api/v1/orgs/{orgId}/test-scenarios/{scenarioId}/run", async () => {
+    const result = await api.runScenario(orgId, "scenario-789") as any;
+    expect(result.url).toBe("/api/v1/orgs/org-123/test-scenarios/scenario-789/run");
+  });
+
+  it("getSuiteRun calls GET /api/v1/orgs/{orgId}/suite-runs/{runId}", async () => {
+    const result = await api.getSuiteRun(orgId, "run-123") as any;
+    expect(result.url).toBe("/api/v1/orgs/org-123/suite-runs/run-123");
+  });
+
+  it("cancelSuiteRun calls POST /api/v1/orgs/{orgId}/suite-runs/{runId}/cancel", async () => {
+    const result = await api.cancelSuiteRun(orgId, "run-123") as any;
+    expect(result.url).toBe("/api/v1/orgs/org-123/suite-runs/run-123/cancel");
+  });
+
+  it("getExecutionAudioUrl calls GET /api/v1/orgs/{orgId}/executions/{execId}/audio", async () => {
+    const result = await api.getExecutionAudioUrl(orgId, "exec-456") as any;
+    expect(result.url).toBe("/api/v1/orgs/org-123/executions/exec-456/audio");
+  });
+});
+```
+
+**Step 2: Run test to verify it fails**
+
+Run: `cd ui && npx jest lib/api/__tests__/suiteRuns.test.ts`
+Expected: FAIL (module not found)
+
+**Step 3: Write the API client**
+
+```typescript
+// ui/lib/api/suiteRuns.ts
+/**
+ * Suite Runs API client.
+ * Integrates with backend /api/v1/orgs/{orgId}/suite-runs endpoints.
+ */
+
+import { BaseApiClient } from "./base";
+import type { SuiteRun, SuiteRunTriggerResponse } from "../types";
+
+export class SuiteRunsApi extends BaseApiClient {
+  /**
+   * Run all scenarios in a test suite.
+   * POST /api/v1/orgs/{orgId}/test-suites/{suiteId}/run
+   */
+  async runSuite(orgId: string, suiteId: string): Promise<SuiteRunTriggerResponse> {
+    return this.post<SuiteRunTriggerResponse>(
+      `/api/v1/orgs/${orgId}/test-suites/${suiteId}/run`
+    );
+  }
+
+  /**
+   * Run a single test scenario.
+   * POST /api/v1/orgs/{orgId}/test-scenarios/{scenarioId}/run
+   */
+  async runScenario(orgId: string, scenarioId: string): Promise<SuiteRunTriggerResponse> {
+    return this.post<SuiteRunTriggerResponse>(
+      `/api/v1/orgs/${orgId}/test-scenarios/${scenarioId}/run`
+    );
+  }
+
+  /**
+   * Get suite run status with all execution details.
+   * GET /api/v1/orgs/{orgId}/suite-runs/{runId}
+   */
+  async getSuiteRun(orgId: string, runId: string): Promise<SuiteRun> {
+    return this.get<SuiteRun>(`/api/v1/orgs/${orgId}/suite-runs/${runId}`);
+  }
+
+  /**
+   * Cancel a suite run.
+   * POST /api/v1/orgs/{orgId}/suite-runs/{runId}/cancel
+   */
+  async cancelSuiteRun(orgId: string, runId: string): Promise<SuiteRun> {
+    return this.post<SuiteRun>(`/api/v1/orgs/${orgId}/suite-runs/${runId}/cancel`);
+  }
+
+  /**
+   * Get pre-signed audio URL for an execution.
+   * GET /api/v1/orgs/{orgId}/executions/{executionId}/audio
+   */
+  async getExecutionAudioUrl(
+    orgId: string,
+    executionId: string
+  ): Promise<{ url: string }> {
+    return this.get<{ url: string }>(
+      `/api/v1/orgs/${orgId}/executions/${executionId}/audio`
+    );
+  }
+}
+```
+
+**Step 4: Register in index.ts**
+
+In `ui/lib/api/index.ts`:
+- Import `SuiteRunsApi`
+- Add `public readonly suiteRuns: SuiteRunsApi;` to `ApiClient`
+- Initialize in constructor: `this.suiteRuns = new SuiteRunsApi();`
+- Export `SuiteRunsApi`
+- Add type exports: `SuiteRun`, `SuiteRunTriggerResponse`, `ExecutionSummary`, `EvaluationResult`, `CriterionResult`, `TranscriptEntry`
+
+**Step 5: Remove mock data from testExecutions.ts**
+
+Replace `ui/lib/api/testExecutions.ts` to use real API calls instead of mock data:
+
+```typescript
+// ui/lib/api/testExecutions.ts
+import { BaseApiClient } from "./base";
+import type {
+  TestExecution,
+  TestExecutionsListResponse,
+  TestExecutionFilters,
+} from "../types";
+
+export class TestExecutionsApi extends BaseApiClient {
+  async listTestExecutions(
+    orgId: string,
+    filters?: TestExecutionFilters
+  ): Promise<TestExecutionsListResponse> {
+    const params = new URLSearchParams();
+    if (filters?.scenario_id) params.set("scenario_id", filters.scenario_id);
+    if (filters?.status) params.set("status", filters.status);
+    if (filters?.suite_id) params.set("suite_id", filters.suite_id);
+    const query = params.toString() ? `?${params.toString()}` : "";
+    return this.get<TestExecutionsListResponse>(
+      `/api/v1/orgs/${orgId}/executions${query}`
+    );
+  }
+
+  async getTestExecution(orgId: string, id: string): Promise<TestExecution> {
+    return this.get<TestExecution>(`/api/v1/orgs/${orgId}/executions/${id}`);
+  }
+}
+```
+
+**Step 6: Run tests, Step 7: Commit**
+
+```bash
+git add ui/lib/api/suiteRuns.ts ui/lib/api/testExecutions.ts ui/lib/api/index.ts \
+  ui/lib/api/__tests__/suiteRuns.test.ts
+git commit -m "feat(ui): add SuiteRunsApi client and replace mock testExecutions with real API"
+```
+
+---
+
+## Task 18: Execution Polling Hook (`useSuiteRunPolling`)
+
+**Files:**
+- Create: `ui/hooks/useSuiteRunPolling.ts`
+- Modify: `ui/hooks/index.ts`
+- Test: `ui/hooks/__tests__/useSuiteRunPolling.test.ts`
+
+**Step 1: Write the test**
+
+```typescript
+// ui/hooks/__tests__/useSuiteRunPolling.test.ts
+import { renderHook, act } from "@testing-library/react";
+import { useSuiteRunPolling } from "../useSuiteRunPolling";
+import { api } from "@/lib/api";
+
+jest.mock("@/lib/api");
+
+describe("useSuiteRunPolling", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it("does not poll when suiteRunId is null", () => {
+    renderHook(() =>
+      useSuiteRunPolling({ orgId: "org-1", suiteRunId: null, enabled: true })
+    );
+    expect(api.suiteRuns.getSuiteRun).not.toHaveBeenCalled();
+  });
+
+  it("does not poll when disabled", () => {
+    renderHook(() =>
+      useSuiteRunPolling({ orgId: "org-1", suiteRunId: "run-1", enabled: false })
+    );
+    expect(api.suiteRuns.getSuiteRun).not.toHaveBeenCalled();
+  });
+
+  it("polls immediately when enabled with suiteRunId", async () => {
+    (api.suiteRuns.getSuiteRun as jest.Mock).mockResolvedValue({
+      id: "run-1",
+      status: "running",
+      total_scenarios: 5,
+      completed_scenarios: 2,
+      failed_scenarios: 0,
+      executions: [],
+    });
+
+    renderHook(() =>
+      useSuiteRunPolling({ orgId: "org-1", suiteRunId: "run-1", enabled: true })
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(api.suiteRuns.getSuiteRun).toHaveBeenCalledWith("org-1", "run-1");
+  });
+
+  it("stops polling when status is completed", async () => {
+    const onComplete = jest.fn();
+    (api.suiteRuns.getSuiteRun as jest.Mock).mockResolvedValue({
+      id: "run-1",
+      status: "completed",
+      total_scenarios: 5,
+      completed_scenarios: 5,
+      failed_scenarios: 0,
+      executions: [],
+    });
+
+    renderHook(() =>
+      useSuiteRunPolling({
+        orgId: "org-1",
+        suiteRunId: "run-1",
+        enabled: true,
+        onComplete,
+      })
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(onComplete).toHaveBeenCalled();
+  });
+});
+```
+
+**Step 2: Run test to verify it fails**
+
+Run: `cd ui && npx jest hooks/__tests__/useSuiteRunPolling.test.ts`
+Expected: FAIL (module not found)
+
+**Step 3: Write the hook**
+
+Follow the exact same pattern as `useGenerationPolling.ts`:
+
+```typescript
+// ui/hooks/useSuiteRunPolling.ts
+"use client";
+
+import { useEffect, useRef, useCallback } from "react";
+import { api } from "@/lib/api";
+import type { SuiteRun, SuiteRunStatus } from "@/lib/types";
+
+export interface UseSuiteRunPollingOptions {
+  orgId: string;
+  suiteRunId: string | null;
+  enabled: boolean;
+  /** Polling interval in ms. Default: 3000 for running, 5000 for pending */
+  interval?: number;
+  onStatusChange?: (suiteRun: SuiteRun) => void;
+  onComplete?: (suiteRun: SuiteRun) => void;
+  onError?: (error: Error) => void;
+}
+
+export interface UseSuiteRunPollingResult {
+  stopPolling: () => void;
+}
+
+const TERMINAL_STATUSES: SuiteRunStatus[] = ["completed", "failed", "cancelled"];
+
+export function useSuiteRunPolling({
+  orgId,
+  suiteRunId,
+  enabled,
+  interval = 3000,
+  onStatusChange,
+  onComplete,
+  onError,
+}: UseSuiteRunPollingOptions): UseSuiteRunPollingResult {
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const poll = useCallback(async () => {
+    if (!orgId || !suiteRunId) return;
+    try {
+      const suiteRun = await api.suiteRuns.getSuiteRun(orgId, suiteRunId);
+      onStatusChange?.(suiteRun);
+
+      if (TERMINAL_STATUSES.includes(suiteRun.status)) {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        onComplete?.(suiteRun);
+      }
+    } catch (error) {
+      console.error("Suite run polling error", error);
+      onError?.(error instanceof Error ? error : new Error("Polling failed"));
+    }
+  }, [orgId, suiteRunId, onStatusChange, onComplete, onError]);
+
+  useEffect(() => {
+    if (!enabled || !suiteRunId) return;
+
+    poll();
+    intervalRef.current = setInterval(poll, interval);
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [enabled, suiteRunId, poll, interval]);
+
+  const stopPolling = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }, []);
+
+  return { stopPolling };
+}
+```
+
+**Step 4: Export from hooks/index.ts**
+
+Add: `export { useSuiteRunPolling } from "./useSuiteRunPolling";`
+
+**Step 5: Run tests, Step 6: Commit**
+
+```bash
+git add ui/hooks/useSuiteRunPolling.ts ui/hooks/index.ts \
+  ui/hooks/__tests__/useSuiteRunPolling.test.ts
+git commit -m "feat(ui): add useSuiteRunPolling hook for execution status polling"
+```
+
+---
+
+## Task 19: Execution Status Badge Component
+
+**Files:**
+- Create: `ui/components/tests/ExecutionStatusBadge.tsx`
+- Test: `ui/components/tests/__tests__/ExecutionStatusBadge.test.tsx`
+
+**Step 1: Write the test**
+
+```typescript
+// ui/components/tests/__tests__/ExecutionStatusBadge.test.tsx
+import { render, screen } from "@testing-library/react";
+import { ExecutionStatusBadge } from "../ExecutionStatusBadge";
+
+describe("ExecutionStatusBadge", () => {
+  it("shows 'Queued' for pending status", () => {
+    render(<ExecutionStatusBadge status="pending" />);
+    expect(screen.getByText("Queued")).toBeInTheDocument();
+  });
+
+  it("shows 'In Queue' for queued status", () => {
+    render(<ExecutionStatusBadge status="queued" />);
+    expect(screen.getByText("In Queue")).toBeInTheDocument();
+  });
+
+  it("shows 'Calling' for calling status", () => {
+    render(<ExecutionStatusBadge status="calling" />);
+    expect(screen.getByText("Calling")).toBeInTheDocument();
+  });
+
+  it("shows 'Evaluating' for evaluating status", () => {
+    render(<ExecutionStatusBadge status="evaluating" />);
+    expect(screen.getByText("Evaluating")).toBeInTheDocument();
+  });
+
+  it("shows 'Passed' for completed with passed evaluation", () => {
+    render(<ExecutionStatusBadge status="completed" passed={true} />);
+    expect(screen.getByText("Passed")).toBeInTheDocument();
+  });
+
+  it("shows 'Failed' for completed with failed evaluation", () => {
+    render(<ExecutionStatusBadge status="completed" passed={false} />);
+    expect(screen.getByText("Failed")).toBeInTheDocument();
+  });
+
+  it("shows 'Error' for failed status", () => {
+    render(<ExecutionStatusBadge status="failed" />);
+    expect(screen.getByText("Error")).toBeInTheDocument();
+  });
+});
+```
+
+**Step 2: fail, Step 3: implement**
+
+```typescript
+// ui/components/tests/ExecutionStatusBadge.tsx
+"use client";
+
+import { Badge } from "@/components/primitives/badge";
+import {
+  Clock,
+  Loader2,
+  Phone,
+  Brain,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+} from "lucide-react";
+import type { ExecutionStatus } from "@/lib/types";
+
+interface ExecutionStatusBadgeProps {
+  status: ExecutionStatus;
+  passed?: boolean;
+}
+
+const config: Record<string, {
+  label: string;
+  variant: "default" | "secondary" | "destructive" | "outline";
+  icon: React.ElementType;
+  className?: string;
+}> = {
+  pending: { label: "Queued", variant: "secondary", icon: Clock },
+  queued: { label: "In Queue", variant: "secondary", icon: Clock },
+  calling: { label: "Calling", variant: "default", icon: Phone, className: "animate-pulse" },
+  evaluating: { label: "Evaluating", variant: "default", icon: Brain, className: "animate-pulse" },
+  completed_pass: { label: "Passed", variant: "default", icon: CheckCircle2, className: "bg-green-100 text-green-800" },
+  completed_fail: { label: "Failed", variant: "destructive", icon: XCircle },
+  failed: { label: "Error", variant: "destructive", icon: AlertTriangle },
+};
+
+export function ExecutionStatusBadge({ status, passed }: ExecutionStatusBadgeProps) {
+  let key = status as string;
+  if (status === "completed") {
+    key = passed ? "completed_pass" : "completed_fail";
+  }
+
+  const { label, variant, icon: Icon, className } = config[key] ?? config.pending;
+
+  return (
+    <Badge variant={variant} className={className}>
+      <Icon className="mr-1 h-3 w-3" />
+      {label}
+    </Badge>
+  );
+}
+```
+
+**Step 4: pass, Step 5: Commit**
+
+```bash
+git add ui/components/tests/ExecutionStatusBadge.tsx \
+  ui/components/tests/__tests__/ExecutionStatusBadge.test.tsx
+git commit -m "feat(ui): add ExecutionStatusBadge component for execution status display"
+```
+
+---
+
+## Task 20: Transcript Viewer Component
+
+**Files:**
+- Create: `ui/components/tests/TranscriptViewer.tsx`
+- Test: `ui/components/tests/__tests__/TranscriptViewer.test.tsx`
+
+**Step 1: Write the test**
+
+```typescript
+// ui/components/tests/__tests__/TranscriptViewer.test.tsx
+import { render, screen } from "@testing-library/react";
+import { TranscriptViewer } from "../TranscriptViewer";
+
+const mockTranscript = [
+  { role: "persona" as const, text: "Hi, I need to check my order status", timestamp_ms: 0 },
+  { role: "agent" as const, text: "Sure! Could you provide your order number?", timestamp_ms: 1500 },
+  { role: "persona" as const, text: "It's 12345", timestamp_ms: 4000 },
+];
+
+describe("TranscriptViewer", () => {
+  it("renders all transcript entries", () => {
+    render(<TranscriptViewer transcript={mockTranscript} />);
+    expect(screen.getByText("Hi, I need to check my order status")).toBeInTheDocument();
+    expect(screen.getByText("Sure! Could you provide your order number?")).toBeInTheDocument();
+    expect(screen.getByText("It's 12345")).toBeInTheDocument();
+  });
+
+  it("labels agent and persona messages", () => {
+    render(<TranscriptViewer transcript={mockTranscript} />);
+    expect(screen.getAllByText("Agent")).toHaveLength(1);
+    expect(screen.getAllByText("Caller")).toHaveLength(2);
+  });
+
+  it("shows timestamps", () => {
+    render(<TranscriptViewer transcript={mockTranscript} />);
+    expect(screen.getByText("0:00")).toBeInTheDocument();
+    expect(screen.getByText("0:01")).toBeInTheDocument();
+    expect(screen.getByText("0:04")).toBeInTheDocument();
+  });
+
+  it("shows empty state when transcript is null", () => {
+    render(<TranscriptViewer transcript={null} />);
+    expect(screen.getByText(/no transcript/i)).toBeInTheDocument();
+  });
+});
+```
+
+**Step 2: fail, Step 3: implement**
+
+```typescript
+// ui/components/tests/TranscriptViewer.tsx
+"use client";
+
+import { cn } from "@/lib/utils";
+import type { TranscriptEntry } from "@/lib/types";
+
+interface TranscriptViewerProps {
+  transcript: TranscriptEntry[] | null;
+  className?: string;
+}
+
+function formatTimestamp(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+export function TranscriptViewer({ transcript, className }: TranscriptViewerProps) {
+  if (!transcript || transcript.length === 0) {
+    return (
+      <div className={cn("text-sm text-muted-foreground py-4 text-center", className)}>
+        No transcript available
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn("space-y-3", className)}>
+      {transcript.map((entry, i) => {
+        const isAgent = entry.role === "agent";
+        return (
+          <div
+            key={i}
+            className={cn(
+              "flex gap-3 text-sm",
+              isAgent ? "flex-row" : "flex-row-reverse"
+            )}
+          >
+            <div
+              className={cn(
+                "max-w-[75%] rounded-lg px-3 py-2",
+                isAgent
+                  ? "bg-muted text-foreground"
+                  : "bg-primary text-primary-foreground"
+              )}
+            >
+              <div className="mb-1 flex items-center gap-2">
+                <span className="text-xs font-semibold">
+                  {isAgent ? "Agent" : "Caller"}
+                </span>
+                <span className="text-xs opacity-70">
+                  {formatTimestamp(entry.timestamp_ms)}
+                </span>
+              </div>
+              <p>{entry.text}</p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+```
+
+**Step 4: pass, Step 5: Commit**
+
+```bash
+git add ui/components/tests/TranscriptViewer.tsx \
+  ui/components/tests/__tests__/TranscriptViewer.test.tsx
+git commit -m "feat(ui): add TranscriptViewer component for chat-style transcript display"
+```
+
+---
+
+## Task 21: Evaluation Result Card Component
+
+**Files:**
+- Create: `ui/components/tests/EvaluationResultCard.tsx`
+- Test: `ui/components/tests/__tests__/EvaluationResultCard.test.tsx`
+
+**Step 1: Write the test**
+
+```typescript
+// ui/components/tests/__tests__/EvaluationResultCard.test.tsx
+import { render, screen } from "@testing-library/react";
+import { EvaluationResultCard } from "../EvaluationResultCard";
+
+const mockResult = {
+  passed: true,
+  score: 0.88,
+  goal_achieved: true,
+  intent_handled: true,
+  criteria: [
+    { name: "Greeting", passed: true, score: 0.95, evidence: "Agent said hello" },
+    { name: "Order Confirmation", passed: false, score: 0.4, evidence: "Did not confirm" },
+  ],
+  reasoning: "The agent handled the request well overall.",
+};
+
+describe("EvaluationResultCard", () => {
+  it("shows overall pass/fail badge", () => {
+    render(<EvaluationResultCard result={mockResult} />);
+    expect(screen.getByText("Passed")).toBeInTheDocument();
+  });
+
+  it("shows overall score", () => {
+    render(<EvaluationResultCard result={mockResult} />);
+    expect(screen.getByText("88%")).toBeInTheDocument();
+  });
+
+  it("shows criteria breakdown", () => {
+    render(<EvaluationResultCard result={mockResult} />);
+    expect(screen.getByText("Greeting")).toBeInTheDocument();
+    expect(screen.getByText("Order Confirmation")).toBeInTheDocument();
+  });
+
+  it("shows reasoning", () => {
+    render(<EvaluationResultCard result={mockResult} />);
+    expect(screen.getByText("The agent handled the request well overall.")).toBeInTheDocument();
+  });
+
+  it("shows empty state when result is null", () => {
+    render(<EvaluationResultCard result={null} />);
+    expect(screen.getByText(/no evaluation/i)).toBeInTheDocument();
+  });
+});
+```
+
+**Step 2: fail, Step 3: implement**
+
+Build a card using shadcn `Card`, `Badge`, `Collapsible` components:
+- Pass/Fail badge at top with overall score as percentage
+- Goal achieved / Intent handled indicators
+- Collapsible criteria list — each row: name, pass/fail icon, score bar, evidence quote
+- Reasoning text at bottom
+
+**Step 4: pass, Step 5: Commit**
+
+```bash
+git add ui/components/tests/EvaluationResultCard.tsx \
+  ui/components/tests/__tests__/EvaluationResultCard.test.tsx
+git commit -m "feat(ui): add EvaluationResultCard component for evaluation result display"
+```
+
+---
+
+## Task 22: Wire Up Run Suite & Run Scenario Buttons + Polling
+
+**Files:**
+- Modify: `ui/app/(dashboard)/orgs/[orgId]/test-suites/[id]/page.tsx`
+- Modify: `ui/app/(dashboard)/orgs/[orgId]/test-scenarios/[id]/page.tsx`
+- Create: `ui/components/tests/SuiteRunProgressCard.tsx`
+- Create: `ui/components/tests/ExecutionDetailPanel.tsx`
+
+This is the integration task that ties everything together.
+
+### 22a: SuiteRunProgressCard
+
+Shows execution progress while a suite run is active:
+
+```
+┌────────────────────────────────────────────┐
+│  Running Tests  [8/12]  ████████░░░░  67%  │
+│                                            │
+│  ✅ Order pizza happy path     Passed 0.92 │
+│  ✅ Cancel order polite        Passed 0.88 │
+│  📞 Angry customer complaint   Calling...  │
+│  ⏳ Payment processing         Queued      │
+│  ...                                       │
+│                                [Cancel]    │
+└────────────────────────────────────────────┘
+```
+
+Uses `useSuiteRunPolling` hook, `ExecutionStatusBadge`, `Progress` component.
+
+### 22b: ExecutionDetailPanel
+
+Shown when clicking a completed execution row. Renders:
+- `AudioPlayer` component (existing, in `components/shared/audio/`) with the execution's audio_url
+- `TranscriptViewer` component (Task 20) with the transcript
+- `EvaluationResultCard` component (Task 21) with the evaluation result
+- Error message if failed
+- Retry count (attempt X of Y)
+
+### 22c: Wire up "Run Suite" button (test-suites/[id]/page.tsx)
+
+In the test suite detail page (`ui/app/(dashboard)/orgs/[orgId]/test-suites/[id]/page.tsx`):
+
+1. Replace the placeholder `<Button>Run Suite</Button>` (line ~274) with an `onClick` handler
+2. On click: call `api.suiteRuns.runSuite(orgId, suite.id)`
+3. On success: set `activeSuiteRunId` state, show `SuiteRunProgressCard`
+4. Start polling via `useSuiteRunPolling({ suiteRunId: activeSuiteRunId, enabled: true })`
+5. On complete: show toast, refresh data, stop polling
+6. Disable "Run Suite" button while a run is active
+
+### 22d: Wire up "Run Test" button (test-scenarios/[id]/page.tsx)
+
+In the scenario detail page (`ui/app/(dashboard)/orgs/[orgId]/test-scenarios/[id]/page.tsx`):
+
+1. Wire the existing "Run Test" button
+2. On click: call `api.suiteRuns.runScenario(orgId, scenario.id)`
+3. On success: set `activeSuiteRunId`, show `SuiteRunProgressCard` (single execution)
+4. Start polling
+5. On complete: show `ExecutionDetailPanel` with audio player + transcript + evaluation
+6. Disable button while running
+
+### Testing
+
+Write tests for:
+- `SuiteRunProgressCard` renders progress bar and execution list
+- `ExecutionDetailPanel` renders audio player, transcript, and evaluation
+- Suite detail page: clicking "Run Suite" triggers API call and shows progress
+- Scenario detail page: clicking "Run Test" triggers API call and shows results
+
+**Step 1: Write tests, Step 2: fail, Step 3: implement, Step 4: pass, Step 5: Commit**
+
+```bash
+git add ui/components/tests/SuiteRunProgressCard.tsx \
+  ui/components/tests/ExecutionDetailPanel.tsx \
+  ui/app/\(dashboard\)/orgs/\[orgId\]/test-suites/\[id\]/page.tsx \
+  ui/app/\(dashboard\)/orgs/\[orgId\]/test-scenarios/\[id\]/page.tsx \
+  ui/components/tests/__tests__/SuiteRunProgressCard.test.tsx \
+  ui/components/tests/__tests__/ExecutionDetailPanel.test.tsx
+git commit -m "feat(ui): wire up Run Suite/Run Test buttons with polling, progress, and result display"
+```
+
+---
+
+## Task 23: Frontend Lint + Type Check + Tests
+
+**Step 1: Type check**
+
+```bash
+cd ui && npx tsc --noEmit
+```
+
+**Step 2: Lint**
+
+```bash
+cd ui && npx next lint
+```
+
+**Step 3: Run all frontend tests**
+
+```bash
+cd ui && npx jest --coverage
+```
+
+**Step 4: Fix any issues and commit**
+
+```bash
+git commit -m "fix(ui): resolve lint, type, and test issues"
+```
+
+---
+
 ## Summary of Tasks
 
 | # | Task | New Files | Modified Files |
@@ -1689,7 +2602,15 @@ git commit -m "fix: resolve lint issues and ensure test coverage >95%"
 | 12 | Evaluation worker | 2 | 0 |
 | 13 | Worker CLI entry point | 2 | 1 |
 | 14 | Wire up dependencies | 0 | 4 |
-| 15 | Full test + lint + coverage | 0 | varies |
+| 15 | Full backend test + lint + coverage | 0 | varies |
+| **16** | **TypeScript types** | **0** | **1** |
+| **17** | **Suite Runs API client** | **2** | **2** |
+| **18** | **Execution polling hook** | **2** | **1** |
+| **19** | **ExecutionStatusBadge component** | **2** | **0** |
+| **20** | **TranscriptViewer component** | **2** | **0** |
+| **21** | **EvaluationResultCard component** | **2** | **0** |
+| **22** | **Wire up Run buttons + progress + results** | **4** | **2** |
+| **23** | **Frontend lint + type check + tests** | **0** | **varies** |
 
 **Future tasks** (not in this plan — to be designed separately):
 - Task N+1: LiveKit/SIP call execution (replace stub in CallWorker)
