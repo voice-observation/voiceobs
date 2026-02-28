@@ -4,27 +4,9 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from voiceobs.server.utils.media import get_extension_from_content_type
 
-def get_extension_from_content_type(content_type: str | None) -> str:
-    """Get file extension from content type.
-
-    Args:
-        content_type: MIME type of the audio.
-
-    Returns:
-        File extension (e.g., ".mp3", ".wav").
-    """
-    if content_type == "audio/mpeg" or content_type == "audio/mp3":
-        return ".mp3"
-    elif content_type == "audio/wav":
-        return ".wav"
-    elif content_type == "audio/ogg":
-        return ".ogg"
-    elif content_type == "audio/flac":
-        return ".flac"
-    else:
-        # Default to wav
-        return ".wav"
+__all__ = ["get_extension_from_content_type", "AudioStorageProvider", "AudioStorage"]
 
 
 class AudioStorageProvider(Protocol):
@@ -143,7 +125,7 @@ class AudioStorage:
         elif provider == "s3":
             if base_path is None:
                 raise ValueError("base_path (bucket name) is required for S3 storage")
-            from voiceobs.server.storage.s3 import S3Storage
+            from voiceobs.server.clients.s3 import S3Storage
 
             self._provider = S3Storage(
                 bucket_name=base_path,

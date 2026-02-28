@@ -1,12 +1,10 @@
-"""S3 storage provider for audio files."""
+"""S3 storage client for audio files."""
 
 from __future__ import annotations
 
 import os
 import uuid
 from typing import TYPE_CHECKING
-
-from voiceobs.server.storage.base import get_extension_from_content_type
 
 if TYPE_CHECKING:
     from mypy_boto3_s3 import S3Client
@@ -58,59 +56,37 @@ class S3Storage:
         """Get or create S3 client."""
         if self._s3_client is None:
             import boto3
+            from botocore.config import Config
 
             session = boto3.Session(
                 aws_access_key_id=self._aws_access_key_id,
                 aws_secret_access_key=self._aws_secret_access_key,
                 region_name=self.aws_region,
             )
-            self._s3_client = session.client("s3")
+            # Use SigV4 explicitly - SigV2 (AWSAccessKeyId/Signature/Expires) is deprecated
+            # and fails for many buckets/regions. SigV4 uses X-Amz-* params and works everywhere.
+            config = Config(signature_version="s3v4")
+            self._s3_client = session.client("s3", config=config)
         return self._s3_client
 
     def _get_s3_key(self, conversation_id: str, audio_type: str | None = None) -> str:
-        """Generate S3 key for a conversation ID.
-
-        Args:
-            conversation_id: Conversation identifier.
-            audio_type: Optional audio type identifier (e.g., "asr", "tts", "user", "agent").
-
-        Returns:
-            S3 key string.
-        """
+        """Generate S3 key for a conversation ID."""
         if audio_type:
             return f"{conversation_id}-{audio_type}.wav"
         return f"{conversation_id}.wav"
 
     def _get_s3_url(self, conversation_id: str, audio_type: str | None = None) -> str:
-        """Generate S3 URL for a conversation ID.
-
-        Args:
-            conversation_id: Conversation identifier.
-            audio_type: Optional audio type identifier.
-
-        Returns:
-            S3 URL string.
-        """
+        """Generate S3 URL for a conversation ID."""
         return f"s3://{self.bucket_name}/{self._get_s3_key(conversation_id, audio_type)}"
 
     async def save(
         self, audio_data: bytes, conversation_id: str, audio_type: str | None = None
     ) -> str:
-        """Save audio data to S3.
-
-        Args:
-            audio_data: Raw audio data bytes.
-            conversation_id: Conversation identifier.
-            audio_type: Optional audio type identifier (e.g., "asr", "tts", "user", "agent").
-
-        Returns:
-            S3 URL to the stored file.
-        """
+        """Save audio data to S3."""
         import asyncio
 
         s3_key = self._get_s3_key(conversation_id, audio_type)
 
-        # Upload to S3 (boto3 is sync, so we run in executor)
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(
             None,
@@ -125,14 +101,7 @@ class S3Storage:
         return self._get_s3_url(conversation_id, audio_type)
 
     async def get(self, audio_id: str) -> bytes | None:
-        """Retrieve audio data from S3.
-
-        Args:
-            audio_id: Conversation ID (S3 key without extension).
-
-        Returns:
-            Audio data bytes or None if not found.
-        """
+        """Retrieve audio data from S3."""
         import asyncio
 
         s3_key = self._get_s3_key(audio_id)
@@ -145,18 +114,10 @@ class S3Storage:
             )
             return response["Body"].read()
         except Exception:
-            # Handle NoSuchKey and other client errors
             return None
 
     async def exists(self, audio_id: str) -> bool:
-        """Check if audio file exists in S3.
-
-        Args:
-            audio_id: Conversation ID.
-
-        Returns:
-            True if file exists, False otherwise.
-        """
+        """Check if audio file exists in S3."""
         import asyncio
 
         s3_key = self._get_s3_key(audio_id)
@@ -169,18 +130,10 @@ class S3Storage:
             )
             return True
         except Exception:
-            # Handle NoSuchKey and other client errors
             return False
 
     async def delete(self, audio_id: str) -> bool:
-        """Delete audio file from S3.
-
-        Args:
-            audio_id: Conversation ID.
-
-        Returns:
-            True if deleted, False if not found.
-        """
+        """Delete audio file from S3."""
         import asyncio
 
         s3_key = self._get_s3_key(audio_id)
@@ -193,19 +146,10 @@ class S3Storage:
             )
             return True
         except Exception:
-            # Handle any errors (file may not exist)
             return False
 
     async def get_presigned_url(self, audio_id: str, expiry: int | None = None) -> str:
-        """Generate a presigned URL for accessing audio file.
-
-        Args:
-            audio_id: Conversation ID.
-            expiry: URL expiry time in seconds (defaults to configured value).
-
-        Returns:
-            Presigned URL string.
-        """
+        """Generate a presigned URL for accessing audio file."""
         import asyncio
 
         s3_key = self._get_s3_key(audio_id)
@@ -223,31 +167,18 @@ class S3Storage:
         return url
 
     async def get_presigned_url_from_s3_url(self, s3_url: str, expiry: int | None = None) -> str:
-        """Generate a presigned URL from an S3 URL.
-
-        Args:
-            s3_url: S3 URL in format "s3://bucket-name/key".
-            expiry: URL expiry time in seconds (defaults to configured value).
-
-        Returns:
-            Presigned URL string.
-
-        Raises:
-            ValueError: If the URL is not a valid S3 URL or bucket doesn't match.
-        """
+        """Generate a presigned URL from an S3 URL."""
         import asyncio
 
         if not s3_url.startswith("s3://"):
             raise ValueError(f"Invalid S3 URL format: {s3_url}")
 
-        # Extract bucket and key from s3://bucket/key format
-        url_parts = s3_url[5:].split("/", 1)  # Remove "s3://" prefix
+        url_parts = s3_url[5:].split("/", 1)
         if len(url_parts) != 2:
             raise ValueError(f"Invalid S3 URL format: {s3_url}")
 
         bucket_name, s3_key = url_parts
 
-        # Verify bucket matches
         if bucket_name != self.bucket_name:
             raise ValueError(
                 f"S3 URL bucket '{bucket_name}' does not match configured bucket "
@@ -270,34 +201,19 @@ class S3Storage:
     async def store_audio(
         self, audio_data: bytes, prefix: str, content_type: str | None = None
     ) -> str:
-        """Store audio data with a custom prefix pattern.
-
-        Args:
-            audio_data: Raw audio data bytes.
-            prefix: Prefix pattern for file storage (e.g., "personas/preview/persona-id").
-            content_type: MIME type of the audio (e.g., "audio/mpeg", "audio/wav").
-                Defaults to "audio/wav" if not provided.
-
-        Returns:
-            S3 URL to the stored file.
-        """
+        """Store audio data with a custom prefix pattern."""
         import asyncio
 
-        # Determine file extension from content type
-        extension = get_extension_from_content_type(content_type)
+        from voiceobs.server.utils.media import get_extension_from_content_type
 
-        # Default content type if not provided
+        extension = get_extension_from_content_type(content_type)
         if content_type is None:
             content_type = "audio/wav"
 
-        # Generate unique filename with prefix
         unique_id = str(uuid.uuid4())
         filename = f"{unique_id}{extension}"
-
-        # Create S3 key with prefix
         s3_key = f"{prefix}/{filename}"
 
-        # Upload to S3
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(
             None,
@@ -309,32 +225,47 @@ class S3Storage:
             ),
         )
 
-        # Return S3 URL
         return f"s3://{self.bucket_name}/{s3_key}"
 
-    async def delete_by_url(self, url: str) -> bool:
-        """Delete audio file by its S3 URL.
-
-        Args:
-            url: The S3 URL returned from store_audio (e.g., "s3://bucket/key").
-
-        Returns:
-            True if deleted, False if not found or invalid URL.
-        """
+    async def get_by_s3_url(self, s3_url: str) -> bytes | None:
+        """Retrieve audio data from S3 by s3:// URL."""
         import asyncio
 
-        # Parse S3 URL format: s3://bucket/key
+        if not s3_url.startswith("s3://"):
+            return None
+
+        url_parts = s3_url[5:].split("/", 1)
+        if len(url_parts) != 2:
+            return None
+
+        bucket_name, s3_key = url_parts
+
+        if bucket_name != self.bucket_name:
+            return None
+
+        try:
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: self.s3_client.get_object(Bucket=self.bucket_name, Key=s3_key),
+            )
+            return response["Body"].read()
+        except Exception:
+            return None
+
+    async def delete_by_url(self, url: str) -> bool:
+        """Delete audio file by its S3 URL."""
+        import asyncio
+
         if not url.startswith("s3://"):
             return False
 
-        # Extract bucket and key
-        url_parts = url[5:].split("/", 1)  # Remove "s3://"
+        url_parts = url[5:].split("/", 1)
         if len(url_parts) != 2:
             return False
 
         bucket_name, s3_key = url_parts
 
-        # Verify bucket matches
         if bucket_name != self.bucket_name:
             return False
 

@@ -7,7 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from voiceobs.server.db.models import TestScenarioRow
+from voiceobs.server.db.models import TestExecutionRow, TestScenarioRow
 
 
 class TestSuiteResponse(BaseModel):
@@ -226,6 +226,35 @@ class TestExecutionResponse(BaseModel):
     started_at: datetime | None = Field(None, description="Start timestamp")
     completed_at: datetime | None = Field(None, description="Completion timestamp")
     result_json: dict[str, Any] = Field(default_factory=dict, description="Execution results")
+    audio_url: str | None = Field(None, description="S3 URL of recorded audio")
+    transcript: list[dict[str, Any]] | None = Field(None, description="Conversation transcript")
+    evaluation_result: dict[str, Any] | None = Field(None, description="LLM evaluation result")
+    error_message: str | None = Field(None, description="Error message if failed")
+    duration_seconds: float | None = Field(None, description="Call duration in seconds")
+    attempt: int = Field(1, description="Attempt number (1-based)")
+    suite_run_id: str | None = Field(None, description="Suite run UUID")
+    org_id: str | None = Field(None, description="Organization UUID")
+
+    @classmethod
+    def from_row(cls, execution: TestExecutionRow) -> TestExecutionResponse:
+        """Create a TestExecutionResponse from a TestExecutionRow."""
+        return cls(
+            id=str(execution.id),
+            scenario_id=str(execution.scenario_id),
+            conversation_id=str(execution.conversation_id) if execution.conversation_id else None,
+            status=execution.status,
+            started_at=execution.started_at,
+            completed_at=execution.completed_at,
+            result_json=execution.result_json,
+            audio_url=execution.audio_url,
+            transcript=execution.transcript,
+            evaluation_result=execution.evaluation_result,
+            error_message=execution.error_message,
+            duration_seconds=execution.duration_seconds,
+            attempt=execution.attempt,
+            suite_run_id=str(execution.suite_run_id),
+            org_id=str(execution.org_id),
+        )
 
     model_config = ConfigDict(
         json_schema_extra={

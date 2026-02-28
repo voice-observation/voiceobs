@@ -10,12 +10,8 @@ import pytest
 from fastapi import HTTPException
 
 from voiceobs.server.utils import parse_iso_datetime
-from voiceobs.server.utils.common import (
-    analysis_result_to_response,
-    log_timing,
-    parse_uuid,
-    safe_cleanup,
-)
+from voiceobs.server.utils.async_helpers import log_timing, safe_cleanup
+from voiceobs.server.utils.common import analysis_result_to_response, parse_uuid
 
 
 class TestParseIsoDatetime:

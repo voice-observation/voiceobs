@@ -27,6 +27,7 @@ from voiceobs.server.routes import (
     organizations_router,
     personas_router,
     spans_router,
+    suite_runs_router,
     test_executions_router,
     test_scenarios_router,
     test_suites_router,
@@ -102,6 +103,7 @@ def create_app() -> FastAPI:
     app.include_router(audio_router)
     app.include_router(test_suites_router)
     app.include_router(test_scenarios_router)
+    app.include_router(suite_runs_router)
     app.include_router(test_executions_router)
     app.include_router(personas_router)
     app.include_router(agents_router)

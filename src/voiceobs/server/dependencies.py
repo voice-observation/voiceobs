@@ -47,6 +47,7 @@ from voiceobs.server.db.repositories import (
     TestExecutionRepository,
     TestScenarioRepository,
     TestSuiteRepository,
+    TestSuiteRunRepository,
     TurnRepository,
     UserRepository,
 )
@@ -191,6 +192,7 @@ _turn_repo: TurnRepository | None = None
 _failure_repo: FailureRepository | None = None
 _metrics_repo: MetricsRepository | None = None
 _test_suite_repo: TestSuiteRepository | None = None
+_test_suite_run_repo: TestSuiteRunRepository | None = None
 _test_scenario_repo: TestScenarioRepository | None = None
 _test_execution_repo: TestExecutionRepository | None = None
 _persona_repo: PersonaRepository | None = None
@@ -203,6 +205,7 @@ _agent_verification_service: AgentVerificationService | None = None
 _organization_service: OrganizationService | None = None
 _persona_service: PersonaService | None = None
 _scenario_generation_service: ScenarioGenerationService | None = None
+_execution_queue_client: Any | None = None
 _use_postgres: bool = False
 _audio_storage: Any | None = None
 
@@ -252,7 +255,8 @@ async def init_database() -> None:
     """
     global _database, _span_storage
     global _conversation_repo, _turn_repo, _failure_repo, _metrics_repo
-    global _test_suite_repo, _test_scenario_repo, _test_execution_repo, _persona_repo, _agent_repo
+    global _test_suite_repo, _test_suite_run_repo, _test_scenario_repo
+    global _test_execution_repo, _persona_repo, _agent_repo
     global _user_repo, _organization_repo, _organization_member_repo, _organization_invite_repo
     global _agent_verification_service, _organization_service, _persona_service, _use_postgres
 
@@ -295,6 +299,7 @@ async def init_database() -> None:
         persona_service=_persona_service,
     )
     _test_suite_repo = TestSuiteRepository(_database)
+    _test_suite_run_repo = TestSuiteRunRepository(_database)
     _test_scenario_repo = TestScenarioRepository(_database, _persona_repo, _test_suite_repo)
     _test_execution_repo = TestExecutionRepository(_database)
 
@@ -312,7 +317,8 @@ async def shutdown_database() -> None:
     """
     global _database, _span_storage
     global _conversation_repo, _turn_repo, _failure_repo, _metrics_repo
-    global _test_suite_repo, _test_scenario_repo, _test_execution_repo, _persona_repo, _agent_repo
+    global _test_suite_repo, _test_suite_run_repo, _test_scenario_repo
+    global _test_execution_repo, _persona_repo, _agent_repo
     global _user_repo, _organization_repo, _organization_member_repo, _organization_invite_repo
     global _agent_verification_service, _organization_service, _persona_service
     global _scenario_generation_service
@@ -328,6 +334,7 @@ async def shutdown_database() -> None:
     _failure_repo = None
     _metrics_repo = None
     _test_suite_repo = None
+    _test_suite_run_repo = None
     _test_scenario_repo = None
     _test_execution_repo = None
     _persona_repo = None
@@ -434,6 +441,18 @@ def get_test_suite_repository() -> TestSuiteRepository:
         RuntimeError: If database is not initialized.
     """
     return _ensure_initialized(_test_suite_repo, "Test suite repository")
+
+
+def get_test_suite_run_repository() -> TestSuiteRunRepository:
+    """Get the test suite run repository.
+
+    Returns:
+        Test suite run repository instance.
+
+    Raises:
+        RuntimeError: If database is not initialized.
+    """
+    return _ensure_initialized(_test_suite_run_repo, "Test suite run repository")
 
 
 def get_test_scenario_repository() -> TestScenarioRepository:
@@ -616,6 +635,187 @@ def is_using_postgres() -> bool:
     return _use_postgres
 
 
+def get_execution_queue_client() -> Any | None:
+    """Get execution queue client for enqueueing test runs.
+
+    Returns:
+        ExecutionQueueClient if VOICEOBS_SQS_EXECUTION_QUEUE_URL is set, None otherwise.
+    """
+    global _execution_queue_client
+
+    if _execution_queue_client is not None:
+        return _execution_queue_client
+
+    exec_url = os.environ.get("VOICEOBS_SQS_EXECUTION_QUEUE_URL")
+    if not exec_url:
+        return None
+
+    try:
+        from voiceobs.server.clients.sqs.execution_client import ExecutionQueueClient
+
+        client = ExecutionQueueClient.from_env()
+        _execution_queue_client = client
+        return client
+    except (KeyError, Exception) as e:
+        logger.warning("Failed to create execution queue client: %s", e)
+        return None
+
+
+_evaluation_queue_client: Any | None = None
+
+
+def get_evaluation_queue_client() -> Any | None:
+    """Get evaluation queue client for worker polling.
+
+    Returns:
+        EvaluationQueueClient if VOICEOBS_SQS_EVALUATION_QUEUE_URL is set, None otherwise.
+    """
+    global _evaluation_queue_client
+
+    if _evaluation_queue_client is not None:
+        return _evaluation_queue_client
+
+    eval_url = os.environ.get("VOICEOBS_SQS_EVALUATION_QUEUE_URL")
+    if not eval_url:
+        return None
+
+    try:
+        from voiceobs.server.clients.sqs.evaluation_client import EvaluationQueueClient
+
+        client = EvaluationQueueClient.from_env()
+        _evaluation_queue_client = client
+        return client
+    except (KeyError, Exception) as e:
+        logger.warning("Failed to create evaluation queue client: %s", e)
+        return None
+
+
+_evaluation_service: Any | None = None
+
+
+def get_evaluation_service() -> Any | None:
+    """Get evaluation service for LLM-based test result evaluation.
+
+    Returns:
+        EvaluationService if LLM is configured, None otherwise.
+    """
+    global _evaluation_service
+
+    if _evaluation_service is not None:
+        return _evaluation_service
+
+    try:
+        from voiceobs.server.services.evaluation import EvaluationService
+        from voiceobs.server.services.llm_factory import LLMServiceFactory
+
+        llm_service = LLMServiceFactory.create()
+        _evaluation_service = EvaluationService(
+            execution_repo=get_test_execution_repository(),
+            scenario_repo=get_test_scenario_repository(),
+            suite_repo=get_test_suite_repository(),
+            llm_service=llm_service,
+        )
+        logger.info("Created EvaluationService")
+        return _evaluation_service
+    except Exception as e:
+        logger.warning("Failed to create EvaluationService: %s", e)
+        return None
+
+
+_execution_orchestration_service: Any | None = None
+_scenario_call_service: Any | None = None
+
+
+def get_scenario_call_service() -> Any | None:
+    """Get ScenarioCallService for real LiveKit SIP calls with egress.
+
+    Returns:
+        ScenarioCallService if LiveKit and Egress S3 are configured, None otherwise.
+    """
+    global _scenario_call_service
+
+    if _scenario_call_service is not None:
+        return _scenario_call_service
+
+    try:
+        from voiceobs.server.config.execution import get_execution_settings
+        from voiceobs.server.config.verification import get_verification_settings
+        from voiceobs.server.services.execution import ScenarioCallService
+
+        verification_settings = get_verification_settings()
+        execution_settings = get_execution_settings()
+
+        if not verification_settings.livekit_url:
+            logger.warning("LiveKit not configured (LIVEKIT_URL). ScenarioCallService unavailable.")
+            return None
+
+        if execution_settings.audio_storage_provider != "s3":
+            logger.warning(
+                "Egress requires S3 (VOICEOBS_AUDIO_STORAGE_PROVIDER=s3). "
+                "ScenarioCallService unavailable."
+            )
+            return None
+        if not execution_settings.audio_storage_path:
+            logger.warning(
+                "Egress S3 bucket not configured (VOICEOBS_AUDIO_STORAGE_PATH). "
+                "ScenarioCallService unavailable."
+            )
+            return None
+        if not execution_settings.audio_s3_access_key or not execution_settings.audio_s3_secret:
+            logger.warning(
+                "Egress S3 credentials not configured (VOICEOBS_AUDIO_S3_ACCESS_KEY, "
+                "VOICEOBS_AUDIO_S3_SECRET). ScenarioCallService unavailable."
+            )
+            return None
+
+        _scenario_call_service = ScenarioCallService(
+            execution_repo=get_test_execution_repository(),
+            scenario_repo=get_test_scenario_repository(),
+            suite_repo=get_test_suite_repository(),
+            suite_run_repo=get_test_suite_run_repository(),
+            agent_repo=get_agent_repository(),
+            persona_repo=get_persona_repository(),
+            verification_settings=verification_settings,
+            execution_settings=execution_settings,
+        )
+        logger.info("Created ScenarioCallService")
+        return _scenario_call_service
+    except Exception as e:
+        logger.warning("Failed to create ScenarioCallService: %s", e)
+        return None
+
+
+def get_execution_orchestration_service() -> Any | None:
+    """Get execution orchestration service for triggering suite/scenario runs.
+
+    Returns:
+        ExecutionOrchestrationService if SQS is configured, None otherwise.
+    """
+    global _execution_orchestration_service
+
+    if _execution_orchestration_service is not None:
+        return _execution_orchestration_service
+
+    execution_client = get_execution_queue_client()
+    if execution_client is None:
+        return None
+
+    try:
+        from voiceobs.server.services.execution import ExecutionOrchestrationService
+
+        service = ExecutionOrchestrationService(
+            suite_run_repo=get_test_suite_run_repository(),
+            execution_repo=get_test_execution_repository(),
+            scenario_repo=get_test_scenario_repository(),
+            execution_client=execution_client,
+        )
+        _execution_orchestration_service = service
+        return service
+    except Exception as e:
+        logger.warning("Failed to create ExecutionOrchestrationService: %s", e)
+        return None
+
+
 def get_audio_storage() -> Any:
     """Get the audio storage instance.
 
@@ -652,10 +852,13 @@ def reset_dependencies() -> None:
     """Reset all dependencies (for testing)."""
     global _database, _span_storage
     global _conversation_repo, _turn_repo, _failure_repo, _metrics_repo
-    global _test_suite_repo, _test_scenario_repo, _test_execution_repo, _persona_repo, _agent_repo
+    global _test_suite_repo, _test_suite_run_repo, _test_scenario_repo
+    global _test_execution_repo, _persona_repo, _agent_repo
     global _user_repo, _organization_repo, _organization_member_repo, _organization_invite_repo
     global _agent_verification_service, _organization_service, _persona_service
-    global _scenario_generation_service
+    global _scenario_generation_service, _execution_queue_client
+    global _evaluation_queue_client, _evaluation_service
+    global _execution_orchestration_service, _scenario_call_service
     global _use_postgres, _audio_storage
     _database = None
     _span_storage = None
@@ -664,6 +867,7 @@ def reset_dependencies() -> None:
     _failure_repo = None
     _metrics_repo = None
     _test_suite_repo = None
+    _test_suite_run_repo = None
     _test_scenario_repo = None
     _test_execution_repo = None
     _persona_repo = None
@@ -676,5 +880,10 @@ def reset_dependencies() -> None:
     _organization_service = None
     _persona_service = None
     _scenario_generation_service = None
+    _execution_queue_client = None
+    _evaluation_queue_client = None
+    _evaluation_service = None
+    _execution_orchestration_service = None
+    _scenario_call_service = None
     _use_postgres = False
     _audio_storage = None

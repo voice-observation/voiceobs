@@ -28,6 +28,26 @@ export const simulateDelay = (ms: number = 300): Promise<void> => {
   return new Promise((resolve) => setTimeout(resolve, ms));
 };
 
+/**
+ * Get authentication headers from Supabase session.
+ * Use for same-origin requests that need Bearer token (e.g. audio stream).
+ */
+export async function getAuthHeaders(): Promise<Record<string, string>> {
+  if (typeof window === "undefined") return {};
+  try {
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      return { Authorization: `Bearer ${session.access_token}` };
+    }
+  } catch (error) {
+    console.error("Failed to get auth session:", error);
+  }
+  return {};
+}
+
 // Track if we're already redirecting to prevent loops
 let isRedirecting = false;
 
@@ -37,34 +57,6 @@ export class BaseApiClient {
 
   protected getBaseUrl(): string {
     return getApiBaseUrl();
-  }
-
-  /**
-   * Get authentication headers from Supabase session.
-   * Only adds auth headers on client-side.
-   */
-  protected async getAuthHeaders(): Promise<Record<string, string>> {
-    // Only add auth headers on client-side
-    if (typeof window === "undefined") {
-      return {};
-    }
-
-    try {
-      const supabase = createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (session?.access_token) {
-        return {
-          Authorization: `Bearer ${session.access_token}`,
-        };
-      }
-    } catch (error) {
-      console.error("Failed to get auth session:", error);
-    }
-
-    return {};
   }
 
   protected async fetchWithRetry(
@@ -87,7 +79,7 @@ export class BaseApiClient {
         : `${baseUrl}${endpoint}`;
 
     try {
-      const authHeaders = await this.getAuthHeaders();
+      const authHeaders = await getAuthHeaders();
 
       const response = await fetch(url, {
         ...fetchOptions,

@@ -12,11 +12,20 @@ import { DeleteTestScenarioDialog } from "@/components/tests/DeleteTestScenarioD
 import { ScenarioDetailsCard } from "@/components/tests/ScenarioDetailsCard";
 import { ScenarioMetricsCharts } from "@/components/tests/ScenarioMetricsCharts";
 import { ScenarioRunHistory } from "@/components/tests/ScenarioRunHistory";
-import { ArrowLeft, Pencil, Trash2, AlertCircle, Play } from "lucide-react";
+import { SuiteRunProgressCard } from "@/components/tests/SuiteRunProgressCard";
+import { ExecutionDetailPanel } from "@/components/tests/ExecutionDetailPanel";
+import { ArrowLeft, Pencil, Trash2, AlertCircle, Play, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { logger } from "@/lib/logger";
 import { toast } from "sonner";
-import type { TestScenario, TestSuite, PersonaListItem } from "@/lib/types";
+import { useSuiteRunPolling } from "@/hooks";
+import type {
+  TestScenario,
+  TestSuite,
+  PersonaListItem,
+  SuiteRun,
+  ExecutionSummary,
+} from "@/lib/types";
 
 export default function TestScenarioDetailPage() {
   const router = useRouter();
@@ -34,6 +43,62 @@ export default function TestScenarioDetailPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const [activeSuiteRunId, setActiveSuiteRunId] = useState<string | null>(null);
+  const [suiteRun, setSuiteRun] = useState<SuiteRun | null>(null);
+  const [selectedExecution, setSelectedExecution] = useState<ExecutionSummary | null>(null);
+  const [isRunningTest, setIsRunningTest] = useState(false);
+  const [scenarioRuns, setScenarioRuns] = useState<
+    {
+      id: string;
+      created_at: string;
+      passed: boolean;
+      duration_seconds?: number;
+      turns_count?: number;
+    }[]
+  >([]);
+
+  const refetchScenarioRuns = useCallback(async () => {
+    if (!orgId || !scenarioId) return;
+    try {
+      const { runs } = await api.testScenarios.getScenarioRuns(orgId, scenarioId);
+      setScenarioRuns(
+        runs.map((r) => ({
+          id: r.id,
+          created_at: r.created_at ?? new Date().toISOString(),
+          passed: r.passed,
+          duration_seconds: r.duration_seconds ?? undefined,
+          turns_count: r.turns_count ?? undefined,
+        }))
+      );
+    } catch (err) {
+      logger.warn("Failed to refetch scenario runs", { error: err });
+    }
+  }, [orgId, scenarioId]);
+
+  useSuiteRunPolling({
+    orgId,
+    suiteRunId: activeSuiteRunId,
+    enabled: !!activeSuiteRunId,
+    onStatusChange: setSuiteRun,
+    onComplete: (run) => {
+      setSuiteRun(run);
+      setActiveSuiteRunId(null);
+      if (run.executions.length === 1) {
+        setSelectedExecution(run.executions[0]);
+      }
+      refetchScenarioRuns();
+      toast("Test Complete", {
+        description:
+          run.executions[0]?.evaluation_result?.passed === true
+            ? "Scenario passed."
+            : "Scenario failed or encountered an error.",
+      });
+    },
+    onError: (err) => {
+      logger.error("Suite run polling error", err);
+    },
+  });
 
   const fetchData = useCallback(async () => {
     if (!orgId || !scenarioId) return;
@@ -56,6 +121,21 @@ export default function TestScenarioDetailPage() {
         setPersona(personaData as PersonaListItem);
       } catch (err) {
         logger.warn("Failed to fetch persona", { error: err });
+      }
+
+      try {
+        const { runs } = await api.testScenarios.getScenarioRuns(orgId, scenarioId);
+        setScenarioRuns(
+          runs.map((r) => ({
+            id: r.id,
+            created_at: r.created_at ?? new Date().toISOString(),
+            passed: r.passed,
+            duration_seconds: r.duration_seconds ?? undefined,
+            turns_count: r.turns_count ?? undefined,
+          }))
+        );
+      } catch (err) {
+        logger.warn("Failed to fetch scenario runs", { error: err });
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to load test scenario";
@@ -192,8 +272,31 @@ export default function TestScenarioDetailPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button size="sm">
-            <Play className="mr-2 h-4 w-4" />
+          <Button
+            size="sm"
+            disabled={isRunningTest || !!activeSuiteRunId}
+            onClick={async () => {
+              if (!scenario) return;
+              setIsRunningTest(true);
+              try {
+                const res = await api.suiteRuns.runScenario(orgId, scenario.id);
+                setActiveSuiteRunId(res.suite_run_id);
+                setSuiteRun(null);
+                setSelectedExecution(null);
+                toast("Test Started", { description: "Running scenario..." });
+              } catch (err) {
+                const msg = err instanceof Error ? err.message : "Failed to start test";
+                toast.error("Run Failed", { description: msg });
+              } finally {
+                setIsRunningTest(false);
+              }
+            }}
+          >
+            {isRunningTest ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Play className="mr-2 h-4 w-4" />
+            )}
             Run Test
           </Button>
           <Button variant="outline" size="sm" onClick={() => setEditDialogOpen(true)}>
@@ -215,11 +318,62 @@ export default function TestScenarioDetailPage() {
       {/* Scenario Details Card */}
       <ScenarioDetailsCard scenario={scenario} persona={persona} />
 
+      {activeSuiteRunId &&
+        (suiteRun ? (
+          <SuiteRunProgressCard
+            suiteRun={suiteRun}
+            onCancel={async () => {
+              try {
+                await api.suiteRuns.cancelSuiteRun(orgId, activeSuiteRunId);
+                setActiveSuiteRunId(null);
+                setSuiteRun(null);
+                toast("Run Cancelled");
+              } catch {
+                toast.error("Failed to cancel run");
+              }
+            }}
+          />
+        ) : (
+          <Card>
+            <CardContent className="flex items-center gap-4 py-6">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <p className="text-sm text-muted-foreground">Running test...</p>
+            </CardContent>
+          </Card>
+        ))}
+
+      {selectedExecution && <ExecutionDetailPanel orgId={orgId} execution={selectedExecution} />}
+
       {/* Metrics Charts - TODO: fetch runs from API */}
       <ScenarioMetricsCharts runs={[]} />
 
       {/* Run History */}
-      <ScenarioRunHistory runs={[]} onRowClick={(runId) => router.push(`/test-runs/${runId}`)} />
+      <ScenarioRunHistory
+        runs={scenarioRuns}
+        onRowClick={async (executionId) => {
+          try {
+            const exec = await api.testExecutions.getTestExecution(orgId, executionId);
+            setSelectedExecution({
+              id: exec.id,
+              scenario_id: exec.scenario_id,
+              scenario_name: scenario?.name ?? null,
+              status: exec.status,
+              attempt: exec.attempt,
+              max_attempts: exec.max_attempts,
+              audio_url: exec.audio_url,
+              transcript: exec.transcript,
+              evaluation_result: exec.evaluation_result,
+              error_message: exec.error_message,
+              duration_seconds: exec.duration_seconds,
+              started_at: exec.started_at,
+              completed_at: exec.completed_at,
+            });
+          } catch (err) {
+            logger.error("Failed to load execution", err);
+            toast.error("Failed to load execution details");
+          }
+        }}
+      />
 
       {/* Edit Dialog */}
       <TestScenarioDialog

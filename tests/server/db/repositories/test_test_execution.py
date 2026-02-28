@@ -18,24 +18,42 @@ class TestTestExecutionRepository:
         """Test creating a test execution with minimal fields."""
         repo = TestExecutionRepository(mock_db)
         execution_id = uuid4()
+        org_id = uuid4()
+        suite_run_id = uuid4()
         scenario_id = uuid4()
 
         mock_db.fetchrow.return_value = MockRecord(
             {
                 "id": execution_id,
+                "org_id": org_id,
+                "suite_run_id": suite_run_id,
                 "scenario_id": scenario_id,
                 "conversation_id": None,
                 "status": "pending",
+                "attempt": 1,
+                "max_attempts": 3,
+                "audio_url": None,
+                "transcript": None,
+                "evaluation_result": None,
+                "error_message": None,
+                "duration_seconds": None,
                 "started_at": None,
                 "completed_at": None,
                 "result_json": {},
+                "created_at": datetime.utcnow(),
             }
         )
 
-        result = await repo.create(scenario_id=scenario_id)
+        result = await repo.create(
+            org_id=org_id,
+            suite_run_id=suite_run_id,
+            scenario_id=scenario_id,
+        )
 
         assert result.id == execution_id
         assert result.scenario_id == scenario_id
+        assert result.org_id == org_id
+        assert result.suite_run_id == suite_run_id
         assert result.conversation_id is None
         assert result.status == "pending"
         assert result.started_at is None
@@ -45,90 +63,96 @@ class TestTestExecutionRepository:
         assert "INSERT INTO test_executions" in mock_db.execute.call_args[0][0]
 
     @pytest.mark.asyncio
-    async def test_create_execution_with_conversation(self, mock_db):
-        """Test creating a test execution with conversation ID."""
-        repo = TestExecutionRepository(mock_db)
-        execution_id = uuid4()
-        scenario_id = uuid4()
-        conversation_id = uuid4()
-
-        mock_db.fetchrow.return_value = MockRecord(
-            {
-                "id": execution_id,
-                "scenario_id": scenario_id,
-                "conversation_id": conversation_id,
-                "status": "pending",
-                "started_at": None,
-                "completed_at": None,
-                "result_json": {},
-            }
-        )
-
-        result = await repo.create(scenario_id=scenario_id, conversation_id=conversation_id)
-
-        assert result.id == execution_id
-        assert result.scenario_id == scenario_id
-        assert result.conversation_id == conversation_id
-        assert result.status == "pending"
-
-    @pytest.mark.asyncio
     async def test_create_execution_with_status_running(self, mock_db):
         """Test creating a test execution with running status sets started_at."""
         repo = TestExecutionRepository(mock_db)
         execution_id = uuid4()
+        org_id = uuid4()
+        suite_run_id = uuid4()
         scenario_id = uuid4()
         started_at = datetime.utcnow()
 
         mock_db.fetchrow.return_value = MockRecord(
             {
                 "id": execution_id,
+                "org_id": org_id,
+                "suite_run_id": suite_run_id,
                 "scenario_id": scenario_id,
                 "conversation_id": None,
                 "status": "running",
+                "attempt": 1,
+                "max_attempts": 3,
+                "audio_url": None,
+                "transcript": None,
+                "evaluation_result": None,
+                "error_message": None,
+                "duration_seconds": None,
                 "started_at": started_at,
                 "completed_at": None,
                 "result_json": {},
+                "created_at": datetime.utcnow(),
             }
         )
 
-        result = await repo.create(scenario_id=scenario_id, status="running")
+        result = await repo.create(
+            org_id=org_id,
+            suite_run_id=suite_run_id,
+            scenario_id=scenario_id,
+            status="running",
+        )
 
         assert result.id == execution_id
         assert result.status == "running"
-        # started_at should be set when status is running
-        assert "running" in mock_db.execute.call_args[0]
+        assert "running" in str(mock_db.execute.call_args)
 
     @pytest.mark.asyncio
     async def test_create_execution_failure(self, mock_db):
         """Test creating a test execution when fetchrow returns None."""
         repo = TestExecutionRepository(mock_db)
+        org_id = uuid4()
+        suite_run_id = uuid4()
         scenario_id = uuid4()
         mock_db.fetchrow.return_value = None
 
         with pytest.raises(RuntimeError, match="Failed to create test execution"):
-            await repo.create(scenario_id=scenario_id)
+            await repo.create(
+                org_id=org_id,
+                suite_run_id=suite_run_id,
+                scenario_id=scenario_id,
+            )
 
     @pytest.mark.asyncio
     async def test_get_execution_found(self, mock_db):
         """Test getting a test execution that exists."""
         repo = TestExecutionRepository(mock_db)
         execution_id = uuid4()
+        org_id = uuid4()
         scenario_id = uuid4()
         conversation_id = uuid4()
 
         mock_db.fetchrow.return_value = MockRecord(
             {
                 "id": execution_id,
+                "org_id": org_id,
+                "suite_run_id": uuid4(),
                 "scenario_id": scenario_id,
                 "conversation_id": conversation_id,
                 "status": "completed",
+                "attempt": 1,
+                "max_attempts": 3,
+                "audio_url": None,
+                "transcript": None,
+                "evaluation_result": None,
+                "error_message": None,
+                "duration_seconds": None,
                 "started_at": datetime.utcnow(),
                 "completed_at": datetime.utcnow(),
                 "result_json": {"passed": True, "avg_latency_ms": 150.5},
+                "created_at": datetime.utcnow(),
             }
         )
 
-        result = await repo.get(execution_id)
+        result = await repo.get(execution_id, org_id)
 
         assert result is not None
         assert result.id == execution_id
@@ -142,9 +166,10 @@ class TestTestExecutionRepository:
         """Test getting a test execution that doesn't exist."""
         repo = TestExecutionRepository(mock_db)
         execution_id = uuid4()
+        org_id = uuid4()
         mock_db.fetchrow.return_value = None
 
-        result = await repo.get(execution_id)
+        result = await repo.get(execution_id, org_id)
 
         assert result is None
 
@@ -153,21 +178,32 @@ class TestTestExecutionRepository:
         """Test getting a test execution with null result_json defaults to empty dict."""
         repo = TestExecutionRepository(mock_db)
         execution_id = uuid4()
+        org_id = uuid4()
         scenario_id = uuid4()
 
         mock_db.fetchrow.return_value = MockRecord(
             {
                 "id": execution_id,
+                "org_id": org_id,
+                "suite_run_id": uuid4(),
                 "scenario_id": scenario_id,
                 "conversation_id": None,
                 "status": "pending",
+                "attempt": 1,
+                "max_attempts": 3,
+                "audio_url": None,
+                "transcript": None,
+                "evaluation_result": None,
+                "error_message": None,
+                "duration_seconds": None,
                 "started_at": None,
                 "completed_at": None,
                 "result_json": None,
+                "created_at": datetime.utcnow(),
             }
         )
 
-        result = await repo.get(execution_id)
+        result = await repo.get(execution_id, org_id)
 
         assert result is not None
         assert result.result_json == {}

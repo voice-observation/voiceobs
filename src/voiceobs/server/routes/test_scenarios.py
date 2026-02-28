@@ -6,17 +6,21 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from voiceobs.server.auth.context import AuthContext, require_org_membership
 from voiceobs.server.db.repositories.persona import PersonaRepository
+from voiceobs.server.db.repositories.test_execution import TestExecutionRepository
 from voiceobs.server.db.repositories.test_scenario import TestScenarioRepository
 from voiceobs.server.db.repositories.test_suite import TestSuiteRepository
 from voiceobs.server.models import (
     ErrorResponse,
+    ScenarioRunsListResponse,
     TestScenarioCreateRequest,
     TestScenarioResponse,
     TestScenariosListResponse,
     TestScenarioUpdateRequest,
 )
+from voiceobs.server.models.response.suite_run import ScenarioRunSummaryResponse
 from voiceobs.server.routes.test_dependencies import (
     get_persona_repo,
+    get_test_execution_repo,
     get_test_scenario_repo,
     get_test_suite_repo,
     parse_scenario_id,
@@ -118,6 +122,38 @@ async def list_test_scenarios(
         limit=limit,
         offset=offset,
     )
+
+
+@router.get(
+    "/{scenario_id}/runs",
+    response_model=ScenarioRunsListResponse,
+    summary="List scenario run history",
+    description="Get run history for a test scenario (executions ordered newest first).",
+    responses={
+        404: {"model": ErrorResponse, "description": "Test scenario not found"},
+        501: {"model": ErrorResponse, "description": "Test API requires PostgreSQL database"},
+    },
+)
+async def list_scenario_runs(
+    org_id: UUID,
+    scenario_id: str,
+    limit: int = Query(50, ge=1, le=100, description="Maximum number of runs to return"),
+    auth: AuthContext = Depends(require_org_membership),
+    scenario_repo: TestScenarioRepository = Depends(get_test_scenario_repo),
+    execution_repo: TestExecutionRepository = Depends(get_test_execution_repo),
+) -> ScenarioRunsListResponse:
+    """List run history for a scenario."""
+    scenario_uuid = parse_scenario_id(scenario_id)
+    scenario = await scenario_repo.get(scenario_uuid, org_id)
+    if scenario is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Test scenario '{scenario_id}' not found",
+        )
+
+    executions = await execution_repo.list_by_scenario(org_id, scenario_uuid, limit=limit)
+    runs = [ScenarioRunSummaryResponse.from_execution_row(e) for e in executions]
+    return ScenarioRunsListResponse(runs=runs)
 
 
 @router.get(

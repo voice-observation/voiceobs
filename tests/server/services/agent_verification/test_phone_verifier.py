@@ -1,11 +1,25 @@
 """Tests for phone agent verifier."""
 
 import asyncio
+from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from voiceobs.server.services.agent_verification.phone_verifier import PhoneAgentVerifier
+
+
+@asynccontextmanager
+async def _mock_run_livekit_sip_call(*args, **kwargs):
+    """Mock run_livekit_sip_call that yields mock room and session."""
+    mock_room = MagicMock()
+    mock_room.connect = AsyncMock()
+    mock_room.disconnect = AsyncMock()
+    mock_session = MagicMock()
+    mock_session.start = AsyncMock()
+    mock_session.generate_reply = AsyncMock()
+    mock_session.aclose = AsyncMock()
+    yield (mock_room, mock_session, "verify-12345-abcd1234")
 
 
 @pytest.fixture
@@ -102,176 +116,93 @@ class TestPhoneAgentVerifierConversation:
     @pytest.mark.asyncio
     async def test_verify_success_with_enough_turns(self, verifier, mock_settings):
         """Test successful verification when agent responds with enough turns."""
-        mock_api = MagicMock()
-        mock_api.room.create_room = AsyncMock()
-        mock_api.room.delete_room = AsyncMock()
-        mock_api.sip.create_sip_participant = AsyncMock()
-        mock_api.aclose = AsyncMock()
 
-        mock_session = MagicMock()
-        mock_session.start = AsyncMock()
-        mock_session.generate_reply = AsyncMock()
-        mock_session.aclose = AsyncMock()
+        async def mock_run_conversation(room, session):
+            verifier._transcript = [
+                {"role": "assistant", "content": "Hello"},
+                {"role": "user", "content": "Hi there"},
+                {"role": "assistant", "content": "How are you?"},
+                {"role": "user", "content": "Good thanks"},
+            ]
+            verifier._turns = 2
 
-        with (
-            patch(
-                "voiceobs.server.services.agent_verification.phone_verifier.api.LiveKitAPI",
-                return_value=mock_api,
-            ),
-            patch(
-                "voiceobs.server.services.agent_verification.phone_verifier.rtc.Room"
-            ) as mock_room_class,
-            patch(
-                "voiceobs.server.services.agent_verification.phone_verifier.LiveKitProviderFactory"
-            ) as mock_factory_class,
-            patch(
-                "voiceobs.server.services.agent_verification.phone_verifier.create_room_token",
-                return_value="test_token",
-            ),
-            patch(
-                "voiceobs.server.services.agent_verification.phone_verifier.generate_room_name",
-                return_value="verify-12345-abcd1234",
-            ),
+        verifier._run_conversation = mock_run_conversation
+
+        with patch(
+            "voiceobs.server.services.agent_verification.phone_verifier.run_livekit_sip_call",
+            _mock_run_livekit_sip_call,
         ):
-            # Setup mocks
-            mock_room = MagicMock()
-            mock_room.connect = AsyncMock()
-            mock_room.disconnect = AsyncMock()
-            mock_participant = MagicMock()
-            mock_participant.identity = "sip_+1234567890"
-            mock_room.remote_participants = {"p1": mock_participant}
-            mock_room_class.return_value = mock_room
-
-            mock_factory = MagicMock()
-            mock_factory.create_agent_session.return_value = mock_session
-            mock_factory_class.return_value = mock_factory
-
-            # Simulate conversation turns by modifying verifier state
-            async def mock_run_conversation(room, session):
-                verifier._transcript = [
-                    {"role": "assistant", "content": "Hello"},
-                    {"role": "user", "content": "Hi there"},
-                    {"role": "assistant", "content": "How are you?"},
-                    {"role": "user", "content": "Good thanks"},
-                ]
-                verifier._turns = 2
-
-            verifier._run_conversation = mock_run_conversation
-
             is_verified, error_msg, transcript = await verifier.verify(
                 {"phone_number": "+1234567890"}
             )
 
-            assert is_verified is True
-            assert error_msg is None
-            assert len(transcript) == 4
+        assert is_verified is True
+        assert error_msg is None
+        assert len(transcript) == 4
 
     @pytest.mark.asyncio
     async def test_verify_failure_insufficient_turns(self, verifier, mock_settings):
         """Test failed verification when not enough conversation turns."""
-        mock_api = MagicMock()
-        mock_api.room.create_room = AsyncMock()
-        mock_api.room.delete_room = AsyncMock()
-        mock_api.sip.create_sip_participant = AsyncMock()
-        mock_api.aclose = AsyncMock()
 
-        mock_session = MagicMock()
-        mock_session.start = AsyncMock()
-        mock_session.generate_reply = AsyncMock()
-        mock_session.aclose = AsyncMock()
+        async def mock_run_conversation(room, session):
+            verifier._transcript = [
+                {"role": "assistant", "content": "Hello"},
+            ]
+            verifier._turns = 0
 
-        with (
-            patch(
-                "voiceobs.server.services.agent_verification.phone_verifier.api.LiveKitAPI",
-                return_value=mock_api,
-            ),
-            patch(
-                "voiceobs.server.services.agent_verification.phone_verifier.rtc.Room"
-            ) as mock_room_class,
-            patch(
-                "voiceobs.server.services.agent_verification.phone_verifier.LiveKitProviderFactory"
-            ) as mock_factory_class,
-            patch(
-                "voiceobs.server.services.agent_verification.phone_verifier.create_room_token",
-                return_value="test_token",
-            ),
-            patch(
-                "voiceobs.server.services.agent_verification.phone_verifier.generate_room_name",
-                return_value="verify-12345-abcd1234",
-            ),
+        verifier._run_conversation = mock_run_conversation
+
+        with patch(
+            "voiceobs.server.services.agent_verification.phone_verifier.run_livekit_sip_call",
+            _mock_run_livekit_sip_call,
         ):
-            mock_room = MagicMock()
-            mock_room.connect = AsyncMock()
-            mock_room.disconnect = AsyncMock()
-            mock_participant = MagicMock()
-            mock_participant.identity = "sip_+1234567890"
-            mock_room.remote_participants = {"p1": mock_participant}
-            mock_room_class.return_value = mock_room
-
-            mock_factory = MagicMock()
-            mock_factory.create_agent_session.return_value = mock_session
-            mock_factory_class.return_value = mock_factory
-
-            # Simulate only 1 turn (not enough)
-            async def mock_run_conversation(room, session):
-                verifier._transcript = [
-                    {"role": "assistant", "content": "Hello"},
-                ]
-                verifier._turns = 0
-
-            verifier._run_conversation = mock_run_conversation
-
             is_verified, error_msg, transcript = await verifier.verify(
                 {"phone_number": "+1234567890"}
             )
 
-            assert is_verified is False
-            assert "Insufficient" in error_msg
+        assert is_verified is False
+        assert "Insufficient" in error_msg
 
     @pytest.mark.asyncio
     async def test_verify_handles_sip_call_failure(self, verifier, mock_settings):
         """Test that verify handles SIP call failures gracefully."""
-        mock_api = MagicMock()
-        mock_api.room.create_room = AsyncMock()
-        mock_api.room.delete_room = AsyncMock()
-        mock_api.aclose = AsyncMock()
-
-        # Simulate SIP call failure
         from livekit import api as livekit_api
 
-        mock_api.sip.create_sip_participant = AsyncMock(
-            side_effect=livekit_api.TwirpError(code="internal", msg="SIP trunk error", status=500)
-        )
+        @asynccontextmanager
+        async def mock_sip_failure(*args, **kwargs):
+            raise livekit_api.TwirpError(code="internal", msg="SIP trunk error", status=500)
+            yield  # unreachable
 
         with patch(
-            "voiceobs.server.services.agent_verification.phone_verifier.api.LiveKitAPI",
-            return_value=mock_api,
+            "voiceobs.server.services.agent_verification.phone_verifier.run_livekit_sip_call",
+            mock_sip_failure,
         ):
             is_verified, error_msg, transcript = await verifier.verify(
                 {"phone_number": "+1234567890"}
             )
 
-            assert is_verified is False
-            assert "SIP call failed" in error_msg
+        assert is_verified is False
+        assert "SIP trunk error" in error_msg
 
     @pytest.mark.asyncio
     async def test_verify_handles_generic_exception(self, verifier, mock_settings):
         """Test that verify handles generic exceptions gracefully."""
-        mock_api = MagicMock()
-        mock_api.room.create_room = AsyncMock(side_effect=Exception("Network error"))
-        mock_api.room.delete_room = AsyncMock()
-        mock_api.aclose = AsyncMock()
+
+        @asynccontextmanager
+        async def mock_network_failure(*args, **kwargs):
+            raise Exception("Network error")
+            yield  # unreachable
 
         with patch(
-            "voiceobs.server.services.agent_verification.phone_verifier.api.LiveKitAPI",
-            return_value=mock_api,
+            "voiceobs.server.services.agent_verification.phone_verifier.run_livekit_sip_call",
+            mock_network_failure,
         ):
             is_verified, error_msg, transcript = await verifier.verify(
                 {"phone_number": "+1234567890"}
             )
 
-            assert is_verified is False
-            assert "Verification failed" in error_msg
+        assert is_verified is False
+        assert "Network error" in error_msg
 
 
 class TestPhoneAgentVerifierHelpers:
@@ -286,21 +217,26 @@ class TestPhoneAgentVerifierHelpers:
             mock_get_settings.return_value = mock_settings
             return PhoneAgentVerifier()
 
-    def test_create_agent_session_uses_factory(self, verifier):
-        """Test that _create_agent_session uses LiveKitProviderFactory."""
+    @pytest.mark.asyncio
+    async def test_verifier_uses_run_livekit_sip_call(self, verifier):
+        """Test that verify uses run_livekit_sip_call for the SIP flow."""
+        call_args = []
+
+        @asynccontextmanager
+        async def capture_args(*args, **kwargs):
+            call_args.append((args, kwargs))
+            yield (MagicMock(), MagicMock(), "verify-12345-abcd1234")
+
         with patch(
-            "voiceobs.server.services.agent_verification.phone_verifier.LiveKitProviderFactory"
-        ) as mock_factory_class:
-            mock_factory = MagicMock()
-            mock_session = MagicMock()
-            mock_factory.create_agent_session.return_value = mock_session
-            mock_factory_class.return_value = mock_factory
+            "voiceobs.server.services.agent_verification.phone_verifier.run_livekit_sip_call",
+            capture_args,
+        ):
+            verifier._run_conversation = AsyncMock()
+            await verifier.verify({"phone_number": "+1234567890"})
 
-            result = verifier._create_agent_session()
-
-            mock_factory_class.assert_called_once()
-            mock_factory.create_agent_session.assert_called_once()
-            assert result is mock_session
+        assert len(call_args) == 1
+        _args, kwargs = call_args[0]
+        assert kwargs.get("phone_number") == "+1234567890"
 
 
 class TestAdaptiveGreetingState:
@@ -370,60 +306,22 @@ class TestAdaptiveGreetingState:
         verifier._other_party_spoke_first = True
         verifier._speech_detected_event.set()
 
-        mock_api = MagicMock()
-        mock_api.room.create_room = AsyncMock()
-        mock_api.room.delete_room = AsyncMock()
-        mock_api.sip.create_sip_participant = AsyncMock()
-        mock_api.aclose = AsyncMock()
+        state_at_run = {}
 
-        mock_session = MagicMock()
-        mock_session.aclose = AsyncMock()
+        async def check_state_reset(room, session):
+            state_at_run["other_party_spoke_first"] = verifier._other_party_spoke_first
+            state_at_run["speech_detected_is_set"] = verifier._speech_detected_event.is_set()
 
-        with (
-            patch(
-                "voiceobs.server.services.agent_verification.phone_verifier.api.LiveKitAPI",
-                return_value=mock_api,
-            ),
-            patch(
-                "voiceobs.server.services.agent_verification.phone_verifier.rtc.Room"
-            ) as mock_room_class,
-            patch(
-                "voiceobs.server.services.agent_verification.phone_verifier.LiveKitProviderFactory"
-            ) as mock_factory_class,
-            patch(
-                "voiceobs.server.services.agent_verification.phone_verifier.create_room_token",
-                return_value="test_token",
-            ),
-            patch(
-                "voiceobs.server.services.agent_verification.phone_verifier.generate_room_name",
-                return_value="verify-12345-abcd1234",
-            ),
+        verifier._run_conversation = check_state_reset
+
+        with patch(
+            "voiceobs.server.services.agent_verification.phone_verifier.run_livekit_sip_call",
+            _mock_run_livekit_sip_call,
         ):
-            mock_room = MagicMock()
-            mock_room.connect = AsyncMock()
-            mock_room.disconnect = AsyncMock()
-            mock_room_class.return_value = mock_room
-
-            mock_factory = MagicMock()
-            mock_factory.create_agent_session.return_value = mock_session
-            mock_factory_class.return_value = mock_factory
-
-            # Track state at the point _run_conversation is called
-            state_at_run = {}
-
-            # Mock _run_conversation to check state was reset
-            async def check_state_reset(room, session):
-                # At this point, state should be reset
-                state_at_run["other_party_spoke_first"] = verifier._other_party_spoke_first
-                state_at_run["speech_detected_is_set"] = verifier._speech_detected_event.is_set()
-
-            verifier._run_conversation = check_state_reset
-
             await verifier.verify({"phone_number": "+1234567890"})
 
-            # Verify state was reset before _run_conversation was called
-            assert state_at_run["other_party_spoke_first"] is False
-            assert state_at_run["speech_detected_is_set"] is False
+        assert state_at_run["other_party_spoke_first"] is False
+        assert state_at_run["speech_detected_is_set"] is False
 
 
 class TestGreetingInstructions:
@@ -617,26 +515,21 @@ class TestCallNotAnsweredError:
         """Test that verify handles CallNotAnsweredError gracefully."""
         from voiceobs.server.services.agent_verification.errors import CallNotAnsweredError
 
-        mock_api = MagicMock()
-        mock_api.room.create_room = AsyncMock()
-        mock_api.room.delete_room = AsyncMock()
-        mock_api.aclose = AsyncMock()
-
-        # Simulate CallNotAnsweredError
-        mock_api.sip.create_sip_participant = AsyncMock(
-            side_effect=CallNotAnsweredError("Call was not answered within timeout")
-        )
+        @asynccontextmanager
+        async def mock_call_not_answered(*args, **kwargs):
+            raise CallNotAnsweredError("Call was not answered within timeout")
+            yield  # unreachable
 
         with patch(
-            "voiceobs.server.services.agent_verification.phone_verifier.api.LiveKitAPI",
-            return_value=mock_api,
+            "voiceobs.server.services.agent_verification.phone_verifier.run_livekit_sip_call",
+            mock_call_not_answered,
         ):
             is_verified, error_msg, transcript = await verifier.verify(
                 {"phone_number": "+1234567890"}
             )
 
-            assert is_verified is False
-            assert "not answered" in error_msg.lower()
+        assert is_verified is False
+        assert "not answered" in error_msg.lower()
 
 
 class TestEventHandlerCallbacks:
@@ -951,138 +844,28 @@ class TestCleanupOrder:
             return PhoneAgentVerifier()
 
     @pytest.mark.asyncio
-    async def test_agent_session_closed_before_http_session(self, verifier, mock_settings):
-        """Test that AgentSession.aclose() is called before HTTP session is closed."""
-        mock_api = MagicMock()
-        mock_api.room.create_room = AsyncMock()
-        mock_api.room.delete_room = AsyncMock()
-        mock_api.sip.create_sip_participant = AsyncMock()
-        mock_api.aclose = AsyncMock()
+    async def test_verify_completes_with_run_livekit_sip_call(self, verifier, mock_settings):
+        """Test that verify completes successfully when run_livekit_sip_call yields."""
 
-        # Track cleanup order
-        cleanup_order = []
+        async def mock_run_conversation(room, session):
+            verifier._turns = 2
+            verifier._transcript = [
+                {"role": "assistant", "content": "Hello"},
+                {"role": "user", "content": "Hi"},
+                {"role": "assistant", "content": "How are you?"},
+                {"role": "user", "content": "Good"},
+            ]
 
-        # Create mock with spec to limit attributes - aclose exists on AgentSession
-        mock_agent_session = MagicMock(spec=["aclose"])
+        verifier._run_conversation = mock_run_conversation
 
-        async def track_session_close():
-            cleanup_order.append("agent_session_aclose")
-
-        mock_agent_session.aclose = AsyncMock(side_effect=track_session_close)
-
-        # For HTTP session, use spec to limit attributes - aiohttp.ClientSession has close()
-        # But safe_cleanup checks for aclose first, so we mock that
-        mock_http_session = MagicMock(spec=["aclose"])
-
-        async def track_http_aclose():
-            cleanup_order.append("http_session_close")
-
-        mock_http_session.aclose = AsyncMock(side_effect=track_http_aclose)
-
-        with (
-            patch(
-                "voiceobs.server.services.agent_verification.phone_verifier.api.LiveKitAPI",
-                return_value=mock_api,
-            ),
-            patch(
-                "voiceobs.server.services.agent_verification.phone_verifier.rtc.Room"
-            ) as mock_room_class,
-            patch(
-                "voiceobs.server.services.agent_verification.phone_verifier.aiohttp.ClientSession",
-                return_value=mock_http_session,
-            ),
-            patch(
-                "voiceobs.server.services.agent_verification.phone_verifier.create_room_token",
-                return_value="test_token",
-            ),
-            patch(
-                "voiceobs.server.services.agent_verification.phone_verifier.generate_room_name",
-                return_value="verify-12345-abcd1234",
-            ),
+        with patch(
+            "voiceobs.server.services.agent_verification.phone_verifier.run_livekit_sip_call",
+            _mock_run_livekit_sip_call,
         ):
-            mock_room = MagicMock()
-            mock_room.connect = AsyncMock()
-            mock_room.disconnect = AsyncMock()
-            mock_room_class.return_value = mock_room
-
-            # Mock _run_conversation to set the agent session
-            async def mock_run_conversation(room, session):
-                verifier._agent_session = mock_agent_session
-                verifier._turns = 2  # Simulate successful conversation
-
-            verifier._run_conversation = mock_run_conversation
-            verifier._create_agent_session = MagicMock(return_value=mock_agent_session)
-
-            await verifier.verify({"phone_number": "+1234567890"})
-
-            # Verify agent session was closed before HTTP session
-            assert "agent_session_aclose" in cleanup_order
-            assert "http_session_close" in cleanup_order
-            agent_idx = cleanup_order.index("agent_session_aclose")
-            http_idx = cleanup_order.index("http_session_close")
-            assert agent_idx < http_idx, (
-                f"AgentSession should be closed before HTTP session. Order was: {cleanup_order}"
+            is_verified, error_msg, transcript = await verifier.verify(
+                {"phone_number": "+1234567890"}
             )
 
-    @pytest.mark.asyncio
-    async def test_init_sets_agent_session_to_none(self, verifier):
-        """Test that _agent_session is initialized to None."""
-        assert verifier._agent_session is None
-
-    @pytest.mark.asyncio
-    async def test_verify_resets_agent_session(self, verifier, mock_settings):
-        """Test that verify() resets _agent_session at the start."""
-        # Set some state as if from a previous call
-        verifier._agent_session = MagicMock()
-
-        mock_api = MagicMock()
-        mock_api.room.create_room = AsyncMock()
-        mock_api.room.delete_room = AsyncMock()
-        mock_api.sip.create_sip_participant = AsyncMock()
-        mock_api.aclose = AsyncMock()
-
-        mock_session = MagicMock()
-        mock_session.aclose = AsyncMock()
-
-        with (
-            patch(
-                "voiceobs.server.services.agent_verification.phone_verifier.api.LiveKitAPI",
-                return_value=mock_api,
-            ),
-            patch(
-                "voiceobs.server.services.agent_verification.phone_verifier.rtc.Room"
-            ) as mock_room_class,
-            patch(
-                "voiceobs.server.services.agent_verification.phone_verifier.LiveKitProviderFactory"
-            ) as mock_factory_class,
-            patch(
-                "voiceobs.server.services.agent_verification.phone_verifier.create_room_token",
-                return_value="test_token",
-            ),
-            patch(
-                "voiceobs.server.services.agent_verification.phone_verifier.generate_room_name",
-                return_value="verify-12345-abcd1234",
-            ),
-        ):
-            mock_room = MagicMock()
-            mock_room.connect = AsyncMock()
-            mock_room.disconnect = AsyncMock()
-            mock_room_class.return_value = mock_room
-
-            mock_factory = MagicMock()
-            mock_factory.create_agent_session.return_value = mock_session
-            mock_factory_class.return_value = mock_factory
-
-            # Track state at the point _run_conversation is called
-            state_at_run = {}
-
-            async def check_state_reset(room, session):
-                # At this point, agent_session should be set to the new session
-                state_at_run["agent_session_was_reset"] = True
-
-            verifier._run_conversation = check_state_reset
-
-            await verifier.verify({"phone_number": "+1234567890"})
-
-            # Verify state was captured
-            assert state_at_run.get("agent_session_was_reset") is True
+        assert is_verified is True
+        assert error_msg is None
+        assert len(transcript) == 4

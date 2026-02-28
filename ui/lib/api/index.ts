@@ -13,6 +13,7 @@ import { ConversationsApi } from "./conversations";
 import { TestSuitesApi } from "./testSuites";
 import { TestScenariosApi } from "./testScenarios";
 import { TestExecutionsApi } from "./testExecutions";
+import { SuiteRunsApi } from "./suiteRuns";
 import { PipelinesApi } from "./pipelines";
 import { ReportsApi } from "./reports";
 import { AgentsApi } from "./agents";
@@ -28,6 +29,7 @@ class ApiClient extends BaseApiClient {
   public readonly testSuites: TestSuitesApi;
   public readonly testScenarios: TestScenariosApi;
   public readonly testExecutions: TestExecutionsApi;
+  public readonly suiteRuns: SuiteRunsApi;
   public readonly pipelines: PipelinesApi;
   public readonly reports: ReportsApi;
   public readonly agents: AgentsApi;
@@ -41,6 +43,7 @@ class ApiClient extends BaseApiClient {
     this.testSuites = new TestSuitesApi();
     this.testScenarios = new TestScenariosApi();
     this.testExecutions = new TestExecutionsApi();
+    this.suiteRuns = new SuiteRunsApi();
     this.pipelines = new PipelinesApi();
     this.reports = new ReportsApi();
     this.agents = new AgentsApi();
@@ -65,6 +68,7 @@ export { ConversationsApi } from "./conversations";
 export { TestSuitesApi } from "./testSuites";
 export { TestScenariosApi } from "./testScenarios";
 export { TestExecutionsApi } from "./testExecutions";
+export { SuiteRunsApi } from "./suiteRuns";
 export { PipelinesApi } from "./pipelines";
 export { ReportsApi } from "./reports";
 export { AgentsApi } from "./agents";
@@ -74,6 +78,7 @@ export type { AuthMeResponse, UserResponse, OrgSummary, ActiveOrgResponse } from
 
 // Export types
 export type { ApiError } from "./base";
+export { getAuthHeaders } from "./base";
 export type * from "./conversations";
 
 // Re-export all types from types.ts for convenience
@@ -93,6 +98,12 @@ export type {
   TestRunRequest,
   TestRunResponse,
   TestSummaryResponse,
+  SuiteRun,
+  SuiteRunTriggerResponse,
+  ExecutionSummary,
+  EvaluationResult,
+  CriterionResult,
+  TranscriptEntry,
   Pipeline,
   PipelineCreateRequest,
   PipelineUpdateRequest,

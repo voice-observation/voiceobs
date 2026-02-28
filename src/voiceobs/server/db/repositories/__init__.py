@@ -20,6 +20,7 @@ from voiceobs.server.db.repositories.span import SpanRepository
 from voiceobs.server.db.repositories.test_execution import TestExecutionRepository
 from voiceobs.server.db.repositories.test_scenario import TestScenarioRepository
 from voiceobs.server.db.repositories.test_suite import TestSuiteRepository
+from voiceobs.server.db.repositories.test_suite_run import TestSuiteRunRepository
 from voiceobs.server.db.repositories.turn import TurnRepository
 from voiceobs.server.db.repositories.user import UserRepository
 
@@ -35,6 +36,7 @@ __all__ = [
     "SpanRepository",
     "TestExecutionRepository",
     "TestScenarioRepository",
+    "TestSuiteRunRepository",
     "TestSuiteRepository",
     "TurnRepository",
     "UserRepository",

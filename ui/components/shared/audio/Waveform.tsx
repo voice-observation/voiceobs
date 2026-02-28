@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 
 export interface WaveformProps {
   audioUrl: string;
+  /** Optional fetch params (e.g. auth headers) for same-origin protected URLs */
+  fetchParams?: RequestInit;
   onReady?: (wavesurfer: WaveSurfer) => void;
   onPlay?: () => void;
   onPause?: () => void;
@@ -23,6 +25,7 @@ export interface WaveformProps {
 
 export function Waveform({
   audioUrl,
+  fetchParams,
   onReady,
   onPlay,
   onPause,
@@ -39,6 +42,8 @@ export function Waveform({
 }: WaveformProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const wavesurferRef = useRef<WaveSurfer | null>(null);
+  const fetchParamsRef = useRef(fetchParams);
+  fetchParamsRef.current = fetchParams;
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -55,6 +60,7 @@ export function Waveform({
       barRadius: 2,
       barGap: 1,
       interact: true,
+      ...(fetchParamsRef.current && { fetchParams: fetchParamsRef.current }),
     });
 
     wavesurferRef.current = wavesurfer;
@@ -65,7 +71,8 @@ export function Waveform({
 
     // Load audio
     wavesurfer.load(audioUrl).catch((error) => {
-      onError?.(error);
+      // AbortError = component unmounted/remounted (e.g. React Strict Mode) - not a real load failure
+      if (error?.name !== "AbortError") onError?.(error);
     });
 
     // Event handlers
@@ -90,7 +97,8 @@ export function Waveform({
     });
 
     wavesurfer.on("error", (error) => {
-      onError?.(error);
+      // AbortError = component unmounted/remounted (e.g. React Strict Mode) - not a real load failure
+      if (error?.name !== "AbortError") onError?.(error);
     });
 
     // Cleanup
@@ -98,7 +106,7 @@ export function Waveform({
       wavesurfer.destroy();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [audioUrl]); // Only recreate on audioUrl change - callbacks are stable
+  }, [audioUrl]); // Only recreate on URL change; fetchParams via ref to avoid Strict Mode re-runs
 
   // Update playback rate when it changes
   useEffect(() => {

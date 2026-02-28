@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
@@ -9,99 +10,138 @@ from uuid import UUID, uuid4
 from voiceobs.server.db.connection import Database
 from voiceobs.server.db.models import TestExecutionRow
 
+_JSONB_COLUMNS = frozenset({"transcript", "evaluation_result"})
+_COLUMNS = (
+    "id, org_id, suite_run_id, scenario_id, conversation_id, status, attempt, "
+    "max_attempts, audio_url, transcript, evaluation_result, error_message, "
+    "duration_seconds, started_at, completed_at, result_json, created_at"
+)
+
 
 class TestExecutionRepository:
     """Repository for test execution operations."""
 
     def __init__(self, db: Database) -> None:
-        """Initialize the test execution repository.
-
-        Args:
-            db: Database connection manager.
-        """
+        """Initialize the test execution repository."""
         self._db = db
 
     async def create(
         self,
+        org_id: UUID,
+        suite_run_id: UUID,
         scenario_id: UUID,
-        conversation_id: UUID | None = None,
         status: str = "pending",
     ) -> TestExecutionRow:
-        """Create a new test execution.
-
-        Args:
-            scenario_id: Test scenario UUID.
-            conversation_id: Associated conversation UUID.
-            status: Execution status.
-
-        Returns:
-            The created test execution row.
-        """
+        """Create a new test execution."""
         execution_id = uuid4()
         started_at = datetime.utcnow() if status == "running" else None
 
         await self._db.execute(
             """
-            INSERT INTO test_executions (id, scenario_id, conversation_id, status, started_at)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO test_executions (
+                id, org_id, suite_run_id, scenario_id, status, started_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6)
             """,
             execution_id,
+            org_id,
+            suite_run_id,
             scenario_id,
-            conversation_id,
             status,
             started_at,
         )
 
         row = await self._db.fetchrow(
-            """
-            SELECT id, scenario_id, conversation_id, status, started_at, completed_at, result_json
-            FROM test_executions WHERE id = $1
-            """,
+            f"SELECT {_COLUMNS} FROM test_executions WHERE id = $1",
             execution_id,
         )
 
         if row is None:
             raise RuntimeError("Failed to create test execution")
 
-        return TestExecutionRow(
-            id=row["id"],
-            scenario_id=row["scenario_id"],
-            conversation_id=row["conversation_id"],
-            status=row["status"],
-            started_at=row["started_at"],
-            completed_at=row["completed_at"],
-            result_json=row["result_json"] or {},
-        )
+        return TestExecutionRow.from_row(dict(row))
 
-    async def get(self, execution_id: UUID) -> TestExecutionRow | None:
-        """Get a test execution by UUID.
-
-        Args:
-            execution_id: The test execution UUID.
-
-        Returns:
-            The test execution row, or None if not found.
-        """
+    async def get(self, execution_id: UUID, org_id: UUID) -> TestExecutionRow | None:
+        """Get a test execution by ID and org_id."""
         row = await self._db.fetchrow(
-            """
-            SELECT id, scenario_id, conversation_id, status, started_at, completed_at, result_json
-            FROM test_executions WHERE id = $1
-            """,
+            f"SELECT {_COLUMNS} FROM test_executions WHERE id = $1 AND org_id = $2",
+            execution_id,
+            org_id,
+        )
+        return TestExecutionRow.from_row(dict(row)) if row else None
+
+    async def get_by_id(self, execution_id: UUID) -> TestExecutionRow | None:
+        """Get a test execution by ID (legacy, no org filter)."""
+        row = await self._db.fetchrow(
+            f"SELECT {_COLUMNS} FROM test_executions WHERE id = $1",
             execution_id,
         )
+        return TestExecutionRow.from_row(dict(row)) if row else None
 
-        if row is None:
-            return None
+    async def update(
+        self, execution_id: UUID, org_id: UUID, updates: dict[str, Any]
+    ) -> TestExecutionRow | None:
+        """Update a test execution."""
+        allowed = {
+            "status",
+            "conversation_id",
+            "audio_url",
+            "transcript",
+            "evaluation_result",
+            "error_message",
+            "duration_seconds",
+            "started_at",
+            "completed_at",
+        }
+        filtered = {k: v for k, v in updates.items() if k in allowed}
+        if not filtered:
+            return await self.get(execution_id, org_id)
 
-        return TestExecutionRow(
-            id=row["id"],
-            scenario_id=row["scenario_id"],
-            conversation_id=row["conversation_id"],
-            status=row["status"],
-            started_at=row["started_at"],
-            completed_at=row["completed_at"],
-            result_json=row["result_json"] or {},
+        set_clauses = []
+        params: list[Any] = []
+        for idx, (key, value) in enumerate(filtered.items(), start=1):
+            if key in _JSONB_COLUMNS and value is not None:
+                set_clauses.append(f"{key} = ${idx}::jsonb")
+                params.append(json.dumps(value))
+            else:
+                set_clauses.append(f"{key} = ${idx}")
+                params.append(value)
+
+        idx_exec = len(params) + 1
+        idx_org = len(params) + 2
+        params.append(execution_id)
+        params.append(org_id)
+
+        query = (
+            f"UPDATE test_executions SET {', '.join(set_clauses)} "
+            f"WHERE id = ${idx_exec} AND org_id = ${idx_org}"
         )
+        await self._db.execute(query, *params)
+
+        return await self.get(execution_id, org_id)
+
+    async def list_by_suite_run(self, org_id: UUID, suite_run_id: UUID) -> list[TestExecutionRow]:
+        """List all executions for a suite run."""
+        rows = await self._db.fetch(
+            f"SELECT {_COLUMNS} FROM test_executions "
+            f"WHERE org_id = $1 AND suite_run_id = $2 ORDER BY created_at ASC",
+            org_id,
+            suite_run_id,
+        )
+        return [TestExecutionRow.from_row(dict(row)) for row in rows]
+
+    async def list_by_scenario(
+        self, org_id: UUID, scenario_id: UUID, limit: int = 50
+    ) -> list[TestExecutionRow]:
+        """List executions for a scenario, newest first (for run history)."""
+        rows = await self._db.fetch(
+            f"SELECT {_COLUMNS} FROM test_executions "
+            f"WHERE org_id = $1 AND scenario_id = $2 ORDER BY created_at DESC LIMIT $3",
+            org_id,
+            scenario_id,
+            limit,
+        )
+        return [TestExecutionRow.from_row(dict(row)) for row in rows]
 
     async def get_summary(
         self,
@@ -109,25 +149,24 @@ class TestExecutionRepository:
     ) -> dict[str, Any]:
         """Get test summary statistics.
 
-        Args:
-            suite_id: Filter by test suite UUID.
-
-        Returns:
-            Dictionary with summary statistics.
+        Uses evaluation_result->>'passed' when available, else result_json->>'passed'.
         """
+        passed_expr = (
+            "COALESCE((te.evaluation_result->>'passed')::boolean, "
+            "(te.result_json->>'passed')::boolean)"
+        )
         if suite_id is not None:
-            # Get executions for scenarios in this suite
             rows = await self._db.fetch(
-                """
+                f"""
                 SELECT
                     COUNT(*) as total,
                     COUNT(*) FILTER (
                         WHERE te.status = 'completed'
-                        AND (te.result_json->>'passed')::boolean = true
+                        AND {passed_expr} = true
                     ) as passed,
                     COUNT(*) FILTER (
                         WHERE te.status = 'completed'
-                        AND (te.result_json->>'passed')::boolean = false
+                        AND {passed_expr} = false
                     ) as failed,
                     AVG(
                         EXTRACT(EPOCH FROM (te.completed_at - te.started_at)) * 1000
@@ -148,11 +187,13 @@ class TestExecutionRepository:
                     COUNT(*) as total,
                     COUNT(*) FILTER (
                         WHERE status = 'completed'
-                        AND (result_json->>'passed')::boolean = true
+                        AND COALESCE((evaluation_result->>'passed')::boolean,
+                            (result_json->>'passed')::boolean) = true
                     ) as passed,
                     COUNT(*) FILTER (
                         WHERE status = 'completed'
-                        AND (result_json->>'passed')::boolean = false
+                        AND COALESCE((evaluation_result->>'passed')::boolean,
+                            (result_json->>'passed')::boolean) = false
                     ) as failed,
                     AVG(
                         EXTRACT(EPOCH FROM (completed_at - started_at)) * 1000

@@ -37,8 +37,11 @@ from voiceobs.server.models.response import (
     ConversationSummary,
     ConversationVolumeItem,
     ConversationVolumeResponse,
+    CriterionResult,
     ErrorResponse,
     EvalMetricsResponse,
+    EvaluationResult,
+    ExecutionSummaryResponse,
     FailureBreakdownItem,
     FailureBreakdownResponse,
     FailureResponse,
@@ -54,12 +57,16 @@ from voiceobs.server.models.response import (
     PersonaResponse,
     PersonasListResponse,
     PreviewAudioStatusResponse,
+    ScenarioRunsListResponse,
+    ScenarioRunSummaryResponse,
     SpanDetailResponse,
     SpanListItem,
     SpanResponse,
     SpansListResponse,
     StageMetricsResponse,
     StagesResponse,
+    SuiteRunResponse,
+    SuiteRunTriggerResponse,
     TestExecutionResponse,
     TestRunResponse,
     TestScenarioResponse,
@@ -69,13 +76,25 @@ from voiceobs.server.models.response import (
     TestSummaryResponse,
     TrendDataPoint,
     TrendResponse,
+    TriggerResult,
     TurnMetricsResponse,
     TurnResponse,
+)
+
+# SQS queue message models
+from voiceobs.server.models.sqs import (
+    EvaluationMessage,
+    ExecutionMessage,
+    ReceivedMessage,
 )
 
 __all__ = [
     # Common
     "SpanAttributes",
+    # SQS
+    "EvaluationMessage",
+    "ExecutionMessage",
+    "ReceivedMessage",
     # Requests
     "SpanInput",
     "SpanBatchInput",
@@ -135,6 +154,14 @@ __all__ = [
     "TestRunResponse",
     "TestExecutionResponse",
     "TestSummaryResponse",
+    "ScenarioRunsListResponse",
+    "ScenarioRunSummaryResponse",
+    "SuiteRunResponse",
+    "SuiteRunTriggerResponse",
+    "ExecutionSummaryResponse",
+    "CriterionResult",
+    "EvaluationResult",
+    "TriggerResult",
     # Responses - Persona
     "PersonaResponse",
     "PersonaListItem",

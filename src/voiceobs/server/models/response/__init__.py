@@ -26,6 +26,11 @@ from voiceobs.server.models.response.conversation import (
     ConversationSummary,
     TurnResponse,
 )
+from voiceobs.server.models.response.evaluation import (
+    CriterionResult,
+    EvaluationResult,
+    TriggerResult,
+)
 from voiceobs.server.models.response.failure import (
     FailureResponse,
     FailuresListResponse,
@@ -63,6 +68,13 @@ from voiceobs.server.models.response.span import (
     SpanListItem,
     SpanResponse,
     SpansListResponse,
+)
+from voiceobs.server.models.response.suite_run import (
+    ExecutionSummaryResponse,
+    ScenarioRunsListResponse,
+    ScenarioRunSummaryResponse,
+    SuiteRunResponse,
+    SuiteRunTriggerResponse,
 )
 from voiceobs.server.models.response.test import (
     TestExecutionResponse,
@@ -126,6 +138,12 @@ __all__ = [
     "TestRunResponse",
     "TestExecutionResponse",
     "TestSummaryResponse",
+    # Suite run responses
+    "SuiteRunResponse",
+    "SuiteRunTriggerResponse",
+    "ExecutionSummaryResponse",
+    "ScenarioRunSummaryResponse",
+    "ScenarioRunsListResponse",
     # Persona responses
     "PersonaResponse",
     "PersonaListItem",
@@ -144,4 +162,8 @@ __all__ = [
     "MemberResponse",
     # Traits responses
     "TraitVocabularyResponse",
+    # Evaluation responses
+    "CriterionResult",
+    "EvaluationResult",
+    "TriggerResult",
 ]

@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from voiceobs.server.storage import AudioStorage
 
 if TYPE_CHECKING:
-    from voiceobs.server.storage.s3 import S3Storage
+    from voiceobs.server.clients.s3 import S3Storage
 
 
 def get_audio_storage_from_env() -> AudioStorage:
@@ -82,6 +82,21 @@ async def get_presigned_url_if_s3(
 
     # Generate presigned URL
     return await s3_provider.get_presigned_url_from_s3_url(url, expiry=expiry)
+
+
+async def get_audio_bytes_from_url(url: str | None) -> bytes | None:
+    """Fetch audio bytes from storage by URL (S3 only). Returns None for non-S3 URLs."""
+    if not url or not url.startswith("s3://"):
+        return None
+    from voiceobs.server.dependencies import get_audio_storage
+
+    audio_storage = get_audio_storage()
+    if audio_storage._provider_name != "s3":
+        return None
+    from voiceobs.server.clients.s3 import S3Storage
+
+    s3_provider: S3Storage = audio_storage._provider  # type: ignore[assignment]
+    return await s3_provider.get_by_s3_url(url)
 
 
 async def get_presigned_url_for_audio(url: str | None, expiry: int | None = None) -> str | None:

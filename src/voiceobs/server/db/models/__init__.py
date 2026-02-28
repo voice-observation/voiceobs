@@ -14,6 +14,7 @@ from voiceobs.server.db.models.span import SpanRow
 from voiceobs.server.db.models.test_execution import TestExecutionRow
 from voiceobs.server.db.models.test_scenario import TestScenarioRow
 from voiceobs.server.db.models.test_suite import TestSuiteRow
+from voiceobs.server.db.models.test_suite_run import TestSuiteRunRow
 from voiceobs.server.db.models.turn import TurnRow
 from voiceobs.server.db.models.user import UserRow
 
@@ -28,6 +29,7 @@ __all__ = [
     "SpanRow",
     "TestExecutionRow",
     "TestScenarioRow",
+    "TestSuiteRunRow",
     "TestSuiteRow",
     "TurnRow",
     "UserRow",
