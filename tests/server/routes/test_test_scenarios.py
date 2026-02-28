@@ -10,6 +10,7 @@ from voiceobs.server.auth.context import AuthContext, require_org_membership
 from voiceobs.server.db.models import (
     OrganizationRow,
     PersonaRow,
+    TestExecutionRow,
     TestScenarioRow,
     TestSuiteRow,
     UserRow,
@@ -256,6 +257,87 @@ class TestTestScenarios:
         mock_repo.list_all.assert_called_once_with(
             org_id=self.org.id, suite_id=suite_id, status=None, tags=None, limit=20, offset=0
         )
+
+    @patch("voiceobs.server.routes.test_dependencies.get_test_execution_repository")
+    @patch("voiceobs.server.routes.test_dependencies.get_test_scenario_repository")
+    @patch("voiceobs.server.routes.test_dependencies.is_using_postgres", return_value=True)
+    @patch("voiceobs.server.routes.test_scenarios.get_test_execution_repo")
+    @patch("voiceobs.server.routes.test_scenarios.get_test_scenario_repo")
+    def test_list_scenario_runs_success(
+        self,
+        mock_get_scenario_repo,
+        mock_get_execution_repo,
+        mock_is_postgres,
+        mock_get_scenario_repository,
+        mock_get_execution_repository,
+        client,
+    ):
+        """Test successful scenario run history listing."""
+        scenario_id = uuid4()
+        execution_id = uuid4()
+
+        mock_scenario = TestScenarioRow(
+            id=scenario_id,
+            suite_id=uuid4(),
+            org_id=self.org.id,
+            name="Test Scenario",
+            goal="Test goal",
+            persona_id=uuid4(),
+            max_turns=10,
+            timeout=300,
+        )
+        mock_scenario_repo = AsyncMock()
+        mock_scenario_repo.get.return_value = mock_scenario
+        mock_get_scenario_repo.return_value = mock_scenario_repo
+        mock_get_scenario_repository.return_value = mock_scenario_repo
+
+        mock_execution = TestExecutionRow(
+            id=execution_id,
+            org_id=self.org.id,
+            suite_run_id=uuid4(),
+            scenario_id=scenario_id,
+            status="completed",
+            evaluation_result={"passed": True},
+            duration_seconds=25.5,
+            transcript=[{"role": "agent"}, {"role": "user"}],
+            created_at=datetime.utcnow(),
+        )
+        mock_execution_repo = AsyncMock()
+        mock_execution_repo.list_by_scenario.return_value = [mock_execution]
+        mock_get_execution_repo.return_value = mock_execution_repo
+        mock_get_execution_repository.return_value = mock_execution_repo
+
+        response = client.get(f"/api/v1/orgs/{self.org.id}/test-scenarios/{scenario_id}/runs")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "runs" in data
+        assert len(data["runs"]) == 1
+        run = data["runs"][0]
+        assert run["id"] == str(execution_id)
+        assert run["passed"] is True
+        assert run["duration_seconds"] == 25.5
+        assert run["turns_count"] == 2
+        mock_execution_repo.list_by_scenario.assert_called_once_with(
+            self.org.id, scenario_id, limit=50
+        )
+
+    @patch("voiceobs.server.routes.test_dependencies.get_test_scenario_repository")
+    @patch("voiceobs.server.routes.test_dependencies.is_using_postgres", return_value=True)
+    @patch("voiceobs.server.routes.test_scenarios.get_test_scenario_repo")
+    def test_list_scenario_runs_not_found(
+        self, mock_get_repo, mock_is_postgres, mock_get_scenario_repository, client
+    ):
+        """Test list scenario runs returns 404 when scenario not found."""
+        mock_scenario_repo = AsyncMock()
+        mock_scenario_repo.get.return_value = None
+        mock_get_repo.return_value = mock_scenario_repo
+        mock_get_scenario_repository.return_value = mock_scenario_repo
+
+        scenario_id = uuid4()
+        response = client.get(f"/api/v1/orgs/{self.org.id}/test-scenarios/{scenario_id}/runs")
+
+        assert response.status_code == 404
 
     @patch("voiceobs.server.routes.test_dependencies.get_test_scenario_repository")
     @patch("voiceobs.server.routes.test_dependencies.is_using_postgres", return_value=True)

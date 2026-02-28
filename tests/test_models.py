@@ -191,6 +191,8 @@ class TestTestExecutionRow:
 
         row = TestExecutionRow(
             id=execution_id,
+            org_id=uuid4(),
+            suite_run_id=uuid4(),
             scenario_id=scenario_id,
             conversation_id=conversation_id,
             status="completed",
@@ -214,6 +216,8 @@ class TestTestExecutionRow:
 
         row = TestExecutionRow(
             id=execution_id,
+            org_id=uuid4(),
+            suite_run_id=uuid4(),
             scenario_id=scenario_id,
         )
 

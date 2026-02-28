@@ -126,15 +126,95 @@ export interface TestScenarioFilters {
   offset?: number;
 }
 
+// ---- Suite Run Types ----
+
+export type SuiteRunStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
+
+export type ExecutionStatus =
+  | "pending"
+  | "queued"
+  | "calling"
+  | "evaluating"
+  | "completed"
+  | "failed";
+
+export interface CriterionResult {
+  name: string;
+  passed: boolean;
+  score: number;
+  evidence: string;
+}
+
+export interface EvaluationResult {
+  passed: boolean;
+  score: number;
+  goal_achieved: boolean;
+  intent_handled: boolean;
+  criteria: CriterionResult[];
+  reasoning: string;
+}
+
+export interface TranscriptEntry {
+  role: "agent" | "persona";
+  text: string;
+  timestamp_ms: number;
+}
+
+export interface ExecutionSummary {
+  id: string;
+  scenario_id: string;
+  scenario_name: string | null;
+  status: ExecutionStatus;
+  attempt: number;
+  max_attempts: number;
+  audio_url: string | null;
+  transcript: TranscriptEntry[] | null;
+  evaluation_result: EvaluationResult | null;
+  error_message: string | null;
+  duration_seconds: number | null;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+export interface SuiteRun {
+  id: string;
+  suite_id: string;
+  status: SuiteRunStatus;
+  total_scenarios: number;
+  completed_scenarios: number;
+  failed_scenarios: number;
+  triggered_by: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string | null;
+  executions: ExecutionSummary[];
+}
+
+export interface SuiteRunTriggerResponse {
+  suite_run_id: string;
+  status: SuiteRunStatus;
+  total_scenarios: number;
+}
+
 // Test Execution Types
 export interface TestExecution {
   id: string;
+  org_id: string;
+  suite_run_id: string;
   scenario_id: string;
   conversation_id: string | null;
-  status: "queued" | "running" | "completed" | "failed";
+  status: ExecutionStatus;
+  attempt: number;
+  max_attempts: number;
+  audio_url: string | null;
+  transcript: TranscriptEntry[] | null;
+  evaluation_result: EvaluationResult | null;
+  error_message: string | null;
+  duration_seconds: number | null;
   started_at: string | null;
   completed_at: string | null;
   result_json: Record<string, unknown>;
+  created_at: string | null;
 }
 
 export interface TestExecutionsListResponse {

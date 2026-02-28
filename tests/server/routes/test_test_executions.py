@@ -4,7 +4,12 @@ from datetime import datetime
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
-from voiceobs.server.db.models import TestExecutionRow, TestScenarioRow, TestSuiteRow
+from voiceobs.server.db.models import (
+    TestExecutionRow,
+    TestScenarioRow,
+    TestSuiteRow,
+    TestSuiteRunRow,
+)
 
 
 class TestTestExecution:
@@ -14,7 +19,7 @@ class TestTestExecution:
     @patch("voiceobs.server.routes.test_dependencies.get_test_scenario_repository")
     @patch("voiceobs.server.routes.test_dependencies.get_test_suite_repository")
     @patch("voiceobs.server.routes.test_dependencies.is_using_postgres", return_value=True)
-    @patch("voiceobs.server.routes.test_executions.get_test_repos")
+    @patch("voiceobs.server.routes.test_dependencies.get_test_repos")
     def test_run_tests_with_suite_id(
         self,
         mock_get_repos,
@@ -28,10 +33,11 @@ class TestTestExecution:
         suite_id = uuid4()
         scenario_id = uuid4()
         execution_id = uuid4()
+        org_id = uuid4()
 
         mock_suite = TestSuiteRow(
             id=suite_id,
-            org_id=uuid4(),
+            org_id=org_id,
             name="Test Suite",
             description="Test description",
             status="pending",
@@ -41,7 +47,7 @@ class TestTestExecution:
         mock_scenario = TestScenarioRow(
             id=scenario_id,
             suite_id=suite_id,
-            org_id=uuid4(),
+            org_id=org_id,
             name="Test Scenario",
             goal="Test goal",
             persona_id=persona_id,
@@ -50,6 +56,8 @@ class TestTestExecution:
         )
         mock_execution = TestExecutionRow(
             id=execution_id,
+            org_id=uuid4(),
+            suite_run_id=uuid4(),
             scenario_id=scenario_id,
             conversation_id=None,
             status="queued",
@@ -70,8 +78,22 @@ class TestTestExecution:
         mock_execution_repo.create.return_value = mock_execution
         mock_get_execution_repository.return_value = mock_execution_repo
 
-        # get_test_repos returns a tuple of (suite_repo, scenario_repo, execution_repo)
-        mock_get_repos.return_value = (mock_suite_repo, mock_scenario_repo, mock_execution_repo)
+        mock_suite_run_repo = AsyncMock()
+        mock_suite_run = TestSuiteRunRow(
+            id=uuid4(),
+            org_id=org_id,
+            suite_id=suite_id,
+            status="pending",
+            total_scenarios=1,
+        )
+        mock_suite_run_repo.create.return_value = mock_suite_run
+
+        mock_get_repos.return_value = (
+            mock_suite_repo,
+            mock_scenario_repo,
+            mock_execution_repo,
+            mock_suite_run_repo,
+        )
 
         response = client.post(
             "/api/v1/tests/run",
@@ -88,7 +110,7 @@ class TestTestExecution:
     @patch("voiceobs.server.routes.test_dependencies.get_test_scenario_repository")
     @patch("voiceobs.server.routes.test_dependencies.get_test_suite_repository")
     @patch("voiceobs.server.routes.test_dependencies.is_using_postgres", return_value=True)
-    @patch("voiceobs.server.routes.test_executions.get_test_repos")
+    @patch("voiceobs.server.routes.test_dependencies.get_test_repos")
     def test_run_tests_with_scenarios(
         self,
         mock_get_repos,
@@ -126,6 +148,8 @@ class TestTestExecution:
         )
         mock_execution = TestExecutionRow(
             id=execution_id,
+            org_id=uuid4(),
+            suite_run_id=uuid4(),
             scenario_id=scenario_id1,
             conversation_id=None,
             status="queued",
@@ -138,15 +162,34 @@ class TestTestExecution:
         mock_get_suite_repository.return_value = mock_suite_repo
 
         mock_scenario_repo = AsyncMock()
-        mock_scenario_repo.get.side_effect = [mock_scenario1, mock_scenario2]
+        # get_by_id called for each scenario in validation, then for first_scenario
+        mock_scenario_repo.get_by_id.side_effect = [
+            mock_scenario1,
+            mock_scenario2,
+            mock_scenario1,
+        ]
         mock_get_scenario_repository.return_value = mock_scenario_repo
 
         mock_execution_repo = AsyncMock()
         mock_execution_repo.create.return_value = mock_execution
         mock_get_execution_repository.return_value = mock_execution_repo
 
-        # get_test_repos returns a tuple of (suite_repo, scenario_repo, execution_repo)
-        mock_get_repos.return_value = (mock_suite_repo, mock_scenario_repo, mock_execution_repo)
+        mock_suite_run_repo = AsyncMock()
+        mock_suite_run = TestSuiteRunRow(
+            id=uuid4(),
+            org_id=mock_scenario1.org_id,
+            suite_id=mock_scenario1.suite_id,
+            status="pending",
+            total_scenarios=2,
+        )
+        mock_suite_run_repo.create.return_value = mock_suite_run
+
+        mock_get_repos.return_value = (
+            mock_suite_repo,
+            mock_scenario_repo,
+            mock_execution_repo,
+            mock_suite_run_repo,
+        )
 
         response = client.post(
             "/api/v1/tests/run",
@@ -165,7 +208,7 @@ class TestTestExecution:
     @patch("voiceobs.server.routes.test_dependencies.get_test_scenario_repository")
     @patch("voiceobs.server.routes.test_dependencies.get_test_suite_repository")
     @patch("voiceobs.server.routes.test_dependencies.is_using_postgres", return_value=True)
-    @patch("voiceobs.server.routes.test_executions.get_test_repos")
+    @patch("voiceobs.server.routes.test_dependencies.get_test_repos")
     def test_run_tests_suite_not_found(
         self,
         mock_get_repos,
@@ -186,8 +229,13 @@ class TestTestExecution:
         mock_execution_repo = AsyncMock()
         mock_get_execution_repository.return_value = mock_execution_repo
 
-        # get_test_repos returns a tuple of (suite_repo, scenario_repo, execution_repo)
-        mock_get_repos.return_value = (mock_suite_repo, mock_scenario_repo, mock_execution_repo)
+        mock_suite_run_repo = AsyncMock()
+        mock_get_repos.return_value = (
+            mock_suite_repo,
+            mock_scenario_repo,
+            mock_execution_repo,
+            mock_suite_run_repo,
+        )
 
         suite_id = uuid4()
         response = client.post(
@@ -265,6 +313,8 @@ class TestTestExecution:
         execution_id = uuid4()
         mock_execution = TestExecutionRow(
             id=execution_id,
+            org_id=uuid4(),
+            suite_run_id=uuid4(),
             scenario_id=uuid4(),
             conversation_id=uuid4(),
             status="completed",
@@ -272,7 +322,7 @@ class TestTestExecution:
             completed_at=datetime.utcnow(),
             result_json={"passed": True, "score": 0.95},
         )
-        mock_repo.get.return_value = mock_execution
+        mock_repo.get_by_id.return_value = mock_execution
         mock_get_repo.return_value = mock_repo
         mock_get_repository.return_value = mock_repo
 
@@ -292,7 +342,7 @@ class TestTestExecution:
     ):
         """Test execution not found."""
         mock_repo = AsyncMock()
-        mock_repo.get.return_value = None
+        mock_repo.get_by_id.return_value = None
         mock_get_repo.return_value = mock_repo
         mock_get_repository.return_value = mock_repo
 

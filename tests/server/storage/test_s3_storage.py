@@ -15,7 +15,7 @@ class TestS3DeleteByUrl:
             mock_client = MagicMock()
             mock_session.return_value.client.return_value = mock_client
 
-            from voiceobs.server.storage.s3 import S3Storage
+            from voiceobs.server.clients.s3 import S3Storage
 
             storage = S3Storage(bucket_name="test-bucket")
 
@@ -35,7 +35,7 @@ class TestS3DeleteByUrl:
             mock_client = MagicMock()
             mock_session.return_value.client.return_value = mock_client
 
-            from voiceobs.server.storage.s3 import S3Storage
+            from voiceobs.server.clients.s3 import S3Storage
 
             storage = S3Storage(bucket_name="test-bucket")
 
@@ -50,7 +50,7 @@ class TestS3DeleteByUrl:
             mock_client = MagicMock()
             mock_session.return_value.client.return_value = mock_client
 
-            from voiceobs.server.storage.s3 import S3Storage
+            from voiceobs.server.clients.s3 import S3Storage
 
             storage = S3Storage(bucket_name="test-bucket")
 
@@ -65,7 +65,7 @@ class TestS3DeleteByUrl:
             mock_client = MagicMock()
             mock_session.return_value.client.return_value = mock_client
 
-            from voiceobs.server.storage.s3 import S3Storage
+            from voiceobs.server.clients.s3 import S3Storage
 
             storage = S3Storage(bucket_name="test-bucket")
 
@@ -81,7 +81,7 @@ class TestS3DeleteByUrl:
             mock_client = MagicMock()
             mock_session.return_value.client.return_value = mock_client
 
-            from voiceobs.server.storage.s3 import S3Storage
+            from voiceobs.server.clients.s3 import S3Storage
 
             storage = S3Storage(bucket_name="test-bucket")
 
@@ -98,7 +98,7 @@ class TestS3DeleteByUrl:
             mock_client.delete_object.side_effect = Exception("S3 error")
             mock_session.return_value.client.return_value = mock_client
 
-            from voiceobs.server.storage.s3 import S3Storage
+            from voiceobs.server.clients.s3 import S3Storage
 
             storage = S3Storage(bucket_name="test-bucket")
 

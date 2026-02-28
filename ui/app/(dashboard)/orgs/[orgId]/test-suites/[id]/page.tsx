@@ -13,6 +13,7 @@ import { TestSuiteStatusBadge } from "@/components/tests/TestSuiteStatusBadge";
 import { GenerateMoreDialog } from "@/components/tests/GenerateMoreDialog";
 import { DeleteTestScenarioDialog } from "@/components/tests/DeleteTestScenarioDialog";
 import { TestScenariosTable } from "@/components/tests/TestScenariosTable";
+import { SuiteRunProgressCard } from "@/components/tests/SuiteRunProgressCard";
 import { Pagination } from "@/components/primitives/pagination";
 import {
   DropdownMenu,
@@ -37,7 +38,7 @@ import {
 import { api } from "@/lib/api";
 import { logger } from "@/lib/logger";
 import { useTestSuiteActions } from "@/hooks/useTestSuiteActions";
-import { useGenerationPolling, useTestScenarios } from "@/hooks";
+import { useGenerationPolling, useTestScenarios, useSuiteRunPolling } from "@/hooks";
 import { toast } from "sonner";
 import type { TestSuite, TestScenario } from "@/lib/types";
 import { getPassRateFromStatus, formatRelativeTime } from "@/lib/utils/testSuiteUtils";
@@ -85,6 +86,10 @@ export default function OrgTestSuiteDetailPage() {
   const [editScenarioDialogOpen, setEditScenarioDialogOpen] = useState(false);
   const [deleteScenarioDialogOpen, setDeleteScenarioDialogOpen] = useState(false);
 
+  const [activeSuiteRunId, setActiveSuiteRunId] = useState<string | null>(null);
+  const [suiteRun, setSuiteRun] = useState<import("@/lib/types").SuiteRun | null>(null);
+  const [isRunningSuite, setIsRunningSuite] = useState(false);
+
   const { deleteSuite, deletingIds } = useTestSuiteActions({
     orgId,
     onDeleted: () => {
@@ -93,6 +98,25 @@ export default function OrgTestSuiteDetailPage() {
   });
 
   const isGeneratingStatus = suite?.status === "pending" || suite?.status === "generating";
+
+  useSuiteRunPolling({
+    orgId,
+    suiteRunId: activeSuiteRunId,
+    enabled: !!activeSuiteRunId,
+    onStatusChange: setSuiteRun,
+    onComplete: (run) => {
+      setSuiteRun(run);
+      setActiveSuiteRunId(null);
+      fetchData(false);
+      refetchScenarios();
+      toast("Suite Run Complete", {
+        description: `${run.completed_scenarios} passed, ${run.failed_scenarios} failed.`,
+      });
+    },
+    onError: (err) => {
+      logger.error("Suite run polling error", err);
+    },
+  });
 
   useGenerationPolling({
     orgId,
@@ -271,8 +295,32 @@ export default function OrgTestSuiteDetailPage() {
             <Settings className="mr-2 h-4 w-4" />
             Configure
           </Button>
-          <Button size="sm">
-            <Play className="mr-2 h-4 w-4" />
+          <Button
+            size="sm"
+            disabled={isRunningSuite || !!activeSuiteRunId || scenarios.length === 0}
+            onClick={async () => {
+              if (!suite || scenarios.length === 0) return;
+              setIsRunningSuite(true);
+              try {
+                const res = await api.suiteRuns.runSuite(orgId, suite.id);
+                setActiveSuiteRunId(res.suite_run_id);
+                setSuiteRun(null);
+                toast("Suite Run Started", {
+                  description: `Running ${res.total_scenarios} scenarios...`,
+                });
+              } catch (err) {
+                const msg = err instanceof Error ? err.message : "Failed to start run";
+                toast.error("Run Failed", { description: msg });
+              } finally {
+                setIsRunningSuite(false);
+              }
+            }}
+          >
+            {isRunningSuite ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Play className="mr-2 h-4 w-4" />
+            )}
             Run Suite
           </Button>
           <DropdownMenu>
@@ -341,6 +389,31 @@ export default function OrgTestSuiteDetailPage() {
           Add Test
         </Button>
       </div>
+
+      {activeSuiteRunId &&
+        (suiteRun ? (
+          <SuiteRunProgressCard
+            suiteRun={suiteRun}
+            onCancel={async () => {
+              try {
+                await api.suiteRuns.cancelSuiteRun(orgId, activeSuiteRunId);
+                setActiveSuiteRunId(null);
+                setSuiteRun(null);
+                fetchData(false);
+                toast("Run Cancelled");
+              } catch {
+                toast.error("Failed to cancel run");
+              }
+            }}
+          />
+        ) : (
+          <Card>
+            <CardContent className="flex items-center gap-4 py-6">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <p className="text-sm text-muted-foreground">Loading run status...</p>
+            </CardContent>
+          </Card>
+        ))}
 
       {isGeneratingStatus && (
         <Card className="border-primary/50 bg-primary/5">

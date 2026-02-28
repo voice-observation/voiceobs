@@ -17,6 +17,7 @@ from voiceobs.server.routes.organization_members import (
 from voiceobs.server.routes.organizations import router as organizations_router
 from voiceobs.server.routes.personas import router as personas_router
 from voiceobs.server.routes.spans import router as spans_router
+from voiceobs.server.routes.suite_runs import router as suite_runs_router
 from voiceobs.server.routes.test_executions import router as test_executions_router
 from voiceobs.server.routes.test_scenarios import router as test_scenarios_router
 from voiceobs.server.routes.test_suites import router as test_suites_router
@@ -37,6 +38,7 @@ __all__ = [
     "organizations_router",
     "personas_router",
     "spans_router",
+    "suite_runs_router",
     "test_suites_router",
     "test_scenarios_router",
     "test_executions_router",

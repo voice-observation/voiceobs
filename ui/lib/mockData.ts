@@ -93,8 +93,22 @@ export const mockTestScenarios: TestScenario[] = [
 ];
 
 // Mock Test Executions
+const baseExecution = {
+  org_id: "org-001",
+  suite_run_id: "run-001",
+  attempt: 1,
+  max_attempts: 3,
+  audio_url: null as string | null,
+  transcript: null as TestExecution["transcript"],
+  evaluation_result: null as TestExecution["evaluation_result"],
+  error_message: null as string | null,
+  duration_seconds: null as number | null,
+  created_at: null as string | null,
+};
+
 export const mockTestExecutions: TestExecution[] = [
   {
+    ...baseExecution,
     id: "execution-001",
     scenario_id: "scenario-001",
     conversation_id: "conv-001",
@@ -111,6 +125,7 @@ export const mockTestExecutions: TestExecution[] = [
     },
   },
   {
+    ...baseExecution,
     id: "execution-002",
     scenario_id: "scenario-002",
     conversation_id: "conv-002",
@@ -127,15 +142,17 @@ export const mockTestExecutions: TestExecution[] = [
     },
   },
   {
+    ...baseExecution,
     id: "execution-003",
     scenario_id: "scenario-003",
     conversation_id: "conv-003",
-    status: "running",
+    status: "calling",
     started_at: "2024-01-15T10:15:00Z",
     completed_at: null,
     result_json: {},
   },
   {
+    ...baseExecution,
     id: "execution-004",
     scenario_id: "scenario-004",
     conversation_id: "conv-004",
@@ -153,6 +170,7 @@ export const mockTestExecutions: TestExecution[] = [
     },
   },
   {
+    ...baseExecution,
     id: "execution-005",
     scenario_id: "scenario-001",
     conversation_id: "conv-005",
@@ -162,6 +180,7 @@ export const mockTestExecutions: TestExecution[] = [
     result_json: {},
   },
   {
+    ...baseExecution,
     id: "execution-006",
     scenario_id: "scenario-005",
     conversation_id: "conv-006",

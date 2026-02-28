@@ -47,6 +47,7 @@ def prevent_database_access(request, monkeypatch):
         deps._persona_repo = AsyncMock()
         deps._agent_repo = AsyncMock()
         deps._test_suite_repo = AsyncMock()
+        deps._test_suite_run_repo = AsyncMock()
         deps._test_scenario_repo = AsyncMock()
         deps._test_execution_repo = AsyncMock()
         deps._user_repo = AsyncMock()

@@ -4239,6 +4239,7 @@ dependencies = [
 dev = [
     { name = "alembic" },
     { name = "asyncpg" },
+    { name = "boto3" },
     { name = "deepgram-sdk" },
     { name = "elevenlabs" },
     { name = "fastapi" },
@@ -4279,6 +4280,7 @@ s3 = [
 server = [
     { name = "alembic" },
     { name = "asyncpg" },
+    { name = "boto3" },
     { name = "deepgram-sdk" },
     { name = "elevenlabs" },
     { name = "fastapi" },
@@ -4307,7 +4309,9 @@ requires-dist = [
     { name = "alembic", marker = "extra == 'server'", specifier = ">=1.13.0" },
     { name = "asyncpg", marker = "extra == 'dev'", specifier = ">=0.29.0" },
     { name = "asyncpg", marker = "extra == 'server'", specifier = ">=0.29.0" },
+    { name = "boto3", marker = "extra == 'dev'", specifier = ">=1.28.0" },
     { name = "boto3", marker = "extra == 's3'", specifier = ">=1.28.0" },
+    { name = "boto3", marker = "extra == 'server'", specifier = ">=1.28.0" },
     { name = "colorlog", specifier = ">=6.10.1" },
     { name = "deepgram-sdk", marker = "extra == 'dev'", specifier = ">=3.0.0" },
     { name = "deepgram-sdk", marker = "extra == 'server'", specifier = ">=3.0.0" },

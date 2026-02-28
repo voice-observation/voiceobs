@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from voiceobs.server.db.repositories.test_execution import TestExecutionRepository
 from voiceobs.server.db.repositories.test_scenario import TestScenarioRepository
 from voiceobs.server.db.repositories.test_suite import TestSuiteRepository
+from voiceobs.server.db.repositories.test_suite_run import TestSuiteRunRepository
 from voiceobs.server.models import (
     ErrorResponse,
     TestExecutionResponse,
@@ -40,12 +41,15 @@ router = APIRouter(prefix="/api/v1/tests", tags=["Test Executions"])
 )
 async def run_tests(
     request: TestRunRequest,
-    repos: tuple[TestSuiteRepository, TestScenarioRepository, TestExecutionRepository] = Depends(
-        get_test_repos
-    ),
+    repos: tuple[
+        TestSuiteRepository,
+        TestScenarioRepository,
+        TestExecutionRepository,
+        TestSuiteRunRepository,
+    ] = Depends(get_test_repos),
 ) -> TestRunResponse:
     """Trigger test execution."""
-    suite_repo, scenario_repo, execution_repo = repos
+    suite_repo, scenario_repo, execution_repo, suite_run_repo = repos
 
     # Determine which scenarios to run
     scenario_ids: list[UUID] = []
@@ -87,11 +91,36 @@ async def run_tests(
             detail="Either suite_id or scenarios must be provided",
         )
 
-    # Create executions for each scenario
-    # For now, we'll create a single execution record representing the batch
-    # In a real implementation, you might create multiple executions or a batch execution
+    # Get org_id from suite (for suite_id path) or first scenario (for scenarios path)
+    if request.suite_id:
+        suite_uuid = await validate_suite_exists(request.suite_id, suite_repo)
+        suite = await suite_repo.get_by_id(suite_uuid)
+        org_id = suite.org_id if suite else None
+        suite_id_for_run = suite_uuid
+    else:
+        first_scenario = await scenario_repo.get_by_id(scenario_ids[0])
+        org_id = first_scenario.org_id if first_scenario else None
+        suite_id_for_run = first_scenario.suite_id if first_scenario else None
+
+    if org_id is None or suite_id_for_run is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Could not determine organization or suite for test run",
+        )
+
+    # Create suite run and execution(s)
+    suite_run = await suite_run_repo.create(
+        org_id=org_id,
+        suite_id=suite_id_for_run,
+        total_scenarios=len(scenario_ids),
+        triggered_by=None,
+    )
+
+    # Create one execution per scenario (use first as representative for legacy response)
     execution = await execution_repo.create(
-        scenario_id=scenario_ids[0],  # Use first scenario as representative
+        org_id=org_id,
+        suite_run_id=suite_run.id,
+        scenario_id=scenario_ids[0],
         status="queued",
     )
 
@@ -145,7 +174,7 @@ async def get_test_execution(
 ) -> TestExecutionResponse:
     """Get test execution status."""
     execution_uuid = parse_execution_id(execution_id)
-    execution = await repo.get(execution_uuid)
+    execution = await repo.get_by_id(execution_uuid)
     if execution is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

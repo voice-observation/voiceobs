@@ -10,11 +10,15 @@ from voiceobs.server.db.repositories.persona import PersonaRepository
 from voiceobs.server.db.repositories.test_execution import TestExecutionRepository
 from voiceobs.server.db.repositories.test_scenario import TestScenarioRepository
 from voiceobs.server.db.repositories.test_suite import TestSuiteRepository
+from voiceobs.server.db.repositories.test_suite_run import TestSuiteRunRepository
 from voiceobs.server.dependencies import (
+    get_execution_orchestration_service,
+    get_execution_queue_client,
     get_persona_repository,
     get_test_execution_repository,
     get_test_scenario_repository,
     get_test_suite_repository,
+    get_test_suite_run_repository,
     is_using_postgres,
 )
 from voiceobs.server.utils import parse_uuid
@@ -33,6 +37,36 @@ def require_postgres() -> None:
         )
 
 
+def get_execution_queue_client_or_raise():
+    """Dependency to get execution queue client or raise if not configured.
+
+    Raises:
+        HTTPException: If execution queue is not configured.
+    """
+    client = get_execution_queue_client()
+    if client is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Test execution requires SQS. Set VOICEOBS_SQS_EXECUTION_QUEUE_URL.",
+        )
+    return client
+
+
+def get_execution_orchestration_service_or_raise():
+    """Dependency to get execution orchestration service or raise if not configured.
+
+    Raises:
+        HTTPException: If SQS is not configured.
+    """
+    service = get_execution_orchestration_service()
+    if service is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Test execution requires SQS. Set VOICEOBS_SQS_EXECUTION_QUEUE_URL.",
+        )
+    return service
+
+
 def get_test_suite_repo() -> TestSuiteRepository:
     """Dependency to get test suite repository.
 
@@ -46,14 +80,18 @@ def get_test_suite_repo() -> TestSuiteRepository:
 # Make these functions easily mockable by exposing them at module level
 __all__ = [
     "require_postgres",
+    "get_execution_orchestration_service_or_raise",
+    "get_execution_queue_client_or_raise",
     "get_test_suite_repo",
     "get_test_scenario_repo",
     "get_test_execution_repo",
+    "get_test_suite_run_repo",
     "get_persona_repo",
     "get_test_repos",
     "parse_suite_id",
     "parse_scenario_id",
     "parse_execution_id",
+    "parse_suite_run_id",
     "parse_persona_id",
     "validate_suite_exists",
     "validate_scenario_exists",
@@ -82,6 +120,16 @@ def get_test_execution_repo() -> TestExecutionRepository:
     return get_test_execution_repository()
 
 
+def get_test_suite_run_repo() -> TestSuiteRunRepository:
+    """Dependency to get test suite run repository.
+
+    Returns:
+        Test suite run repository.
+    """
+    require_postgres()
+    return get_test_suite_run_repository()
+
+
 def get_persona_repo() -> PersonaRepository:
     """Dependency to get persona repository.
 
@@ -92,11 +140,17 @@ def get_persona_repo() -> PersonaRepository:
     return get_persona_repository()
 
 
-def get_test_repos() -> tuple[TestSuiteRepository, TestScenarioRepository, TestExecutionRepository]:
+def get_test_repos() -> tuple[
+    TestSuiteRepository,
+    TestScenarioRepository,
+    TestExecutionRepository,
+    TestSuiteRunRepository,
+]:
     """Dependency to get all test repositories.
 
     Returns:
-        Tuple of (suite repository, scenario repository, execution repository).
+        Tuple of (suite repository, scenario repository, execution repository,
+        suite run repository).
 
     Raises:
         HTTPException: If any repository is not available.
@@ -105,8 +159,9 @@ def get_test_repos() -> tuple[TestSuiteRepository, TestScenarioRepository, TestE
     suite_repo = get_test_suite_repository()
     scenario_repo = get_test_scenario_repository()
     execution_repo = get_test_execution_repository()
+    suite_run_repo = get_test_suite_run_repository()
 
-    return suite_repo, scenario_repo, execution_repo
+    return suite_repo, scenario_repo, execution_repo, suite_run_repo
 
 
 def parse_suite_id(suite_id: str) -> UUID:
@@ -152,6 +207,21 @@ def parse_execution_id(execution_id: str) -> UUID:
         HTTPException: If UUID format is invalid.
     """
     return parse_uuid(execution_id, "execution")
+
+
+def parse_suite_run_id(suite_run_id: str) -> UUID:
+    """Parse and validate suite run ID.
+
+    Args:
+        suite_run_id: Suite run ID string to parse.
+
+    Returns:
+        Parsed UUID.
+
+    Raises:
+        HTTPException: If UUID format is invalid.
+    """
+    return parse_uuid(suite_run_id, "suite_run")
 
 
 def parse_persona_id(persona_id: str) -> UUID:

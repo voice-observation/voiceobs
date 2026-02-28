@@ -90,4 +90,27 @@ export class TestScenariosApi extends BaseApiClient {
   async deleteTestScenario(orgId: string, id: string): Promise<void> {
     return this.delete(`${this.getBase(orgId)}/${id}`);
   }
+
+  /**
+   * List run history for a test scenario.
+   * GET /api/v1/orgs/{orgId}/test-scenarios/{scenarioId}/runs
+   */
+  async getScenarioRuns(
+    orgId: string,
+    scenarioId: string,
+    limit?: number
+  ): Promise<{ runs: ScenarioRunSummary[] }> {
+    const params = limit !== undefined ? `?limit=${limit}` : "";
+    return this.get<{ runs: ScenarioRunSummary[] }>(
+      `${this.getBase(orgId)}/${scenarioId}/runs${params}`
+    );
+  }
+}
+
+export interface ScenarioRunSummary {
+  id: string;
+  created_at: string | null;
+  passed: boolean;
+  duration_seconds?: number | null;
+  turns_count?: number | null;
 }

@@ -17,11 +17,13 @@ import { cn } from "@/lib/utils";
 
 export interface AudioPlayerProps {
   audioUrl: string;
+  /** Optional fetch params (e.g. auth headers) for same-origin protected URLs */
+  fetchParams?: RequestInit;
   conversationId?: string;
   className?: string;
 }
 
-export function AudioPlayer({ audioUrl, className }: AudioPlayerProps) {
+export function AudioPlayer({ audioUrl, fetchParams, className }: AudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -110,6 +112,7 @@ export function AudioPlayer({ audioUrl, className }: AudioPlayerProps) {
       <div className="relative min-h-[100px] w-full rounded-md border border-border bg-card p-3">
         <Waveform
           audioUrl={audioUrl}
+          fetchParams={fetchParams}
           onReady={handleReady}
           onPlay={handlePlay}
           onPause={handlePause}
